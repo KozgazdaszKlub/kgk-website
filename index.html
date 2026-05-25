@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home | KGK</title>
+    <link rel="icon" type="image/x-icon" href="images/Copy of kgk_feher.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">
+            <a href="index.html">
+                <img src="images/Copy of kgk_feher.png" alt="KGK Logo">
+            </a>
+        </div>
+        <div class="hamburger">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="index.html#rolunk">Rólunk</a></li>
+            <li><a href="index.html#elnokseg">Elnökség</a></li>
+            <li><a href="index.html#munkacsoportok">Munkacsoportok</a></li>
+            <li><a href="index.html#rendezvenyek">Rendezvényeink</a></li>
+            <li><a href="index.html#hirek">Híreink</a></li>
+            <li><a href="index.html#kapcsolat" class="btn-contact">Elérhetőségek</a></li>
+        </ul>
+    </nav>
+
+    <header id="hero">
+        <div class="hero-content">
+            <h1>Közgazdász Klub</h1>
+            <p>A közösség, ami összehoz.</p>
+        </div>
+    </header>
+
+    <!-- RÓLUNK – dinamikusan töltődik Supabase-ből -->
+    <section id="rolunk">
+        <h2>Rólunk</h2>
+        <div class="container">
+            <div class="image-box hidden">
+                <img id="rolunk-img" src="images/Csopkép elnökség 24-25.jpg" alt="KGK Elnökség Csoportkép">
+            </div>
+            <div class="text-box hidden">
+                <p id="rolunk-text">Betöltés...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ELNÖKSÉG – dinamikusan töltődik Supabase-ből -->
+    <section id="elnokseg">
+        <h2 class="hidden">Elnökségi Tagok</h2>
+        <div class="team-grid">
+            <p class="loading-text">Betöltés...</p>
+        </div>
+    </section>
+
+    <!-- MUNKACSOPORTOK – dinamikusan töltődik Supabase-ből -->
+    <section id="munkacsoportok">
+        <h2>Munkacsoportok</h2>
+        <p class="subtitle">A szervezet működését biztosító csapataink</p>
+        <div class="groups-grid">
+            <p class="loading-text">Betöltés...</p>
+        </div>
+
+        <h2 style="margin-top: 100px;">Kiscsoportok</h2>
+        <p class="subtitle">Kiemelt projektjeink és márkáink</p>
+        <div class="groups-grid">
+            <p class="loading-text">Betöltés...</p>
+        </div>
+    </section>
+
+    <!-- STATISZTIKÁK (statikus marad) -->
+    <section id="stats">
+        <div class="stats-container">
+            <div class="stat-box">
+                <h3 class="counter" data-target="15">0</h3>
+                <p>Év Tapasztalat</p>
+            </div>
+            <div class="stat-box">
+                <h3 class="counter" data-target="500">0</h3>
+                <p>Aktív Tag</p>
+            </div>
+            <div class="stat-box">
+                <h3 class="counter" data-target="50">0</h3>
+                <p>Éves Rendezvény</p>
+            </div>
+            <div class="stat-box">
+                <h3 class="counter" data-target="100">0</h3>
+                <p>% Közösség</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- RENDEZVÉNYEK – dinamikusan töltődik Supabase-ből -->
+    <section id="rendezvenyek">
+        <h2>Rendezvényeink</h2>
+        <p class="subtitle">Ízelítő az éves programjainkból</p>
+        <div class="events-grid">
+            <p class="loading-text">Betöltés...</p>
+        </div>
+    </section>
+
+    <!-- GÓLYÁKNAK – dinamikusan töltődik Supabase-ből -->
+    <section id="golyaknak" style="background-color: white;">
+        <h2>Gólyáknak</h2>
+        <div class="container">
+            <div class="text-box" style="max-width: 800px; text-align: center;">
+                <h3>Üdvözlünk az egyetemen!</h3>
+                <p>Tudjuk, hogy az első hetek nehezek lehetnek, de mi segítünk eligazodni. Töltsd le a Gólya Kisokost, amiben mindent megtalálsz!</p>
+                <br><br>
+                <a id="golya-pdf-btn" href="#" class="btn" style="display:none;" target="_blank">
+                    <i class="fas fa-download"></i> Gólya Kisokos Letöltése
+                </a>
+                <p id="golya-pdf-missing" style="color:#aaa; font-style:italic;">Hamarosan elérhető...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- HÍREK – dinamikusan töltődik Supabase-ből -->
+    <section id="hirek">
+        <h2>Legfrissebb Híreink</h2>
+        <div class="news-grid">
+            <p class="loading-text">Betöltés...</p>
+        </div>
+    </section>
+
+    <footer id="kapcsolat">
+        <div class="footer-content">
+            <img src="images/Copy of kgk_feher.png" alt="KGK Logo Small" class="footer-logo">
+            <p>&copy; Közgazdász Klub - Kolozsvár</p>
+            <p>Email: <a href="mailto:kozgazdaszklubkgk@gmail.com">kozgazdaszklubkgk@gmail.com</a></p>
+            <div class="footer-socials">
+                <a href="https://www.facebook.com/kozgazdaszklub" target="_blank">Facebook</a>
+                <a href="https://www.instagram.com/kozgazdaszklub" target="_blank">Instagram</a>
+                <a href="https://www.instagram.com/_kgk_x_/" target="_blank">KGKx Instagram</a>
+                <a href="#" style="opacity: 0.5; cursor: default;" title="Hamarosan...">LinkedIn (Hamarosan)</a>
+            </div>
+        </div>
+        <a href="admin.html" class="admin-link">&#9679;</a>
+    </footer>
+
+</body>
+</html>

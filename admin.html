@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin | KGK</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --navy: #08122b;
+            --navy-light: #0f1f4a;
+            --gold: #F1C039;
+            --gold-dark: #c49a1e;
+            --bg: #0d1535;
+            --surface: #111d3e;
+            --surface2: #162047;
+            --border: rgba(241, 192, 57, 0.15);
+            --text: #e8eaf0;
+            --text-muted: #7a8aaa;
+            --danger: #e05555;
+            --success: #3ecf8e;
+            --radius: 12px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ── LOGIN ── */
+        #login-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(ellipse at 60% 40%, #1a2b5e 0%, #08122b 60%, #04091a 100%);
+        }
+
+        .login-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 50px 44px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        .login-logo {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--gold);
+            letter-spacing: 3px;
+            margin-bottom: 6px;
+        }
+
+        .login-subtitle {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            background: var(--navy);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            border-color: var(--gold);
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .form-group select option {
+            background: var(--navy);
+        }
+
+        .btn-primary {
+            width: 100%;
+            background: var(--gold);
+            color: var(--navy);
+            border: none;
+            border-radius: 8px;
+            padding: 14px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            margin-top: 8px;
+        }
+
+        .btn-primary:hover { background: var(--gold-dark); }
+        .btn-primary:active { transform: scale(0.98); }
+
+        .login-error {
+            background: rgba(224,85,85,0.12);
+            border: 1px solid rgba(224,85,85,0.3);
+            color: var(--danger);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        /* ── DASHBOARD ── */
+        #dashboard { display: none; }
+
+        .topbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .topbar-brand {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--gold);
+            letter-spacing: 2px;
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .topbar-user {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .btn-logout {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .layout {
+            display: flex;
+            min-height: calc(100vh - 64px);
+        }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            width: 220px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 24px 12px;
+            flex-shrink: 0;
+        }
+
+        .sidebar-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 0 12px;
+            margin-bottom: 8px;
+            margin-top: 20px;
+        }
+
+        .sidebar-label:first-child { margin-top: 0; }
+
+        .sidebar-btn {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 14px;
+            text-align: left;
+            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.15s;
+        }
+
+        .sidebar-btn:hover { background: var(--surface2); color: var(--text); }
+        .sidebar-btn.active { background: rgba(241,192,57,0.1); color: var(--gold); }
+        .sidebar-btn i { width: 16px; text-align: center; }
+
+        /* ── MAIN CONTENT ── */
+        .main {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+        }
+
+        .panel-title {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .btn-add {
+            background: var(--gold);
+            color: var(--navy);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .btn-add:hover { background: var(--gold-dark); }
+
+        /* ── CARDS LIST ── */
+        .items-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .item-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px 22px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .item-card-img {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--border);
+            flex-shrink: 0;
+            background: var(--surface2);
+        }
+
+        .item-card-img.square {
+            border-radius: 8px;
+        }
+
+        .item-card-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .item-card-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .item-card-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+
+        .item-card-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .btn-icon {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 34px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            transition: all 0.15s;
+        }
+
+        .btn-icon:hover { color: var(--gold); border-color: var(--gold); }
+        .btn-icon.delete:hover { color: var(--danger); border-color: var(--danger); }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state i {
+            font-size: 2.5rem;
+            margin-bottom: 14px;
+            display: block;
+            opacity: 0.4;
+        }
+
+        /* ── MODAL ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(4, 9, 26, 0.85);
+            backdrop-filter: blur(4px);
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 560px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 32px;
+            transform: translateY(20px);
+            transition: transform 0.2s;
+        }
+
+        .modal-overlay.open .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--text);
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 4px;
+            transition: color 0.15s;
+        }
+
+        .modal-close:hover { color: var(--text); }
+
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn-cancel {
+            flex: 1;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-cancel:hover { border-color: var(--text-muted); color: var(--text); }
+
+        .btn-save {
+            flex: 2;
+            background: var(--gold);
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            color: var(--navy);
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-save:hover { background: var(--gold-dark); }
+        .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── IMAGE UPLOAD ── */
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            position: relative;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--gold);
+            background: rgba(241,192,57,0.04);
+        }
+
+        .upload-area input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .upload-area i {
+            font-size: 1.8rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .upload-area p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .upload-preview {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--gold);
+            display: none;
+            margin: 0 auto 10px;
+        }
+
+        .upload-preview.square {
+            border-radius: 8px;
+        }
+
+        /* ── TOAST ── */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 20px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 9999;
+            transform: translateY(80px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            max-width: 320px;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success { border-left: 4px solid var(--success); }
+        .toast.error { border-left: 4px solid var(--danger); }
+        .toast i { font-size: 1rem; }
+        .toast.success i { color: var(--success); }
+        .toast.error i { color: var(--danger); }
+
+        /* ── CONFIRM DIALOG ── */
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(4,9,26,0.85);
+            z-index: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .confirm-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .confirm-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 28px 32px;
+            max-width: 360px;
+            text-align: center;
+        }
+
+        .confirm-box i {
+            font-size: 2rem;
+            color: var(--danger);
+            margin-bottom: 12px;
+        }
+
+        .confirm-box h3 {
+            font-family: 'Montserrat', sans-serif;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+
+        .confirm-box p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 22px;
+        }
+
+        .confirm-btns {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-confirm-cancel {
+            flex: 1;
+            padding: 10px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .btn-confirm-cancel:hover { color: var(--text); border-color: var(--text-muted); }
+
+        .btn-confirm-delete {
+            flex: 1;
+            padding: 10px;
+            background: var(--danger);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 0.85rem;
+            transition: opacity 0.2s;
+        }
+
+        .btn-confirm-delete:hover { opacity: 0.85; }
+
+        /* ── LOADING SPINNER ── */
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: var(--navy);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: inline-block;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── BADGE ── */
+        .badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-main { background: rgba(8,18,43,0.6); color: #7a8aaa; border: 1px solid var(--border); }
+        .badge-small { background: rgba(178,24,224,0.15); color: #c96fef; border: 1px solid rgba(178,24,224,0.3); }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main { padding: 20px 16px; }
+            .topbar { padding: 0 16px; }
+            .modal { padding: 24px 18px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     BEJELENTKEZÉS
+══════════════════════════════════════════ -->
+<div id="login-screen">
+    <div class="login-card">
+        <div class="login-logo">KGK</div>
+        <div class="login-subtitle">Admin Panel</div>
+
+        <div class="login-error" id="login-error">
+            <i class="fas fa-exclamation-circle"></i> Hibás email vagy jelszó.
+        </div>
+
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="login-email" placeholder="admin@kozgazdaszklub.hu" autocomplete="username">
+        </div>
+        <div class="form-group">
+            <label>Jelszó</label>
+            <input type="password" id="login-password" placeholder="••••••••••••" autocomplete="current-password">
+        </div>
+        <button class="btn-primary" id="login-btn" onclick="doLogin()">
+            Bejelentkezés
+        </button>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     DASHBOARD
+══════════════════════════════════════════ -->
+<div id="dashboard">
+    <div class="topbar">
+        <div class="topbar-brand">KGK ADMIN</div>
+        <div class="topbar-right">
+            <span class="topbar-user" id="topbar-email"></span>
+            <button class="btn-logout" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Kilépés</button>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="sidebar-label">Tartalom</div>
+            <button class="sidebar-btn active" onclick="switchTab('hirek', this)">
+                <i class="fas fa-newspaper"></i> Hírek
+            </button>
+            <button class="sidebar-btn" onclick="switchTab('elnokseg', this)">
+                <i class="fas fa-users"></i> Elnökség
+            </button>
+            <button class="sidebar-btn" onclick="switchTab('rendezvenyek', this)">
+                <i class="fas fa-calendar-alt"></i> Rendezvények
+            </button>
+            <button class="sidebar-btn" onclick="switchTab('munkacsoportok', this)">
+                <i class="fas fa-layer-group"></i> Munkacsoportok
+            </button>
+            <button class="sidebar-btn" onclick="switchTab('rolunk', this)">
+                <i class="fas fa-info-circle"></i> Rólunk
+            </button>
+            <button class="sidebar-btn" onclick="switchTab('golya', this)">
+                <i class="fas fa-file-pdf"></i> Gólya PDF
+            </button>
+        </aside>
+
+        <main class="main">
+
+            <!-- HÍREK -->
+            <div class="tab-panel active" id="tab-hirek">
+                <div class="panel-header">
+                    <h2 class="panel-title">Hírek</h2>
+                    <button class="btn-add" onclick="openModal('hir')">
+                        <i class="fas fa-plus"></i> Új hír
+                    </button>
+                </div>
+                <div class="items-list" id="list-hirek">
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Betöltés...</div>
+                </div>
+            </div>
+
+            <!-- ELNÖKSÉG -->
+            <div class="tab-panel" id="tab-elnokseg">
+                <div class="panel-header">
+                    <h2 class="panel-title">Elnökségi tagok</h2>
+                    <button class="btn-add" onclick="openModal('tag')">
+                        <i class="fas fa-plus"></i> Új tag
+                    </button>
+                </div>
+                <div class="items-list" id="list-elnokseg">
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Betöltés...</div>
+                </div>
+            </div>
+
+            <!-- RENDEZVÉNYEK -->
+            <div class="tab-panel" id="tab-rendezvenyek">
+                <div class="panel-header">
+                    <h2 class="panel-title">Rendezvények</h2>
+                    <button class="btn-add" onclick="openModal('esemeny')">
+                        <i class="fas fa-plus"></i> Új rendezvény
+                    </button>
+                </div>
+                <div class="items-list" id="list-rendezvenyek">
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Betöltés...</div>
+                </div>
+            </div>
+
+            <!-- MUNKACSOPORTOK -->
+            <div class="tab-panel" id="tab-munkacsoportok">
+                <div class="panel-header">
+                    <h2 class="panel-title">Munkacsoportok</h2>
+                    <button class="btn-add" onclick="openModal('munkacsoport')">
+                        <i class="fas fa-plus"></i> Új csoport
+                    </button>
+                </div>
+                <div class="items-list" id="list-munkacsoportok">
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Betöltés...</div>
+                </div>
+            </div>
+
+            <!-- RÓLUNK -->
+            <div class="tab-panel" id="tab-rolunk">
+                <div class="panel-header">
+                    <h2 class="panel-title">Rólunk szekció</h2>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;">
+                    <div class="form-group">
+                        <label>Szöveg</label>
+                        <textarea id="rolunk-text-input" placeholder="A klub leírása..." style="min-height:140px"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Csoportkép feltöltése</label>
+                        <div class="upload-area" id="upload-rolunk">
+                            <img class="upload-preview square" id="preview-rolunk" src="" alt="">
+                            <input type="file" id="file-rolunk" accept="image/*" onchange="handleFileSelect('rolunk')">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Kattints vagy húzd ide a képet</p>
+                        </div>
+                    </div>
+                    <button class="btn-save" onclick="saveRolunk()" style="width:100%;margin-top:8px">Mentés</button>
+                </div>
+            </div>
+
+            <!-- GÓLYA PDF -->
+            <div class="tab-panel" id="tab-golya">
+                <div class="panel-header">
+                    <h2 class="panel-title">Gólya Kisokos PDF</h2>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;">
+                    <div id="golya-current" style="margin-bottom:20px;padding:16px;background:var(--surface2);border-radius:8px;display:none;">
+                        <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:6px">Jelenlegi PDF:</p>
+                        <a id="golya-current-link" href="#" target="_blank" style="color:var(--gold);font-weight:600;font-size:0.9rem;word-break:break-all;"></a>
+                    </div>
+                    <div class="form-group">
+                        <label>PDF feltöltése</label>
+                        <div class="upload-area" id="upload-golya" style="padding:32px">
+                            <input type="file" id="file-golya" accept="application/pdf">
+                            <i class="fas fa-file-pdf" style="color:var(--gold)"></i>
+                            <p>Kattints vagy húzd ide a PDF fájlt</p>
+                            <p id="golya-filename" style="margin-top:8px;color:var(--gold);font-weight:600;display:none;"></p>
+                        </div>
+                    </div>
+                    <button class="btn-save" onclick="saveGolyaPdf()" style="width:100%;margin-top:8px">Feltöltés & Mentés</button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODÁLOK
+══════════════════════════════════════════ -->
+
+<!-- HÍR modal -->
+<div class="modal-overlay" id="modal-hir">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modal-hir-title">Új hír</h3>
+            <button class="modal-close" onclick="closeModal('hir')"><i class="fas fa-times"></i></button>
+        </div>
+        <input type="hidden" id="hir-id">
+        <div class="form-group">
+            <label>Cím</label>
+            <input type="text" id="hir-title" placeholder="Hír címe">
+        </div>
+        <div class="form-group">
+            <label>Dátum</label>
+            <input type="date" id="hir-date">
+        </div>
+        <div class="form-group">
+            <label>Slug (URL-barát azonosító)</label>
+            <input type="text" id="hir-slug" placeholder="pl. megvalasztottak-elnokseg">
+        </div>
+        <div class="form-group">
+            <label>Rövid leírás (főoldalon látszik)</label>
+            <input type="text" id="hir-excerpt" placeholder="Rövid összefoglaló...">
+        </div>
+        <div class="form-group">
+            <label>Tartalom (HTML is használható)</label>
+            <textarea id="hir-content" placeholder="A cikk teljes szövege..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Borítókép feltöltése</label>
+            <div class="upload-area" id="upload-hir">
+                <img class="upload-preview square" id="preview-hir" src="" alt="">
+                <input type="file" id="file-hir" accept="image/*" onchange="handleFileSelect('hir')">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Kattints vagy húzd ide a képet</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeModal('hir')">Mégse</button>
+            <button class="btn-save" id="save-hir" onclick="saveHir()">Mentés</button>
+        </div>
+    </div>
+</div>
+
+<!-- TAG modal -->
+<div class="modal-overlay" id="modal-tag">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modal-tag-title">Új elnökségi tag</h3>
+            <button class="modal-close" onclick="closeModal('tag')"><i class="fas fa-times"></i></button>
+        </div>
+        <input type="hidden" id="tag-id">
+        <div class="form-group">
+            <label>Név</label>
+            <input type="text" id="tag-name" placeholder="Teljes neve">
+        </div>
+        <div class="form-group">
+            <label>Pozíció</label>
+            <input type="text" id="tag-position" placeholder="pl. Elnök">
+        </div>
+        <div class="form-group">
+            <label>Facebook URL (opsz.)</label>
+            <input type="url" id="tag-facebook" placeholder="https://facebook.com/...">
+        </div>
+        <div class="form-group">
+            <label>Instagram URL (opsz.)</label>
+            <input type="url" id="tag-instagram" placeholder="https://instagram.com/...">
+        </div>
+        <div class="form-group">
+            <label>LinkedIn URL (opsz.)</label>
+            <input type="url" id="tag-linkedin" placeholder="https://linkedin.com/in/...">
+        </div>
+        <div class="form-group">
+            <label>Profilkép feltöltése</label>
+            <div class="upload-area" id="upload-tag">
+                <img class="upload-preview" id="preview-tag" src="" alt="">
+                <input type="file" id="file-tag" accept="image/*" onchange="handleFileSelect('tag')">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Kattints vagy húzd ide a képet</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeModal('tag')">Mégse</button>
+            <button class="btn-save" id="save-tag" onclick="saveTag()">Mentés</button>
+        </div>
+    </div>
+</div>
+
+<!-- ESEMÉNY modal -->
+<div class="modal-overlay" id="modal-esemeny">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modal-esemeny-title">Új rendezvény</h3>
+            <button class="modal-close" onclick="closeModal('esemeny')"><i class="fas fa-times"></i></button>
+        </div>
+        <input type="hidden" id="esemeny-id">
+        <div class="form-group">
+            <label>Rendezvény neve</label>
+            <input type="text" id="esemeny-title" placeholder="pl. Gólyatábor">
+        </div>
+        <div class="form-group">
+            <label>Dátum</label>
+            <input type="date" id="esemeny-date">
+        </div>
+        <div class="form-group">
+            <label>Leírás</label>
+            <textarea id="esemeny-desc" placeholder="Rövid leírás..." style="min-height:80px"></textarea>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeModal('esemeny')">Mégse</button>
+            <button class="btn-save" id="save-esemeny" onclick="saveEsemeny()">Mentés</button>
+        </div>
+    </div>
+</div>
+
+<!-- MUNKACSOPORT modal -->
+<div class="modal-overlay" id="modal-munkacsoport">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modal-munkacsoport-title">Új munkacsoport</h3>
+            <button class="modal-close" onclick="closeModal('munkacsoport')"><i class="fas fa-times"></i></button>
+        </div>
+        <input type="hidden" id="munkacsoport-id">
+        <div class="form-group">
+            <label>Típus</label>
+            <select id="munkacsoport-type">
+                <option value="main">Főmunkacsoport</option>
+                <option value="small">Kiscsoport</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Név</label>
+            <input type="text" id="munkacsoport-title" placeholder="pl. Médiás Munkacsoport">
+        </div>
+        <div class="form-group">
+            <label>Leírás</label>
+            <textarea id="munkacsoport-desc" placeholder="Mit csinál ez a csoport?" style="min-height:80px"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Szín (felső csík)</label>
+            <input type="color" id="munkacsoport-color" value="#08122b" style="height:42px; padding:4px 8px; cursor:pointer">
+        </div>
+        <div class="form-group" id="munkacsoport-logo-group">
+            <label>Logó (csak kiscsoportnál)</label>
+            <div class="upload-area" id="upload-munkacsoport">
+                <img class="upload-preview square" id="preview-munkacsoport" src="" alt="">
+                <input type="file" id="file-munkacsoport" accept="image/*" onchange="handleFileSelect('munkacsoport')">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Kattints vagy húzd ide a logót</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeModal('munkacsoport')">Mégse</button>
+            <button class="btn-save" id="save-munkacsoport" onclick="saveMunkacsoport()">Mentés</button>
+        </div>
+    </div>
+</div>
+
+<!-- TÖRLÉS megerősítő -->
+<div class="confirm-overlay" id="confirm-overlay">
+    <div class="confirm-box">
+        <i class="fas fa-trash-alt"></i>
+        <h3>Biztosan törlöd?</h3>
+        <p>Ez a művelet nem visszavonható.</p>
+        <div class="confirm-btns">
+            <button class="btn-confirm-cancel" onclick="closeConfirm()">Mégse</button>
+            <button class="btn-confirm-delete" id="confirm-delete-btn">Törlés</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST értesítés -->
+<div class="toast" id="toast">
+    <i class="fas fa-check-circle"></i>
+    <span id="toast-msg"></span>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// KONFIGURÁCIÓ
+// ════════════════════════════════════════════
+const SUPABASE_URL = 'https://agdstsliixwysbjedppu.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_LXqTP-dPmfwWvd0IZTzrMw_tjYERBe9';
+
+// ════════════════════════════════════════════
+// SUPABASE AUTH (natív fetch)
+// ════════════════════════════════════════════
+let currentSession = null;
+
+async function doLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const btn = document.getElementById('login-btn');
+    const errEl = document.getElementById('login-error');
+
+    if (!email || !password) { showLoginError('Töltsd ki az összes mezőt!'); return; }
+
+    btn.innerHTML = '<span class="spinner"></span>';
+    btn.disabled = true;
+    errEl.style.display = 'none';
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.access_token) {
+            showLoginError('Hibás email vagy jelszó.');
+            btn.innerHTML = 'Bejelentkezés';
+            btn.disabled = false;
+            return;
+        }
+
+        currentSession = data;
+        localStorage.setItem('kgk_session', JSON.stringify(data));
+        showDashboard(email);
+
+    } catch (e) {
+        showLoginError('Kapcsolati hiba. Próbáld újra.');
+        btn.innerHTML = 'Bejelentkezés';
+        btn.disabled = false;
+    }
+}
+
+function showLoginError(msg) {
+    const el = document.getElementById('login-error');
+    el.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
+    el.style.display = 'block';
+}
+
+function doLogout() {
+    currentSession = null;
+    localStorage.removeItem('kgk_session');
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-btn').innerHTML = 'Bejelentkezés';
+    document.getElementById('login-btn').disabled = false;
+}
+
+function showDashboard(email) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    document.getElementById('topbar-email').textContent = email;
+    loadAll();
+}
+
+// Enter gomb login-nál
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') {
+        doLogin();
+    }
+});
+
+// Meglévő session ellenőrzése
+window.addEventListener('load', () => {
+    const saved = localStorage.getItem('kgk_session');
+    if (saved) {
+        try {
+            const session = JSON.parse(saved);
+            // Token lejárat ellenőrzése
+            const expiresAt = session.expires_at || 0;
+            if (Date.now() / 1000 < expiresAt) {
+                currentSession = session;
+                showDashboard(session.user?.email || 'Admin');
+                return;
+            }
+        } catch(e) {}
+        localStorage.removeItem('kgk_session');
+    }
+});
+
+// ════════════════════════════════════════════
+// API SEGÉDFÜGGVÉNYEK
+// ════════════════════════════════════════════
+function authHeaders() {
+    return {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${currentSession?.access_token}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+    };
+}
+
+async function dbFetch(table, options = {}) {
+    const { select = '*', order = 'id.asc', eq = null } = options;
+    let url = `${SUPABASE_URL}/rest/v1/${table}?select=${select}&order=${order}`;
+    if (eq) url += `&${eq.column}=eq.${eq.value}`;
+    const res = await fetch(url, { headers: authHeaders() });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+async function dbInsert(table, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(data)
+    });
+    return res.ok;
+}
+
+async function dbUpdate(table, id, data) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify(data)
+    });
+    return res.ok;
+}
+
+async function dbDelete(table, id) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+        method: 'DELETE',
+        headers: { ...authHeaders(), 'Prefer': 'return=minimal' }
+    });
+    return res.ok;
+}
+
+// ════════════════════════════════════════════
+// STORAGE – Képfeltöltés
+// ════════════════════════════════════════════
+async function uploadImage(bucket, file, path) {
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
+        method: 'POST',
+        headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${currentSession?.access_token}`,
+            'Content-Type': file.type,
+            'x-upsert': 'true'
+        },
+        body: file
+    });
+    if (!res.ok) return null;
+    return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+}
+
+// ════════════════════════════════════════════
+// UI – TAB KEZELÉS
+// ════════════════════════════════════════════
+function switchTab(name, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${name}`).classList.add('active');
+    btn.classList.add('active');
+}
+
+// ════════════════════════════════════════════
+// UI – MODAL
+// ════════════════════════════════════════════
+let editingId = null;
+
+function openModal(type, data = null) {
+    editingId = data?.id || null;
+    const overlay = document.getElementById(`modal-${type}`);
+    const title = document.getElementById(`modal-${type}-title`);
+
+    // Reset form
+    overlay.querySelectorAll('input, textarea, select').forEach(el => {
+        if (el.type === 'color') el.value = '#08122b';
+        else if (el.type !== 'file') el.value = '';
+    });
+    ['hir','tag','munkacsoport'].forEach(k => {
+        const prev = document.getElementById(`preview-${k}`);
+        if (prev) { prev.style.display = 'none'; prev.src = ''; }
+    });
+
+    if (data) {
+        title.textContent = type === 'hir' ? 'Hír szerkesztése' :
+                            type === 'tag' ? 'Tag szerkesztése' :
+                            type === 'esemeny' ? 'Rendezvény szerkesztése' : 'Csoport szerkesztése';
+        fillForm(type, data);
+    } else {
+        title.textContent = type === 'hir' ? 'Új hír' :
+                            type === 'tag' ? 'Új elnökségi tag' :
+                            type === 'esemeny' ? 'Új rendezvény' : 'Új munkacsoport';
+        document.getElementById(`${type}-id`).value = '';
+    }
+
+    overlay.classList.add('open');
+}
+
+function fillForm(type, data) {
+    document.getElementById(`${type}-id`).value = data.id;
+    if (type === 'hir') {
+        document.getElementById('hir-title').value = data.title || '';
+        document.getElementById('hir-date').value = data.date || '';
+        document.getElementById('hir-slug').value = data.slug || '';
+        document.getElementById('hir-excerpt').value = data.excerpt || '';
+        document.getElementById('hir-content').value = data.content || '';
+        if (data.image_url) showPreview('hir', data.image_url, true);
+    } else if (type === 'tag') {
+        document.getElementById('tag-name').value = data.name || '';
+        document.getElementById('tag-position').value = data.position || '';
+        document.getElementById('tag-facebook').value = data.facebook_url || '';
+        document.getElementById('tag-instagram').value = data.instagram_url || '';
+        document.getElementById('tag-linkedin').value = data.linkedin_url || '';
+        if (data.image_url) showPreview('tag', data.image_url, true);
+    } else if (type === 'esemeny') {
+        document.getElementById('esemeny-title').value = data.title || '';
+        document.getElementById('esemeny-date').value = data.date || '';
+        document.getElementById('esemeny-desc').value = data.description || '';
+    } else if (type === 'munkacsoport') {
+        document.getElementById('munkacsoport-title').value = data.title || '';
+        document.getElementById('munkacsoport-type').value = data.type || 'main';
+        document.getElementById('munkacsoport-desc').value = data.description || '';
+        document.getElementById('munkacsoport-color').value = data.color || '#08122b';
+        if (data.image_url) showPreview('munkacsoport', data.image_url, true);
+    }
+}
+
+function closeModal(type) {
+    document.getElementById(`modal-${type}`).classList.remove('open');
+    editingId = null;
+}
+
+// ════════════════════════════════════════════
+// KÉPFELTÖLTÉS ELŐNÉZET
+// ════════════════════════════════════════════
+function handleFileSelect(key) {
+    const file = document.getElementById(`file-${key}`).files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => showPreview(key, e.target.result, false);
+    reader.readAsDataURL(file);
+}
+
+function showPreview(key, src, isUrl) {
+    const prev = document.getElementById(`preview-${key}`);
+    const area = document.getElementById(`upload-${key}`);
+    prev.src = src;
+    prev.style.display = 'block';
+    area.querySelector('i').style.display = 'none';
+    area.querySelector('p').style.display = 'none';
+}
+
+// Slug auto-generálás a cím alapján
+document.addEventListener('DOMContentLoaded', () => {
+    const titleInput = document.getElementById('hir-title');
+    const slugInput = document.getElementById('hir-slug');
+    if (titleInput && slugInput) {
+        titleInput.addEventListener('input', () => {
+            if (!editingId) {
+                slugInput.value = titleInput.value
+                    .toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^a-z0-9\s-]/g, '')
+                    .trim()
+                    .replace(/\s+/g, '-');
+            }
+        });
+    }
+});
+
+// ════════════════════════════════════════════
+// TÖRLÉS MEGERŐSÍTŐ
+// ════════════════════════════════════════════
+let pendingDelete = null;
+
+function confirmDelete(table, id) {
+    pendingDelete = { table, id };
+    document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm() {
+    pendingDelete = null;
+    document.getElementById('confirm-overlay').classList.remove('open');
+}
+
+document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+    if (!pendingDelete) return;
+    const ok = await dbDelete(pendingDelete.table, pendingDelete.id);
+    closeConfirm();
+    if (ok) {
+        showToast('Sikeresen törölve!', 'success');
+        loadAll();
+    } else {
+        showToast('Hiba történt törléskor.', 'error');
+    }
+});
+
+// ════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════
+function showToast(msg, type = 'success') {
+    const toast = document.getElementById('toast');
+    const icon = toast.querySelector('i');
+    document.getElementById('toast-msg').textContent = msg;
+    toast.className = `toast ${type}`;
+    icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+// ════════════════════════════════════════════
+// ADATOK BETÖLTÉSE + RENDERELÉS
+// ════════════════════════════════════════════
+async function loadAll() {
+    loadHirek();
+    loadElnokseg();
+    loadRendezvenyek();
+    loadMunkacsoportok();
+}
+
+// HÍREK
+async function loadHirek() {
+    const list = document.getElementById('list-hirek');
+    const data = await dbFetch('news', { order: 'date.desc' });
+    if (!data.length) {
+        list.innerHTML = '<div class="empty-state"><i class="fas fa-newspaper"></i>Még nincs hír. Adj hozzá egyet!</div>';
+        return;
+    }
+    list.innerHTML = data.map(n => `
+        <div class="item-card">
+            ${n.image_url ? `<img class="item-card-img square" src="${n.image_url}" alt="${n.title}">` : ''}
+            <div class="item-card-info">
+                <div class="item-card-title">${n.title}</div>
+                <div class="item-card-meta">${n.date} &nbsp;·&nbsp; /${n.slug}</div>
+            </div>
+            <div class="item-card-actions">
+                <button class="btn-icon" onclick='openModal("hir", ${JSON.stringify(n).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
+                <button class="btn-icon delete" onclick="confirmDelete('news', ${n.id})" title="Törlés"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// ELNÖKSÉG
+async function loadElnokseg() {
+    const list = document.getElementById('list-elnokseg');
+    const data = await dbFetch('team_members', { order: 'id.asc' });
+    if (!data.length) {
+        list.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i>Még nincs tag. Adj hozzá egyet!</div>';
+        return;
+    }
+    list.innerHTML = data.map(m => `
+        <div class="item-card">
+            <img class="item-card-img" src="${m.image_url || 'images/placeholder.jpg'}" alt="${m.name}">
+            <div class="item-card-info">
+                <div class="item-card-title">${m.name}</div>
+                <div class="item-card-meta">${m.position}</div>
+            </div>
+            <div class="item-card-actions">
+                <button class="btn-icon" onclick='openModal("tag", ${JSON.stringify(m).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
+                <button class="btn-icon delete" onclick="confirmDelete('team_members', ${m.id})" title="Törlés"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// RENDEZVÉNYEK
+async function loadRendezvenyek() {
+    const list = document.getElementById('list-rendezvenyek');
+    const data = await dbFetch('events', { order: 'date.asc' });
+    if (!data.length) {
+        list.innerHTML = '<div class="empty-state"><i class="fas fa-calendar-alt"></i>Még nincs rendezvény. Adj hozzá egyet!</div>';
+        return;
+    }
+    list.innerHTML = data.map(e => `
+        <div class="item-card">
+            <div class="item-card-info">
+                <div class="item-card-title">${e.title}</div>
+                <div class="item-card-meta">${e.date}</div>
+            </div>
+            <div class="item-card-actions">
+                <button class="btn-icon" onclick='openModal("esemeny", ${JSON.stringify(e).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
+                <button class="btn-icon delete" onclick="confirmDelete('events', ${e.id})" title="Törlés"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// MUNKACSOPORTOK
+async function loadMunkacsoportok() {
+    const list = document.getElementById('list-munkacsoportok');
+    const data = await dbFetch('groups', { order: 'id.asc' });
+    if (!data.length) {
+        list.innerHTML = '<div class="empty-state"><i class="fas fa-layer-group"></i>Még nincs munkacsoport. Adj hozzá egyet!</div>';
+        return;
+    }
+    list.innerHTML = data.map(g => `
+        <div class="item-card">
+            ${g.image_url ? `<img class="item-card-img square" src="${g.image_url}" alt="${g.title}">` : ''}
+            <div class="item-card-info">
+                <div class="item-card-title" style="display:flex;align-items:center;gap:8px">
+                    ${g.title}
+                    <span class="badge badge-${g.type}">${g.type === 'main' ? 'Főcsoport' : 'Kiscsoport'}</span>
+                </div>
+                <div class="item-card-meta">${g.description || ''}</div>
+            </div>
+            <div class="item-card-actions">
+                <button class="btn-icon" onclick='openModal("munkacsoport", ${JSON.stringify(g).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
+                <button class="btn-icon delete" onclick="confirmDelete('groups', ${g.id})" title="Törlés"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// ════════════════════════════════════════════
+// MENTÉS FÜGGVÉNYEK
+// ════════════════════════════════════════════
+async function saveWithImage(key, bucket, buildData) {
+    const btn = document.getElementById(`save-${key}`);
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Mentés...';
+
+    try {
+        const fileInput = document.getElementById(`file-${key}`);
+        let imageUrl = null;
+
+        // Képfeltöltés ha van új fájl
+        if (fileInput?.files[0]) {
+            const file = fileInput.files[0];
+            const ext = file.name.split('.').pop();
+            const path = `${key}_${Date.now()}.${ext}`;
+            imageUrl = await uploadImage(bucket, file, path);
+            if (!imageUrl) {
+                showToast('Képfeltöltés sikertelen!', 'error');
+                btn.disabled = false;
+                btn.innerHTML = 'Mentés';
+                return;
+            }
+        }
+
+        const data = buildData(imageUrl);
+        const id = document.getElementById(`${key}-id`).value;
+        const ok = id ? await dbUpdate(data.table, id, data.payload) : await dbInsert(data.table, data.payload);
+
+        if (ok) {
+            showToast('Sikeresen mentve!', 'success');
+            closeModal(key);
+            loadAll();
+        } else {
+            showToast('Mentési hiba! Ellenőrizd a mezőket.', 'error');
+        }
+    } catch(e) {
+        showToast('Váratlan hiba történt.', 'error');
+        console.error(e);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = 'Mentés';
+}
+
+async function saveHir() {
+    await saveWithImage('hir', 'news-images', (imageUrl) => ({
+        table: 'news',
+        payload: {
+            title: document.getElementById('hir-title').value,
+            date: document.getElementById('hir-date').value,
+            slug: document.getElementById('hir-slug').value,
+            excerpt: document.getElementById('hir-excerpt').value,
+            content: document.getElementById('hir-content').value,
+            ...(imageUrl && { image_url: imageUrl })
+        }
+    }));
+}
+
+async function saveTag() {
+    await saveWithImage('tag', 'team-images', (imageUrl) => ({
+        table: 'team_members',
+        payload: {
+            name: document.getElementById('tag-name').value,
+            position: document.getElementById('tag-position').value,
+            facebook_url: document.getElementById('tag-facebook').value || null,
+            instagram_url: document.getElementById('tag-instagram').value || null,
+            linkedin_url: document.getElementById('tag-linkedin').value || null,
+            ...(imageUrl && { image_url: imageUrl })
+        }
+    }));
+}
+
+async function saveEsemeny() {
+    const btn = document.getElementById('save-esemeny');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Mentés...';
+
+    const id = document.getElementById('esemeny-id').value;
+    const payload = {
+        title: document.getElementById('esemeny-title').value,
+        date: document.getElementById('esemeny-date').value,
+        description: document.getElementById('esemeny-desc').value,
+    };
+
+    const ok = id ? await dbUpdate('events', id, payload) : await dbInsert('events', payload);
+
+    if (ok) {
+        showToast('Sikeresen mentve!', 'success');
+        closeModal('esemeny');
+        loadAll();
+    } else {
+        showToast('Mentési hiba!', 'error');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = 'Mentés';
+}
+
+async function saveMunkacsoport() {
+    await saveWithImage('munkacsoport', 'group-images', (imageUrl) => ({
+        table: 'groups',
+        payload: {
+            type: document.getElementById('munkacsoport-type').value,
+            title: document.getElementById('munkacsoport-title').value,
+            description: document.getElementById('munkacsoport-desc').value,
+            color: document.getElementById('munkacsoport-color').value,
+            ...(imageUrl && { image_url: imageUrl })
+        }
+    }));
+}
+
+// ════════════════════════════════════════════
+// RÓLUNK BETÖLTÉSE + MENTÉSE
+// ════════════════════════════════════════════
+async function loadRolunk() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/about?limit=1`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.length) return;
+    const about = data[0];
+    document.getElementById('rolunk-text-input').value = about.text || '';
+    if (about.image_url) showPreview('rolunk', about.image_url, true);
+}
+
+async function saveRolunk() {
+    const btn = document.querySelector('#tab-rolunk .btn-save');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Mentés...';
+
+    try {
+        const fileInput = document.getElementById('file-rolunk');
+        let imageUrl = null;
+
+        if (fileInput?.files[0]) {
+            const file = fileInput.files[0];
+            const ext = file.name.split('.').pop();
+            imageUrl = await uploadImage('about-images', file, `about_${Date.now()}.${ext}`);
+        }
+
+        const payload = {
+            text: document.getElementById('rolunk-text-input').value,
+            updated_at: new Date().toISOString(),
+            ...(imageUrl && { image_url: imageUrl })
+        };
+
+        // Upsert: ha van már sor, frissíti, ha nincs, létrehozza
+        const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/about?limit=1`, { headers: authHeaders() });
+        const existing = await checkRes.json();
+
+        let ok;
+        if (existing.length) {
+            ok = await dbUpdate('about', existing[0].id, payload);
+        } else {
+            ok = await dbInsert('about', payload);
+        }
+
+        if (ok) {
+            showToast('Rólunk sikeresen mentve!', 'success');
+        } else {
+            showToast('Mentési hiba!', 'error');
+        }
+    } catch(e) {
+        showToast('Váratlan hiba!', 'error');
+        console.error(e);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = 'Mentés';
+}
+
+// ════════════════════════════════════════════
+// GÓLYA PDF BETÖLTÉSE + MENTÉSE
+// ════════════════════════════════════════════
+async function loadGolyaPdf() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/documents?order=created_at.desc&limit=1`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.length) return;
+    const doc = data[0];
+    const currentDiv = document.getElementById('golya-current');
+    const currentLink = document.getElementById('golya-current-link');
+    currentDiv.style.display = 'block';
+    currentLink.href = doc.file_url;
+    currentLink.textContent = doc.title || 'Gólya Kisokos';
+}
+
+document.getElementById('file-golya').addEventListener('change', function() {
+    const file = this.files[0];
+    if (!file) return;
+    const nameEl = document.getElementById('golya-filename');
+    nameEl.textContent = file.name;
+    nameEl.style.display = 'block';
+});
+
+async function saveGolyaPdf() {
+    const btn = document.querySelector('#tab-golya .btn-save');
+    const fileInput = document.getElementById('file-golya');
+
+    if (!fileInput.files[0]) {
+        showToast('Válassz ki egy PDF fájlt!', 'error');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Feltöltés...';
+
+    try {
+        const file = fileInput.files[0];
+        const path = `golya_kisokos_${Date.now()}.pdf`;
+        const fileUrl = await uploadImage('documents', file, path);
+
+        if (!fileUrl) {
+            showToast('Feltöltés sikertelen!', 'error');
+            btn.disabled = false;
+            btn.innerHTML = 'Feltöltés & Mentés';
+            return;
+        }
+
+        const ok = await dbInsert('documents', {
+            title: 'Gólya Kisokos',
+            file_url: fileUrl
+        });
+
+        if (ok) {
+            showToast('PDF sikeresen feltöltve!', 'success');
+            loadGolyaPdf();
+        } else {
+            showToast('Mentési hiba!', 'error');
+        }
+    } catch(e) {
+        showToast('Váratlan hiba!', 'error');
+        console.error(e);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = 'Feltöltés & Mentés';
+}
+
+// loadAll kiegészítése
+const _origLoadAll = loadAll;
+loadAll = async function() {
+    await _origLoadAll();
+    loadRolunk();
+    loadGolyaPdf();
+};
+</script>
+</body>
+</html>

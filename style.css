@@ -1,0 +1,577 @@
+/* --- ALAP BEÁLLÍTÁSOK (MARAD) --- */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    background-color: #F1F1E6; 
+    color: #333;
+}
+h1, h2, h3 {
+    font-family: 'Montserrat', sans-serif;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+/* --- NAVIGÁCIÓ --- */
+nav {
+    background-color: #08122b;
+    height: 80px; /* Fix magasság, hogy ne csússzon el a menü */
+    padding: 0 2rem; /* Oldalsó távolság */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-sizing: border-box; /* Hogy a padding ne növelje a méretet */
+}
+.logo img {
+    height: 50px; /* Logó magasságának beállítása */
+    width: auto;
+}
+nav ul {
+    list-style: none;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+nav a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.1rem;
+    transition: color 0.3s;
+}
+nav a:hover {
+    color: #498CFF;
+}
+.btn-contact {
+    background-color: #F1C039;
+    padding: 8px 15px;
+    border-radius: 5px;
+    color: #08122b !important; /* Felülírja a sima link színt */
+}
+
+header#hero {
+    /* 1. HÁTTÉR: Mély, elegáns sötétkék (kicsit világosabb középen, sötét a szélén) */
+    background: radial-gradient(circle at center, #1a2b5e 0%, #08122b 100%);
+    
+    /* 2. MÉRET: Teljes képernyő (100vh = 100% viewport height) */
+    height: 100vh;
+    width: 100%;
+    
+    /* 3. POZÍCIÓ: Minden szigorúan középen */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Függőlegesen közép */
+    align-items: center;     /* Vízszintesen közép */
+    text-align: center;
+    
+    padding: 0 20px;
+    margin-top: 0;
+    color: white;
+    
+    /* Hogy a navigáció ne takarjon bele, ha fix */
+    box-sizing: border-box; 
+}
+
+#hero h1 {
+    font-size: 5rem; /* Hatalmas méret */
+    font-weight: 800; /* Vastag betű */
+    margin: 0;
+    margin-bottom: 20px; /* Hely az alcím előtt */
+    letter-spacing: 2px;
+    line-height: 1.1;
+    text-transform: uppercase;
+    
+    /* --- A 3D EFFEKT --- */
+    text-shadow: 
+        0 1px 0 #ccc, 
+        0 2px 0 #c9c9c9, 
+        0 3px 0 #bbb, 
+        0 4px 0 #b9b9b9, 
+        0 5px 0 #aaa, 
+        0 6px 1px rgba(0,0,0,.1), 
+        0 0 5px rgba(0,0,0,.1), 
+        0 1px 3px rgba(0,0,0,.3), 
+        0 3px 5px rgba(0,0,0,.2), 
+        0 5px 10px rgba(0,0,0,.25), 
+        0 10px 10px rgba(0,0,0,.2), 
+        0 20px 20px rgba(0,0,0,.15);
+}
+
+#hero p {
+    font-size: 1.5rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.9); /* Kicsit áttetsző fehér */
+    margin: 0 auto; /* Biztos, ami biztos: középre húzza */
+    max-width: 700px;
+    text-transform: uppercase; /* Opcionális: nagybetűs alcím is elegáns */
+    letter-spacing: 3px; /* Szellős betűk */
+}
+
+/* --- HAMBURGER IKON ALAPBEÁLLÍTÁSAI (EZ HIÁNYZOTT!) --- */
+
+/* 1. Alapból (gépen) rejtve van, de foglalja a helyet a kódban */
+.hamburger {
+    display: none; /* Gépen nem látszik */
+    cursor: pointer;
+}
+
+/* 2. Így néznek ki a fehér csíkok (a gomb részei) */
+.bar {
+    display: block;
+    width: 25px;       /* Szélesség */
+    height: 3px;       /* Vastagság */
+    margin: 5px auto;  /* Távolság a csíkok között */
+    transition: all 0.3s ease-in-out; /* Animáció sebessége */
+    background-color: white; /* FONTOS: Fehér szín */
+}
+
+@media (max-width: 768px) {
+
+    /* 1. HAMBURGER IKON MEGJELENÍTÉSE ÉS ANIMÁLÁSA */
+    .hamburger {
+        display: block; /* Mobilon láthatóvá tesszük */
+    }
+
+    /* Amikor kinyílik, X alakot vesz fel */
+    .hamburger.active .bar:nth-child(2) {
+        opacity: 0;
+    }
+    .hamburger.active .bar:nth-child(1) {
+        transform: translateY(8px) rotate(45deg);
+    }
+    .hamburger.active .bar:nth-child(3) {
+        transform: translateY(-8px) rotate(-45deg);
+    }
+
+    /* 2. A LEGÖRDÜLŐ MENÜ (FÜGGÖNY EFFEKT) */
+    /* ... A @media (max-width: 768px) blokkon belül ... */
+
+    .nav-links {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        
+        /* ITT A LÉNYEG A JAVÍTÁSHOZ: */
+        padding-top: 100px;  /* Fent marad a hely */
+        padding-left: 0;     /* Bal oldali behúzás törlése -> ÍGY LESZ KÖZÉPEN */
+        padding-right: 0;    /* Jobb oldalt is biztosra megyünk */
+        
+        z-index: -1;
+        background-color: #08122b; 
+        
+        /* Flexbox igazítások */
+        display: flex;       /* Biztosítjuk, hogy flex legyen */
+        flex-direction: column;
+        align-items: center; /* Vízszintesen középre igazít */
+        text-align: center;
+        
+        box-shadow: 0 10px 15px rgba(0,0,0,0.2);
+        
+        /* Animáció */
+        max-height: 0;       
+        overflow: hidden;    
+        transition: max-height 0.5s ease-in-out; 
+    }
+
+    .nav-links li {
+        margin: 25px 0;
+        opacity: 0; /* A szöveg még láthatatlan */
+        transition: opacity 0.3s ease-out;
+    }
+
+    /* Aktív állapot (Kinyitva) */
+    .nav-links.active {
+        max-height: 100vh; /* Kinyílik teljes képernyőig */
+    }
+
+    .nav-links.active li {
+        opacity: 1; /* Megjelenik a szöveg */
+    }
+
+    /* 3. HERO SZEKCIÓ (3D SZÖVEG MOBILON) */
+    header#hero {
+        height: 100vh; /* Mobilon is teljes képernyő */
+    }
+
+    #hero h1 {
+        font-size: 2.5rem; /* Mobilon kisebb betűméret */
+        /* Kisebb 3D árnyék, hogy olvasható maradjon kis kijelzőn */
+        text-shadow: 
+            0 1px 0 #ccc, 
+            0 2px 0 #bbb, 
+            0 3px 0 #aaa, 
+            0 5px 10px rgba(0,0,0,.2);
+    }
+    
+    #hero p {
+        font-size: 1rem;
+        letter-spacing: 1px;
+        padding: 0 10px; /* Kis margó a széleken */
+    }
+
+    /* 4. TARTALOM IGAZÍTÁSA (GRID -> EGYMÁS ALÁ) */
+    /* A kártyák ne egymás mellett, hanem alatt legyenek */
+    .team-grid, .groups-grid, .events-grid, .news-grid {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .container {
+        flex-direction: column;
+    }
+
+    .image-box img {
+        width: 100%;
+        max-width: 350px;
+    }
+}
+
+
+
+section {
+    padding: 80px 20px;
+    text-align: center;
+}
+
+/* --- RÓLUNK & ELNÖKSÉG (KICSIT FINOMÍTVA) --- */
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 40px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+.image-box img {
+    max-width: 100%;
+    width: 500px;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+.text-box {
+    max-width: 400px;
+    text-align: left;
+}
+.team-grid {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+    margin-top: 40px;
+}
+.member-card {
+    background: white;
+    padding: 30px 20px;
+    border-radius: 15px;
+    width: 250px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    transition: transform 0.3s;
+}
+.member-card:hover {
+    transform: translateY(-10px); /* Kicsit "felemelkedik" ha ráviszed az egeret */
+}
+.member-card img {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 4px solid #08122b;
+    margin-bottom: 15px;
+}
+
+/* --- SOCIAL IKONOK STÍLUSA --- */
+.socials {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 15px; /* Távolság az ikonok között */
+}
+
+.socials a {
+    text-decoration: none; /* Aláhúzás levétele */
+    color: #08122b;        /* Alapból sötétkék */
+    font-size: 1.5rem;     /* Ikon mérete (kb 24px) */
+    transition: transform 0.3s, color 0.3s;
+}
+
+/* Ha ráviszed az egeret */
+.socials a:hover {
+    color: #F1C039;        /* Sárga lesz */
+    transform: scale(1.2); /* Kicsit megnő */
+}
+
+/* --- MUNKACSOPORTOK (ÚJ CSS) --- */
+.groups-grid {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    flex-wrap: wrap;
+    margin-top: 40px;
+}
+.group-card {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    width: 280px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+}
+.group-logo {
+    height: 60px; /* Alprojekt logók mérete */
+    width: auto;
+    margin-bottom: 20px;
+}
+
+/* --- FOOTER --- */
+footer {
+    background-color: #08122b;
+    color: white;
+    padding: 40px 20px;
+    text-align: center;
+}
+.footer-logo {
+    height: 40px;
+    margin-bottom: 20px;
+    opacity: 0.8;
+}
+.footer-socials a {
+    color: #F1C039;
+    margin: 0 10px;
+    text-decoration: none;
+}
+
+/* --- RENDEZVÉNYEK --- */
+.events-grid {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 30px;
+}
+
+.event-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    display: flex; /* Egymás mellé tesszük a dátumot és szöveget */
+    width: 350px;
+    overflow: hidden;
+    text-align: left;
+}
+
+.event-date {
+    background-color: #08122b; /* KGK Kék */
+    color: #F1C039; /* Sárga szöveg */
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-width: 70px;
+}
+
+.event-date .day {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.event-date .month {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
+.event-info {
+    padding: 20px;
+}
+
+.event-info h3 {
+    margin-top: 0;
+    color: #08122b;
+    font-size: 1.1rem;
+}
+
+/* --- HÍREK --- */
+.news-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+    max-width: 1000px;
+    margin: 30px auto;
+    text-align: left;
+}
+
+.news-item {
+    background: white;
+    padding: 25px;
+    border-left: 5px solid #F1C039; /* Sárga csík oldalt */
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.news-item h3 {
+    margin-top: 0;
+    font-size: 1.2rem;
+}
+
+.news-item .meta {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 15px;
+}
+
+.news-item a {
+    color: #498CFF;
+    text-decoration: none;
+    font-weight: 600;
+}
+/* --- ANIMÁCIÓK (EXTRA) --- */
+
+/* Alapállapot: kicsit lejjebb van és átlátszó */
+.hidden {
+    opacity: 0;
+    filter: blur(5px);
+    transform: translateY(50px); /* 50 pixellel lejjebb */
+    transition: all 1s ease-out; /* 1 másodperces finom átmenet */
+}
+
+/* Amikor láthatóvá válik: helyreugrik és kitisztul */
+.show {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+}
+
+/* Hogy ne egyszerre jöjjön be minden kártya (lépcsőzetes hatás) */
+.member-card:nth-child(2), .group-card:nth-child(2), .event-card:nth-child(2) {
+    transition-delay: 200ms;
+}
+.member-card:nth-child(3), .group-card:nth-child(3), .event-card:nth-child(3) {
+    transition-delay: 400ms;
+}
+.member-card:nth-child(4) {
+    transition-delay: 600ms;
+}
+
+/* --- STATISZTIKA SZÁMLÁLÓK --- */
+#stats {
+    background-color: #08122b; /* Sötétkék háttér */
+    color: white;
+    padding: 60px 0;
+}
+
+.stats-container {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 50px;
+    text-align: center;
+}
+
+.stat-box h3 {
+    font-size: 3rem;
+    color: #F1C039; /* Sárga számok */
+    margin: 0;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.stat-box p {
+    margin-top: 10px;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* --- CIKK OLDAL STÍLUSOK --- */
+.article-page {
+    padding-top: 100px; /* Hogy a fix menü ne takarja ki a címet */
+    min-height: 80vh;   /* Hogy akkor is legyen alja, ha rövid a cikk */
+    text-align: left;   /* A cikk szövege balra igazítva szebb */
+}
+
+.article-container {
+    max-width: 800px;   /* Olvasható szélesség, mint egy blogban */
+    margin: 0 auto;     /* Középre igazítás */
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+
+.article-date {
+    color: #888;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.article-image {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.article-text {
+    line-height: 1.8;   /* Szellősebb sorköz a könnyebb olvasásért */
+    font-size: 1.1rem;
+    color: #444;
+}
+
+.article-text h3 {
+    color: #08122b;
+    margin-top: 30px;
+}
+
+blockquote {
+    border-left: 5px solid #F1C039;
+    margin: 30px 0;
+    padding-left: 20px;
+    font-style: italic;
+    color: #555;
+}
+
+
+
+
+/* --- BETÖLTÉS SZÖVEG --- */
+.loading-text {
+    color: #aaa;
+    font-style: italic;
+    text-align: center;
+    width: 100%;
+    padding: 20px 0;
+}
+
+/* --- ÁLTALÁNOS GOMB --- */
+.btn {
+    display: inline-block;
+    background-color: #F1C039;
+    color: #08122b;
+    padding: 12px 24px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 700;
+    font-family: 'Montserrat', sans-serif;
+    transition: background-color 0.3s, transform 0.2s;
+}
+.btn:hover {
+    background-color: #d4a82e;
+    transform: translateY(-2px);
+}
+
+/* --- DISZKRÉT ADMIN LINK --- */
+.admin-link {
+    display: block;
+    margin-top: 20px;
+    color: rgba(255,255,255,0.08);
+    font-size: 0.5rem;
+    text-decoration: none;
+    transition: color 0.3s;
+    user-select: none;
+}
+.admin-link:hover {
+    color: rgba(255,255,255,0.25);
+}

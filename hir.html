@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hír | KGK</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">
+            <a href="index.html">
+                <img src="images/Copy of kgk_feher.png" alt="KGK Logo">
+            </a>
+        </div>
+        <div class="hamburger">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="index.html#rolunk">Rólunk</a></li>
+            <li><a href="index.html#elnokseg">Elnökség</a></li>
+            <li><a href="index.html#munkacsoportok">Munkacsoportok</a></li>
+            <li><a href="index.html#rendezvenyek">Rendezvényeink</a></li>
+            <li><a href="index.html#hirek">Híreink</a></li>
+            <li><a href="index.html#kapcsolat" class="btn-contact">Elérhetőségek</a></li>
+        </ul>
+    </nav>
+
+    <section class="article-page">
+        <!-- Ez töltődik be dinamikusan a script.js-ből -->
+        <div class="article-container">
+            <p class="loading-text">Hír betöltése...</p>
+        </div>
+    </section>
+
+    <footer>
+        <p>&copy; Közgazdász Klub. Minden jog fenntartva.</p>
+        <a href="admin.html" class="admin-link">&#9679;</a>
+    </footer>
+
+</body>
+</html>
