@@ -661,11 +661,78 @@
         .badge-main { background: rgba(8,18,43,0.6); color: #7a8aaa; border: 1px solid var(--border); }
         .badge-small { background: rgba(178,24,224,0.15); color: #c96fef; border: 1px solid rgba(178,24,224,0.3); }
 
+        /* ── MOBILE NAV ── */
+        .mobile-menu-btn {
+            display: none;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 36px;
+            height: 36px;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--gold);
+            font-size: 1rem;
+        }
+
+        .mobile-nav-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(4,9,26,0.7);
+            z-index: 200;
+        }
+
+        .mobile-nav-overlay.open { display: block; }
+
+        .mobile-sidebar {
+            position: fixed;
+            top: 0;
+            left: -280px;
+            width: 260px;
+            height: 100vh;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            padding: 24px 12px;
+            z-index: 300;
+            transition: left 0.25s ease;
+            overflow-y: auto;
+        }
+
+        .mobile-sidebar.open { left: 0; }
+
+        .mobile-sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            margin-bottom: 24px;
+        }
+
+        .mobile-sidebar-brand {
+            font-family: "Montserrat", sans-serif;
+            font-weight: 800;
+            font-size: 1rem;
+            color: var(--gold);
+            letter-spacing: 2px;
+        }
+
+        .mobile-sidebar-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
         @media (max-width: 768px) {
             .sidebar { display: none; }
+            .mobile-menu-btn { display: flex; }
             .main { padding: 20px 16px; }
             .topbar { padding: 0 16px; }
             .modal { padding: 24px 18px; }
+            .topbar-user { display: none; }
         }
     </style>
 </head>
@@ -702,11 +769,44 @@
 ══════════════════════════════════════════ -->
 <div id="dashboard">
     <div class="topbar">
-        <div class="topbar-brand">KGK ADMIN</div>
+        <div style="display:flex;align-items:center;gap:12px">
+            <button class="mobile-menu-btn" onclick="openMobileNav()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="topbar-brand">KGK ADMIN</div>
+        </div>
         <div class="topbar-right">
             <span class="topbar-user" id="topbar-email"></span>
             <button class="btn-logout" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Kilépés</button>
         </div>
+    </div>
+
+    <!-- MOBIL SIDEBAR -->
+    <div class="mobile-nav-overlay" id="mobile-overlay" onclick="closeMobileNav()"></div>
+    <div class="mobile-sidebar" id="mobile-sidebar">
+        <div class="mobile-sidebar-header">
+            <span class="mobile-sidebar-brand">KGK ADMIN</span>
+            <button class="mobile-sidebar-close" onclick="closeMobileNav()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="sidebar-label">Tartalom</div>
+        <button class="sidebar-btn active" onclick="switchTabMobile('hirek', this)">
+            <i class="fas fa-newspaper"></i> Hírek
+        </button>
+        <button class="sidebar-btn" onclick="switchTabMobile('elnokseg', this)">
+            <i class="fas fa-users"></i> Elnökség
+        </button>
+        <button class="sidebar-btn" onclick="switchTabMobile('rendezvenyek', this)">
+            <i class="fas fa-calendar-alt"></i> Rendezvények
+        </button>
+        <button class="sidebar-btn" onclick="switchTabMobile('munkacsoportok', this)">
+            <i class="fas fa-layer-group"></i> Munkacsoportok
+        </button>
+        <button class="sidebar-btn" onclick="switchTabMobile('rolunk', this)">
+            <i class="fas fa-info-circle"></i> Rólunk
+        </button>
+        <button class="sidebar-btn" onclick="switchTabMobile('golya', this)">
+            <i class="fas fa-file-pdf"></i> Gólya PDF
+        </button>
     </div>
 
     <div class="layout">
@@ -1692,6 +1792,35 @@ loadAll = async function() {
     loadRolunk();
     loadGolyaPdf();
 };
+
+// ════════════════════════════════════════════
+// MOBIL NAVIGÁCIÓ
+// ════════════════════════════════════════════
+function openMobileNav() {
+    document.getElementById('mobile-sidebar').classList.add('open');
+    document.getElementById('mobile-overlay').classList.add('open');
+}
+
+function closeMobileNav() {
+    document.getElementById('mobile-sidebar').classList.remove('open');
+    document.getElementById('mobile-overlay').classList.remove('open');
+}
+
+function switchTabMobile(name, btn) {
+    // Switch the tab
+    switchTab(name, btn);
+    // Update active state in mobile sidebar
+    document.querySelectorAll('.mobile-sidebar .sidebar-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    // Also sync desktop sidebar
+    document.querySelectorAll('.sidebar .sidebar-btn').forEach(b => {
+        b.classList.remove('active');
+        if (b.getAttribute('onclick') && b.getAttribute('onclick').includes("'" + name + "'")) {
+            b.classList.add('active');
+        }
+    });
+    closeMobileNav();
+}
 </script>
 </body>
 </html>
