@@ -190,7 +190,7 @@ async function loadTeam() {
     // Skeleton
     teamGrid.innerHTML = skeletonMemberCards(4);
 
-    const members = await supabaseFetch('team_members', { order: 'id.asc' });
+    const members = await supabaseFetch('team_members', { order: 'sort_order.asc' });
     if (!members.length) { teamGrid.innerHTML = emptyMessage('Hamarosan bemutatjuk az elnökséget...'); return; }
     teamGrid.innerHTML = members.map((m, i) => `
         <div class="member-card hidden" style="transition-delay: ${i * 200}ms">
@@ -218,7 +218,7 @@ async function loadGroups() {
     // Skeleton mindkét gridbe
     grids.forEach(g => g.innerHTML = skeletonGroupCards(3));
 
-    const groups = await supabaseFetch('groups', { order: 'id.asc' });
+    const groups = await supabaseFetch('groups', { order: 'sort_order.asc' });
     const mainGroups = groups.filter(g => g.type === 'main');
     const smallGroups = groups.filter(g => g.type === 'small');
     if (grids[0]) {
@@ -438,7 +438,7 @@ async function loadSponsors() {
 
     track.innerHTML = skeletonSponsors(4);
 
-    const sponsors = await supabaseFetch('sponsors', { order: 'id.asc' });
+    const sponsors = await supabaseFetch('sponsors', { order: 'sort_order.asc' });
     if (!sponsors.length) {
         const section = document.getElementById('szponzorok');
         if (section) section.style.display = 'none';

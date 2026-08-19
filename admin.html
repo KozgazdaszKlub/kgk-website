@@ -355,6 +355,15 @@
 
         .btn-icon:hover { color: var(--gold); border-color: var(--gold); }
         .btn-icon.delete:hover { color: var(--danger); border-color: var(--danger); }
+        /* Letiltott sorrend-nyíl: halvány és nem kattintható */
+        .btn-icon:disabled {
+            opacity: 0.3;
+            cursor: default;
+        }
+        .btn-icon:disabled:hover {
+            color: var(--text-muted);
+            border-color: var(--border);
+        }
 
         .empty-state {
             text-align: center;
@@ -887,6 +896,10 @@
             .topbar { padding: 0 16px; }
             .modal { padding: 24px 18px; }
             .topbar-user { display: none; }
+            /* Négy gomb (2 nyíl + szerkesztés + törlés) mobilon is elférjen */
+            .item-card { padding: 16px 14px; gap: 12px; }
+            .item-card-actions { gap: 6px; }
+            .btn-icon { width: 30px; height: 30px; }
         }
     </style>
 </head>
@@ -1460,9 +1473,10 @@ function authHeaders() {
 }
 
 async function dbFetch(table, options = {}) {
-    const { select = '*', order = 'id.asc', eq = null } = options;
+    const { select = '*', order = 'id.asc', eq = null, limit = null } = options;
     let url = `${SUPABASE_URL}/rest/v1/${table}?select=${select}&order=${order}`;
     if (eq) url += `&${eq.column}=eq.${eq.value}`;
+    if (limit) url += `&limit=${limit}`;
     const res = await fetch(url, { headers: authHeaders() });
     if (handleAuthError(res)) return [];
     if (!res.ok) return [];
@@ -1777,6 +1791,93 @@ function showToast(msg, type = 'success') {
 }
 
 // ════════════════════════════════════════════
+// SORREND ÁLLÍTÁS (fel/le nyilak)
+// ════════════════════════════════════════════
+// A listák betöltéskor ide teszik el a megjelenített sorrendet, hogy a
+// nyílgomb tudja, melyik szomszéddal kell helyet cserélnie.
+const sortableCache = {};
+
+// Melyik táblát melyik függvény tölti újra a csere után
+const sortableReload = {
+    team_members: () => loadElnokseg(),
+    groups: () => loadMunkacsoportok(),
+    sponsors: () => loadSzponzorok()
+};
+
+// Ezekben a táblákban van sort_order oszlop – csak ezeknél állítjuk be új elemnél
+const SORTABLE_TABLES = Object.keys(sortableReload);
+
+// Amíg egy csere fut, ne indulhasson másik (dupla kattintás ellen)
+let sortMoveBusy = false;
+
+// Új elem sorrend értéke: a jelenlegi legnagyobb + 1, hogy a lista végére kerüljön.
+// Friss lekérdezéssel, nem a gyorsítótárból – így közben történt más
+// módosítás után sem keletkezik két azonos érték.
+// A nullslast kell, mert desc rendezésnél a NULL alapból elöl jönne.
+async function nextSortOrder(table) {
+    const rows = await dbFetch(table, { select: 'sort_order', order: 'sort_order.desc.nullslast', limit: 1 });
+    const max = rows[0]?.sort_order;
+    // Üres táblánál (vagy ha minden érték NULL) az első elem 0-t kap
+    return typeof max === 'number' ? max + 1 : 0;
+}
+
+// A fel/le nyíl gombok HTML-je egy listához. A legfelső elemnél a fel,
+// a legalsónál a le nyíl letiltva.
+function sortButtons(table, index, total) {
+    const upDisabled = index === 0 ? ' disabled' : '';
+    const downDisabled = index === total - 1 ? ' disabled' : '';
+    return `<button class="btn-icon"${upDisabled} onclick="moveItem('${table}', ${index}, -1)" title="Feljebb"><i class="fas fa-arrow-up"></i></button>
+                <button class="btn-icon"${downDisabled} onclick="moveItem('${table}', ${index}, 1)" title="Lejjebb"><i class="fas fa-arrow-down"></i></button>`;
+}
+
+// Két szomszédos elem sort_order értékének felcserélése
+async function moveItem(table, index, direction) {
+    if (sortMoveBusy) return;
+
+    const rows = sortableCache[table];
+    if (!rows) return;
+
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= rows.length) return;
+
+    const current = rows[index];
+    const neighbour = rows[targetIndex];
+    // A két értéket még a mentések előtt kiolvassuk, hogy a csere végig
+    // az eredeti számokkal dolgozzon
+    const currentOrder = current.sort_order;
+    const neighbourOrder = neighbour.sort_order;
+
+    // Ha valamelyik sorrend érték hiányzik vagy a kettő azonos, a csere
+    // nem látszódna – ilyenkor szólunk a felhasználónak
+    if (currentOrder == null || neighbourOrder == null || currentOrder === neighbourOrder) {
+        showToast('Ezeknél az elemeknél hiányzik vagy azonos a sorrend értéke, ezért nem cserélhetők fel.', 'error');
+        return;
+    }
+
+    sortMoveBusy = true;
+
+    const okCurrent = await dbUpdate(table, current.id, { sort_order: neighbourOrder });
+    let okNeighbour = false;
+    if (okCurrent) {
+        okNeighbour = await dbUpdate(table, neighbour.id, { sort_order: currentOrder });
+        // Ha a második mentés elhasalt, az elsőt visszaállítjuk, hogy ne
+        // maradjon két azonos sorrend érték
+        if (!okNeighbour) await dbUpdate(table, current.id, { sort_order: currentOrder });
+    }
+
+    sortMoveBusy = false;
+
+    if (okCurrent && okNeighbour) {
+        showToast('Sorrend módosítva!');
+    } else {
+        showToast('A sorrend mentése nem sikerült!', 'error');
+    }
+
+    // Hiba esetén is újratöltünk, hogy a lista a valós állapotot mutassa
+    await sortableReload[table]?.();
+}
+
+// ════════════════════════════════════════════
 // ADATOK BETÖLTÉSE + RENDERELÉS
 // ════════════════════════════════════════════
 async function loadExistingGallery(newsId) {
@@ -1821,12 +1922,13 @@ async function loadHirek() {
 // ELNÖKSÉG
 async function loadElnokseg() {
     const list = document.getElementById('list-elnokseg');
-    const data = await dbFetch('team_members', { order: 'id.asc' });
+    const data = await dbFetch('team_members', { order: 'sort_order.asc' });
+    sortableCache.team_members = data;
     if (!data.length) {
         list.innerHTML = '<div class="empty-state"><i class="fas fa-users"></i>Még nincs tag. Adj hozzá egyet!</div>';
         return;
     }
-    list.innerHTML = data.map(m => `
+    list.innerHTML = data.map((m, i) => `
         <div class="item-card">
             <img class="item-card-img" src="${m.image_url || 'images/placeholder.svg'}" alt="${m.name}" onerror="this.onerror=null;this.src='images/placeholder.svg';">
             <div class="item-card-info">
@@ -1834,6 +1936,7 @@ async function loadElnokseg() {
                 <div class="item-card-meta">${m.position}</div>
             </div>
             <div class="item-card-actions">
+                ${sortButtons('team_members', i, data.length)}
                 <button class="btn-icon" onclick='openModal("tag", ${JSON.stringify(m).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
                 <button class="btn-icon delete" onclick="confirmDelete('team_members', ${m.id})" title="Törlés"><i class="fas fa-trash"></i></button>
             </div>
@@ -1866,12 +1969,13 @@ async function loadRendezvenyek() {
 // MUNKACSOPORTOK
 async function loadMunkacsoportok() {
     const list = document.getElementById('list-munkacsoportok');
-    const data = await dbFetch('groups', { order: 'id.asc' });
+    const data = await dbFetch('groups', { order: 'sort_order.asc' });
+    sortableCache.groups = data;
     if (!data.length) {
         list.innerHTML = '<div class="empty-state"><i class="fas fa-layer-group"></i>Még nincs munkacsoport. Adj hozzá egyet!</div>';
         return;
     }
-    list.innerHTML = data.map(g => `
+    list.innerHTML = data.map((g, i) => `
         <div class="item-card">
             ${g.image_url ? `<img class="item-card-img square" src="${g.image_url}" alt="${g.title}" onerror="this.style.display='none';">` : ''}
             <div class="item-card-info">
@@ -1882,6 +1986,7 @@ async function loadMunkacsoportok() {
                 <div class="item-card-meta">${g.description || ''}</div>
             </div>
             <div class="item-card-actions">
+                ${sortButtons('groups', i, data.length)}
                 <button class="btn-icon" onclick='openModal("munkacsoport", ${JSON.stringify(g).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
                 <button class="btn-icon delete" onclick="confirmDelete('groups', ${g.id})" title="Törlés"><i class="fas fa-trash"></i></button>
             </div>
@@ -1917,7 +2022,18 @@ async function saveWithImage(key, bucket, buildData) {
 
         const data = buildData(imageUrl);
         const id = document.getElementById(`${key}-id`).value;
-        const ok = id ? await dbUpdate(data.table, id, data.payload) : await dbInsert(data.table, data.payload);
+
+        let ok;
+        if (id) {
+            // Szerkesztéskor a sort_order-höz nem nyúlunk: azt csak a nyilak állítják
+            ok = await dbUpdate(data.table, id, data.payload);
+        } else {
+            // Új elem a lista végére kerül
+            if (SORTABLE_TABLES.includes(data.table)) {
+                data.payload.sort_order = await nextSortOrder(data.table);
+            }
+            ok = await dbInsert(data.table, data.payload);
+        }
 
         if (ok) {
             showToast('Sikeresen mentve!', 'success');
@@ -2353,12 +2469,13 @@ async function saveGolyaPdf() {
 async function loadSzponzorok() {
     const list = document.getElementById('list-szponzorok');
     if (!list) return;
-    const data = await dbFetch('sponsors', { order: 'id.asc' });
+    const data = await dbFetch('sponsors', { order: 'sort_order.asc' });
+    sortableCache.sponsors = data;
     if (!data.length) {
         list.innerHTML = '<div class="empty-state"><i class="fas fa-handshake"></i>Még nincs szponzor. Adj hozzá egyet!</div>';
         return;
     }
-    list.innerHTML = data.map(s => `
+    list.innerHTML = data.map((s, i) => `
         <div class="item-card">
             <img class="item-card-img square" src="${s.logo_url}" alt="${s.name}" style="background:#fff;padding:4px;" onerror="this.style.visibility='hidden';">
             <div class="item-card-info">
@@ -2366,6 +2483,7 @@ async function loadSzponzorok() {
                 <div class="item-card-meta">${s.website_url ? `<a href="${s.website_url}" target="_blank" style="color:var(--gold);text-decoration:none;">${s.website_url}</a>` : 'Nincs weboldal'}</div>
             </div>
             <div class="item-card-actions">
+                ${sortButtons('sponsors', i, data.length)}
                 <button class="btn-icon" onclick='openModal("szponzor", ${JSON.stringify(s).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
                 <button class="btn-icon delete" onclick="confirmDelete('sponsors', ${s.id})" title="Törlés"><i class="fas fa-trash"></i></button>
             </div>
