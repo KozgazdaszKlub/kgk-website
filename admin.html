@@ -726,6 +726,160 @@
             cursor: pointer;
         }
 
+
+        /* ── RICH TEXT EDITOR ── */
+        .editor-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 8px;
+            background: var(--navy);
+            border: 1px solid var(--border);
+            border-bottom: none;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .editor-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            color: var(--text-muted);
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+
+        .editor-btn:hover {
+            background: var(--surface2);
+            color: var(--text);
+            border-color: var(--border);
+        }
+
+        .editor-btn.active {
+            background: rgba(241,192,57,0.15);
+            color: var(--gold);
+            border-color: rgba(241,192,57,0.3);
+        }
+
+        .editor-btn.separator {
+            width: 1px;
+            height: 24px;
+            background: var(--border);
+            cursor: default;
+            pointer-events: none;
+            padding: 0;
+            border: none;
+            margin: 4px 2px;
+        }
+
+        .editor-content {
+            width: 100%;
+            min-height: 200px;
+            background: var(--navy);
+            border: 1px solid var(--border);
+            border-radius: 0 0 8px 8px;
+            padding: 14px 16px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .editor-content:focus {
+            border-color: var(--gold);
+        }
+
+        .editor-content blockquote {
+            border-left: 4px solid var(--gold);
+            margin: 12px 0;
+            padding: 8px 16px;
+            color: var(--text-muted);
+            font-style: italic;
+            background: rgba(241,192,57,0.05);
+            border-radius: 0 6px 6px 0;
+        }
+
+        .editor-content b, .editor-content strong { color: var(--text); }
+
+        /* ── GALLERY UPLOAD ── */
+        .gallery-upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            position: relative;
+        }
+
+        .gallery-upload-area:hover, .gallery-upload-area.dragover {
+            border-color: var(--gold);
+            background: rgba(241,192,57,0.04);
+        }
+
+        .gallery-upload-area input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .gallery-preview-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .gallery-preview-item {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+        }
+
+        .gallery-preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .gallery-preview-item .remove-img {
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            background: rgba(224,85,85,0.9);
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            color: white;
+            font-size: 0.6rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .gallery-count {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
         @media (max-width: 768px) {
             .sidebar { display: none; }
             .mobile-menu-btn { display: flex; }
@@ -807,6 +961,9 @@
         <button class="sidebar-btn" onclick="switchTabMobile('golya', this)">
             <i class="fas fa-file-pdf"></i> Gólya PDF
         </button>
+        <button class="sidebar-btn" onclick="switchTabMobile('szponzorok', this)">
+            <i class="fas fa-handshake"></i> Szponzorok
+        </button>
     </div>
 
     <div class="layout">
@@ -829,6 +986,9 @@
             </button>
             <button class="sidebar-btn" onclick="switchTab('golya', this)">
                 <i class="fas fa-file-pdf"></i> Gólya PDF
+            </button>
+            <button class="sidebar-btn" onclick="switchTab('szponzorok', this)">
+                <i class="fas fa-handshake"></i> Szponzorok
             </button>
         </aside>
 
@@ -932,6 +1092,19 @@
                 </div>
             </div>
 
+            <!-- SZPONZOROK -->
+            <div class="tab-panel" id="tab-szponzorok">
+                <div class="panel-header">
+                    <h2 class="panel-title">Szponzorok</h2>
+                    <button class="btn-add" onclick="openModal('szponzor')">
+                        <i class="fas fa-plus"></i> Új szponzor
+                    </button>
+                </div>
+                <div class="items-list" id="list-szponzorok">
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Betöltés...</div>
+                </div>
+            </div>
+
         </main>
     </div>
 </div>
@@ -965,8 +1138,20 @@
             <input type="text" id="hir-excerpt" placeholder="Rövid összefoglaló...">
         </div>
         <div class="form-group">
-            <label>Tartalom (HTML is használható)</label>
-            <textarea id="hir-content" placeholder="A cikk teljes szövege..."></textarea>
+            <label>Tartalom</label>
+            <div class="editor-toolbar">
+                <button class="editor-btn" onclick="editorCmd('bold')" title="Félkövér"><b>B</b></button>
+                <button class="editor-btn" onclick="editorCmd('underline')" title="Aláhúzás"><u>U</u></button>
+                <button class="editor-btn separator"></button>
+                <button class="editor-btn" onclick="editorCmd('insertUnorderedList')" title="Lista"><i class="fas fa-list-ul"></i></button>
+                <button class="editor-btn" onclick="editorCmd('insertOrderedList')" title="Számozott lista"><i class="fas fa-list-ol"></i></button>
+                <button class="editor-btn separator"></button>
+                <button class="editor-btn" onclick="insertQuote()" title="Idézet blokk"><i class="fas fa-quote-left"></i></button>
+                <button class="editor-btn separator"></button>
+                <button class="editor-btn" onclick="editorCmd('removeFormat')" title="Formázás törlése"><i class="fas fa-remove-format"></i></button>
+            </div>
+            <div class="editor-content" id="hir-content-editor" contenteditable="true" spellcheck="false"></div>
+            <input type="hidden" id="hir-content">
         </div>
         <div class="form-group">
             <label>Borítókép feltöltése</label>
@@ -976,6 +1161,16 @@
                 <i class="fas fa-cloud-upload-alt"></i>
                 <p>Kattints vagy húzd ide a képet</p>
             </div>
+        </div>
+        <div class="form-group">
+            <label>Képgaléria (max 10 kép)</label>
+            <div class="gallery-upload-area" id="gallery-upload-area">
+                <input type="file" id="file-gallery" accept="image/*" multiple onchange="handleGallerySelect()">
+                <i class="fas fa-images" style="font-size:1.5rem;color:var(--text-muted);display:block;margin-bottom:8px"></i>
+                <p style="font-size:0.85rem;color:var(--text-muted)">Kattints vagy húzd ide a képeket (több is kijelölhető)</p>
+            </div>
+            <div class="gallery-preview-grid" id="gallery-preview-grid"></div>
+            <p class="gallery-count" id="gallery-count"></p>
         </div>
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeModal('hir')">Mégse</button>
@@ -1098,6 +1293,38 @@
     </div>
 </div>
 
+<!-- SZPONZOR modal -->
+<div class="modal-overlay" id="modal-szponzor">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title" id="modal-szponzor-title">Új szponzor</h3>
+            <button class="modal-close" onclick="closeModal('szponzor')"><i class="fas fa-times"></i></button>
+        </div>
+        <input type="hidden" id="szponzor-id">
+        <div class="form-group">
+            <label>Cég neve</label>
+            <input type="text" id="szponzor-name" placeholder="pl. Példa Kft.">
+        </div>
+        <div class="form-group">
+            <label>Weboldal URL (opsz.)</label>
+            <input type="url" id="szponzor-url" placeholder="https://www.pelda.hu">
+        </div>
+        <div class="form-group">
+            <label>Logó feltöltése</label>
+            <div class="upload-area" id="upload-szponzor">
+                <img class="upload-preview square" id="preview-szponzor" src="" alt="">
+                <input type="file" id="file-szponzor" accept="image/*" onchange="handleFileSelect('szponzor')">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>Kattints vagy húzd ide a logót (PNG/SVG ajánlott)</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeModal('szponzor')">Mégse</button>
+            <button class="btn-save" id="save-szponzor" onclick="saveSzponzor()">Mentés</button>
+        </div>
+    </div>
+</div>
+
 <!-- TÖRLÉS megerősítő -->
 <div class="confirm-overlay" id="confirm-overlay">
     <div class="confirm-box">
@@ -1122,6 +1349,7 @@
 // KONFIGURÁCIÓ
 // ════════════════════════════════════════════
 const SUPABASE_URL = 'https://agdstsliixwysbjedppu.supabase.co';
+// ⚠️ Cseréld le az új publishable key-re!
 const SUPABASE_ANON_KEY = 'sb_publishable_LXqTP-dPmfwWvd0IZTzrMw_tjYERBe9';
 
 // ════════════════════════════════════════════
@@ -1236,8 +1464,19 @@ async function dbFetch(table, options = {}) {
     let url = `${SUPABASE_URL}/rest/v1/${table}?select=${select}&order=${order}`;
     if (eq) url += `&${eq.column}=eq.${eq.value}`;
     const res = await fetch(url, { headers: authHeaders() });
+    if (handleAuthError(res)) return [];
     if (!res.ok) return [];
     return res.json();
+}
+
+// Lejárt/érvénytelen session esetén automatikus kijelentkezés
+function handleAuthError(res) {
+    if (res.status === 401) {
+        showToast('A bejelentkezés lejárt, jelentkezz be újra.', 'error');
+        doLogout();
+        return true;
+    }
+    return false;
 }
 
 async function dbInsert(table, data) {
@@ -1246,6 +1485,7 @@ async function dbInsert(table, data) {
         headers: authHeaders(),
         body: JSON.stringify(data)
     });
+    if (handleAuthError(res)) return false;
     return res.ok;
 }
 
@@ -1255,6 +1495,7 @@ async function dbUpdate(table, id, data) {
         headers: authHeaders(),
         body: JSON.stringify(data)
     });
+    if (handleAuthError(res)) return false;
     return res.ok;
 }
 
@@ -1263,25 +1504,102 @@ async function dbDelete(table, id) {
         method: 'DELETE',
         headers: { ...authHeaders(), 'Prefer': 'return=minimal' }
     });
+    if (handleAuthError(res)) return false;
     return res.ok;
 }
 
 // ════════════════════════════════════════════
-// STORAGE – Képfeltöltés
+// KÉPTÖMÖRÍTÉS – Feltöltés előtt
+// ════════════════════════════════════════════
+function compressImage(file, maxWidth = 1400, quality = 0.82) {
+    return new Promise((resolve) => {
+        // PDF és nem kép fájlokat nem tömörítjük
+        if (!file.type.startsWith('image/')) {
+            resolve(file);
+            return;
+        }
+
+        // SVG vektoros formátum — rasterizálás tönkretenné, nem nyúlunk hozzá
+        if (file.type === 'image/svg+xml') {
+            resolve(file);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let { width, height } = img;
+
+                // Átméretezés ha nagyobb mint maxWidth
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // PNG-nél megtartjuk az átlátszóságot (logóknál fontos!),
+                // minden más raszteres formátumot JPEG-re tömörítünk
+                const isPng = file.type === 'image/png';
+                const outputType = isPng ? 'image/png' : 'image/jpeg';
+
+                canvas.toBlob((blob) => {
+                    if (!blob) { resolve(file); return; }
+                    const compressed = new File([blob], file.name, {
+                        type: outputType,
+                        lastModified: Date.now()
+                    });
+                    console.log(`Tömörítés: ${(file.size/1024/1024).toFixed(1)}MB → ${(compressed.size/1024/1024).toFixed(1)}MB`);
+                    resolve(compressed);
+                }, outputType, isPng ? undefined : quality);
+            };
+            img.onerror = () => resolve(file);
+            img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+    });
+}
+
+// Galéria képekhez kisebb tömörítés (előnézeti méret)
+function compressGalleryImage(file) {
+    return compressImage(file, 1200, 0.78);
+}
+
+// ════════════════════════════════════════════
+// STORAGE – Képfeltöltés (tömörítéssel)
 // ════════════════════════════════════════════
 async function uploadImage(bucket, file, path) {
-    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
+    // Tömörítés feltöltés előtt (PNG-nél megtartja az átlátszóságot, SVG-t változatlanul hagyja)
+    const finalFile = await compressImage(file);
+
+    // A path kiterjesztését a tényleges kimeneti típushoz igazítjuk
+    let finalPath = path;
+    if (finalFile.type === 'image/png') {
+        finalPath = path.replace(/\.(jpg|jpeg|webp|heic|bmp)$/i, '.png');
+    } else if (finalFile.type === 'image/svg+xml') {
+        finalPath = path.replace(/\.(jpg|jpeg|png|webp|heic|bmp)$/i, '.svg');
+    } else {
+        finalPath = path.replace(/\.(png|webp|heic|bmp)$/i, '.jpg');
+    }
+
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${finalPath}`, {
         method: 'POST',
         headers: {
             'apikey': SUPABASE_ANON_KEY,
             'Authorization': `Bearer ${currentSession?.access_token}`,
-            'Content-Type': file.type,
+            'Content-Type': finalFile.type || 'image/jpeg',
             'x-upsert': 'true'
         },
-        body: file
+        body: finalFile
     });
     if (!res.ok) return null;
-    return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+    return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${finalPath}`;
 }
 
 // ════════════════════════════════════════════
@@ -1307,12 +1625,23 @@ function openModal(type, data = null) {
     // Reset form
     overlay.querySelectorAll('input, textarea, select').forEach(el => {
         if (el.type === 'color') el.value = '#08122b';
-        else if (el.type !== 'file') el.value = '';
+        else if (el.type === 'file') el.value = '';
+        else el.value = '';
     });
     ['hir','tag','munkacsoport'].forEach(k => {
         const prev = document.getElementById(`preview-${k}`);
         if (prev) { prev.style.display = 'none'; prev.src = ''; }
+        const area = document.getElementById(`upload-${k}`);
+        if (area) {
+            const icon = area.querySelector('i');
+            if (icon) icon.style.display = '';
+            area.querySelectorAll('p').forEach(el => el.style.display = '');
+        }
     });
+    // Reset rich editor and gallery
+    const editor = document.getElementById('hir-content-editor');
+    if (editor) editor.innerHTML = '';
+    if (type === 'hir') resetGallery();
 
     if (data) {
         title.textContent = type === 'hir' ? 'Hír szerkesztése' :
@@ -1336,8 +1665,14 @@ function fillForm(type, data) {
         document.getElementById('hir-date').value = data.date || '';
         document.getElementById('hir-slug').value = data.slug || '';
         document.getElementById('hir-excerpt').value = data.excerpt || '';
+        // Load content into rich editor
+        const editor = document.getElementById('hir-content-editor');
+        if (editor) editor.innerHTML = data.content || '';
         document.getElementById('hir-content').value = data.content || '';
         if (data.image_url) showPreview('hir', data.image_url, true);
+        // Load existing gallery
+        resetGallery();
+        if (data.id) loadExistingGallery(data.id);
     } else if (type === 'tag') {
         document.getElementById('tag-name').value = data.name || '';
         document.getElementById('tag-position').value = data.position || '';
@@ -1444,6 +1779,15 @@ function showToast(msg, type = 'success') {
 // ════════════════════════════════════════════
 // ADATOK BETÖLTÉSE + RENDERELÉS
 // ════════════════════════════════════════════
+async function loadExistingGallery(newsId) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&order=sort_order.asc`, { headers: authHeaders() });
+    if (handleAuthError(res)) return;
+    if (!res.ok) return;
+    const images = await res.json();
+    galleryExisting = images.map(img => img.image_url);
+    renderGalleryPreviews();
+}
+
 async function loadAll() {
     loadHirek();
     loadElnokseg();
@@ -1461,7 +1805,7 @@ async function loadHirek() {
     }
     list.innerHTML = data.map(n => `
         <div class="item-card">
-            ${n.image_url ? `<img class="item-card-img square" src="${n.image_url}" alt="${n.title}">` : ''}
+            ${n.image_url ? `<img class="item-card-img square" src="${n.image_url}" alt="${n.title}" onerror="this.style.display='none';">` : ''}
             <div class="item-card-info">
                 <div class="item-card-title">${n.title}</div>
                 <div class="item-card-meta">${n.date} &nbsp;·&nbsp; /${n.slug}</div>
@@ -1484,7 +1828,7 @@ async function loadElnokseg() {
     }
     list.innerHTML = data.map(m => `
         <div class="item-card">
-            <img class="item-card-img" src="${m.image_url || 'images/placeholder.jpg'}" alt="${m.name}">
+            <img class="item-card-img" src="${m.image_url || 'images/placeholder.jpg'}" alt="${m.name}" onerror="this.onerror=null;this.src='images/placeholder.jpg';">
             <div class="item-card-info">
                 <div class="item-card-title">${m.name}</div>
                 <div class="item-card-meta">${m.position}</div>
@@ -1529,7 +1873,7 @@ async function loadMunkacsoportok() {
     }
     list.innerHTML = data.map(g => `
         <div class="item-card">
-            ${g.image_url ? `<img class="item-card-img square" src="${g.image_url}" alt="${g.title}">` : ''}
+            ${g.image_url ? `<img class="item-card-img square" src="${g.image_url}" alt="${g.title}" onerror="this.style.display='none';">` : ''}
             <div class="item-card-info">
                 <div class="item-card-title" style="display:flex;align-items:center;gap:8px">
                     ${g.title}
@@ -1591,18 +1935,236 @@ async function saveWithImage(key, bucket, buildData) {
     btn.innerHTML = 'Mentés';
 }
 
+// ════════════════════════════════════════════
+// RICH TEXT EDITOR
+// ════════════════════════════════════════════
+function editorCmd(cmd) {
+    document.getElementById('hir-content-editor').focus();
+    document.execCommand(cmd, false, null);
+    updateEditorButtons();
+}
+
+function insertQuote() {
+    const editor = document.getElementById('hir-content-editor');
+    editor.focus();
+    const sel = window.getSelection();
+    const selectedText = sel ? sel.toString() : '';
+    const bq = document.createElement('blockquote');
+    bq.textContent = selectedText || 'Idézet szövege...';
+    if (sel && sel.rangeCount) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(bq);
+        // Place cursor after blockquote
+        const br = document.createElement('br');
+        bq.after(br);
+        range.setStartAfter(br);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+}
+
+function updateEditorButtons() {
+    const cmds = ['bold', 'underline', 'insertUnorderedList', 'insertOrderedList'];
+    cmds.forEach(cmd => {
+        const btns = document.querySelectorAll('.editor-btn');
+        btns.forEach(btn => {
+            if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(cmd)) {
+                if (document.queryCommandState(cmd)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            }
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const editor = document.getElementById('hir-content-editor');
+    if (editor) {
+        editor.addEventListener('keyup', updateEditorButtons);
+        editor.addEventListener('mouseup', updateEditorButtons);
+    }
+});
+
+// ════════════════════════════════════════════
+// KÉPGALÉRIA KEZELÉS
+// ════════════════════════════════════════════
+let galleryFiles = [];     // új fájlok feltöltéshez
+let galleryExisting = [];  // már feltöltött URL-ek (szerkesztéskor)
+
+function handleGallerySelect() {
+    const input = document.getElementById('file-gallery');
+    const newFiles = Array.from(input.files);
+    const total = galleryFiles.length + galleryExisting.length + newFiles.length;
+
+    if (total > 10) {
+        showToast(`Maximum 10 kép tölthető fel! (jelenleg ${galleryFiles.length + galleryExisting.length})`, 'error');
+        input.value = '';
+        return;
+    }
+
+    galleryFiles = [...galleryFiles, ...newFiles];
+    renderGalleryPreviews();
+    input.value = '';
+}
+
+function renderGalleryPreviews() {
+    const grid = document.getElementById('gallery-preview-grid');
+    const count = document.getElementById('gallery-count');
+    if (!grid) return;
+
+    const total = galleryExisting.length + galleryFiles.length;
+    count.textContent = total > 0 ? `${total} / 10 kép kiválasztva` : '';
+
+    // Existing (already uploaded)
+    const existingHtml = galleryExisting.map((url, i) => `
+        <div class="gallery-preview-item">
+            <img src="${url}" alt="Galéria kép">
+            <button class="remove-img" onclick="removeExistingGallery(${i})"><i class="fas fa-times"></i></button>
+        </div>
+    `).join('');
+
+    // New files
+    const newHtml = galleryFiles.map((file, i) => {
+        const objUrl = URL.createObjectURL(file);
+        return `
+            <div class="gallery-preview-item">
+                <img src="${objUrl}" alt="Új kép">
+                <button class="remove-img" onclick="removeNewGallery(${i})"><i class="fas fa-times"></i></button>
+            </div>
+        `;
+    }).join('');
+
+    grid.innerHTML = existingHtml + newHtml;
+}
+
+function removeExistingGallery(index) {
+    galleryExisting.splice(index, 1);
+    renderGalleryPreviews();
+}
+
+function removeNewGallery(index) {
+    galleryFiles.splice(index, 1);
+    renderGalleryPreviews();
+}
+
+function resetGallery() {
+    galleryFiles = [];
+    galleryExisting = [];
+    const grid = document.getElementById('gallery-preview-grid');
+    const count = document.getElementById('gallery-count');
+    if (grid) grid.innerHTML = '';
+    if (count) count.textContent = '';
+}
+
+// ════════════════════════════════════════════
+// HÍREK MENTÉSE (FRISSÍTETT)
+// ════════════════════════════════════════════
 async function saveHir() {
-    await saveWithImage('hir', 'news-images', (imageUrl) => ({
-        table: 'news',
-        payload: {
+    const btn = document.getElementById('save-hir');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Mentés...';
+
+    try {
+        // 1. Borítókép feltöltése ha van új
+        const fileInput = document.getElementById('file-hir');
+        let imageUrl = null;
+        if (fileInput?.files[0]) {
+            const file = fileInput.files[0];
+            const ext = file.name.split('.').pop();
+            imageUrl = await uploadImage('news-images', file, `cover_${Date.now()}.${ext}`);
+            if (!imageUrl) {
+                showToast('Borítókép feltöltése sikertelen!', 'error');
+                btn.disabled = false;
+                btn.innerHTML = 'Mentés';
+                return;
+            }
+        }
+
+        // 2. Tartalom kinyerése az editorból
+        const editorEl = document.getElementById('hir-content-editor');
+        const contentHtml = editorEl ? editorEl.innerHTML : document.getElementById('hir-content').value;
+
+        // 3. Hír mentése
+        const id = document.getElementById('hir-id').value;
+        const payload = {
             title: document.getElementById('hir-title').value,
             date: document.getElementById('hir-date').value,
             slug: document.getElementById('hir-slug').value,
             excerpt: document.getElementById('hir-excerpt').value,
-            content: document.getElementById('hir-content').value,
+            content: contentHtml,
             ...(imageUrl && { image_url: imageUrl })
+        };
+
+        const ok = id ? await dbUpdate('news', id, payload) : await dbInsert('news', payload);
+        if (!ok) {
+            showToast('Mentési hiba! Ellenőrizd a mezőket.', 'error');
+            btn.disabled = false;
+            btn.innerHTML = 'Mentés';
+            return;
         }
-    }));
+
+        // 4. Galéria szinkronizálás
+        let newsId = id;
+        if (!newsId) {
+            const fetchNew = await fetch(`${SUPABASE_URL}/rest/v1/news?slug=eq.${payload.slug}&select=id`, { headers: authHeaders() });
+            if (handleAuthError(fetchNew)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
+            const newData = await fetchNew.json();
+            newsId = newData[0]?.id;
+        }
+
+        if (newsId) {
+            // 4a. Meglévő DB sorok lekérése
+            const existingRes = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url`, { headers: authHeaders() });
+            if (handleAuthError(existingRes)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
+            const existingRows = existingRes.ok ? await existingRes.json() : [];
+
+            // 4b. Töröljük a DB-ből azokat, amiket a user kivett a galleryExisting-ből
+            const toDelete = existingRows.filter(row => !galleryExisting.includes(row.image_url));
+            await Promise.all(toDelete.map(row =>
+                fetch(`${SUPABASE_URL}/rest/v1/news_images?id=eq.${row.id}`, {
+                    method: 'DELETE',
+                    headers: { ...authHeaders(), 'Prefer': 'return=minimal' }
+                })
+            ));
+
+            // 4c. Új fájlok feltöltése
+            if (galleryFiles.length > 0) {
+                let sortOrder = galleryExisting.length;
+                const compressions = galleryFiles.map(f => compressGalleryImage(f));
+                const compressedFiles = await Promise.all(compressions);
+
+                const chunkSize = 3;
+                for (let i = 0; i < compressedFiles.length; i += chunkSize) {
+                    const chunk = compressedFiles.slice(i, i + chunkSize);
+                    const uploads = chunk.map((file, j) => {
+                        const path = `gallery_${newsId}_${Date.now()}_${i+j}.jpg`;
+                        return uploadImage('news-images', file, path);
+                    });
+                    const urls = await Promise.all(uploads);
+                    const inserts = urls.filter(Boolean).map(url =>
+                        dbInsert('news_images', { news_id: newsId, image_url: url, sort_order: sortOrder++ })
+                    );
+                    await Promise.all(inserts);
+                }
+            }
+        }
+
+        showToast('Sikeresen mentve!', 'success');
+        closeModal('hir');
+        resetGallery();
+        loadAll();
+
+    } catch(e) {
+        showToast('Váratlan hiba történt.', 'error');
+        console.error(e);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = 'Mentés';
 }
 
 async function saveTag() {
@@ -1785,13 +2347,134 @@ async function saveGolyaPdf() {
     btn.innerHTML = 'Feltöltés & Mentés';
 }
 
+// ════════════════════════════════════════════
+// SZPONZOROK
+// ════════════════════════════════════════════
+async function loadSzponzorok() {
+    const list = document.getElementById('list-szponzorok');
+    if (!list) return;
+    const data = await dbFetch('sponsors', { order: 'id.asc' });
+    if (!data.length) {
+        list.innerHTML = '<div class="empty-state"><i class="fas fa-handshake"></i>Még nincs szponzor. Adj hozzá egyet!</div>';
+        return;
+    }
+    list.innerHTML = data.map(s => `
+        <div class="item-card">
+            <img class="item-card-img square" src="${s.logo_url}" alt="${s.name}" style="background:#fff;padding:4px;" onerror="this.style.visibility='hidden';">
+            <div class="item-card-info">
+                <div class="item-card-title">${s.name}</div>
+                <div class="item-card-meta">${s.website_url ? `<a href="${s.website_url}" target="_blank" style="color:var(--gold);text-decoration:none;">${s.website_url}</a>` : 'Nincs weboldal'}</div>
+            </div>
+            <div class="item-card-actions">
+                <button class="btn-icon" onclick='openModal("szponzor", ${JSON.stringify(s).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
+                <button class="btn-icon delete" onclick="confirmDelete('sponsors', ${s.id})" title="Törlés"><i class="fas fa-trash"></i></button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function saveSzponzor() {
+    const id = document.getElementById('szponzor-id').value;
+    const fileInput = document.getElementById('file-szponzor');
+    if (!id && !fileInput?.files[0]) {
+        showToast('Új szponzornál a logó feltöltése kötelező!', 'error');
+        return;
+    }
+    await saveWithImage('szponzor', 'sponsor-logos', (imageUrl) => ({
+        table: 'sponsors',
+        payload: {
+            name: document.getElementById('szponzor-name').value,
+            website_url: document.getElementById('szponzor-url').value || null,
+            ...(imageUrl && { logo_url: imageUrl })
+        }
+    }));
+    loadSzponzorok();
+}
+
+// openModal kiegészítése szponzorra
+const _origOpenModal = openModal;
+openModal = function(type, data = null) {
+    if (type === 'szponzor') {
+        editingId = data?.id || null;
+        const overlay = document.getElementById('modal-szponzor');
+        const title = document.getElementById('modal-szponzor-title');
+        // Reset
+        ['szponzor-name', 'szponzor-url', 'szponzor-id'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        const prev = document.getElementById('preview-szponzor');
+        if (prev) { prev.style.display = 'none'; prev.src = ''; }
+        const fileInput = document.getElementById('file-szponzor');
+        if (fileInput) fileInput.value = '';
+        const icon = document.querySelector('#upload-szponzor i');
+        if (icon) icon.style.display = '';
+        document.querySelectorAll('#upload-szponzor p').forEach(el => el.style.display = '');
+
+        if (data) {
+            title.textContent = 'Szponzor szerkesztése';
+            document.getElementById('szponzor-id').value = data.id;
+            document.getElementById('szponzor-name').value = data.name || '';
+            document.getElementById('szponzor-url').value = data.website_url || '';
+            if (data.logo_url) showPreview('szponzor', data.logo_url, true);
+        } else {
+            title.textContent = 'Új szponzor';
+        }
+        overlay.classList.add('open');
+        return;
+    }
+    _origOpenModal(type, data);
+};
+
+// closeModal kiegészítése szponzorra
+const _origCloseModal = closeModal;
+closeModal = function(type) {
+    if (type === 'szponzor') {
+        document.getElementById('modal-szponzor').classList.remove('open');
+        editingId = null;
+        return;
+    }
+    _origCloseModal(type);
+};
+
 // loadAll kiegészítése
 const _origLoadAll = loadAll;
 loadAll = async function() {
     await _origLoadAll();
     loadRolunk();
     loadGolyaPdf();
+    loadSzponzorok();
 };
+
+// ════════════════════════════════════════════
+// DRAG & DROP VIZUÁLIS VISSZAJELZÉS
+// ════════════════════════════════════════════
+function initDragDropVisuals() {
+    document.querySelectorAll('.upload-area, .gallery-upload-area').forEach(area => {
+        // Elkerüljük a duplikált bekötést, ha többször hívódna
+        if (area.dataset.dragInit) return;
+        area.dataset.dragInit = '1';
+
+        area.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            area.classList.add('dragover');
+        });
+        area.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            area.classList.add('dragover');
+        });
+        area.addEventListener('dragleave', () => {
+            area.classList.remove('dragover');
+        });
+        area.addEventListener('drop', () => {
+            // A tényleges fájlkezelést a böngésző natívan végzi a fedő file input miatt,
+            // ez csak a vizuális állapotot zárja le.
+            area.classList.remove('dragover');
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initDragDropVisuals);
 
 // ════════════════════════════════════════════
 // MOBIL NAVIGÁCIÓ

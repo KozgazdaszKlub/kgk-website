@@ -6,6 +6,164 @@
     <title>Hír | KGK</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* ── KÉPGALÉRIA CSÚSZKA ── */
+        .article-gallery {
+            margin-top: 40px;
+        }
+
+        .article-gallery h3 {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1rem;
+            color: #08122b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+
+        .gallery-slider-wrapper {
+            position: relative;
+        }
+
+        .gallery-slider {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            padding-bottom: 4px;
+        }
+
+        .gallery-slider::-webkit-scrollbar { display: none; }
+
+        .gallery-slider img {
+            width: 280px;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s, opacity 0.3s;
+            opacity: 0;
+            background: #e8e8e0;
+        }
+
+        .gallery-slider img.loaded {
+            opacity: 1;
+        }
+
+        .gallery-slider img:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+
+        .gallery-nav {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 14px;
+        }
+
+        .gallery-nav-btn {
+            background: #08122b;
+            color: #F1C039;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s, transform 0.15s;
+        }
+
+        .gallery-nav-btn:hover {
+            background: #162047;
+            transform: scale(1.1);
+        }
+
+        .gallery-nav-btn:disabled {
+            opacity: 0.3;
+            cursor: default;
+            transform: none;
+        }
+
+        /* ── LIGHTBOX ── */
+        .lightbox-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .lightbox-overlay.open {
+            display: flex;
+        }
+
+        .lightbox-img {
+            max-width: 90vw;
+            max-height: 85vh;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .lightbox-close {
+            position: fixed;
+            top: 20px;
+            right: 24px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .lightbox-close:hover { opacity: 1; }
+
+        .lightbox-prev, .lightbox-next {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 16px 12px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .lightbox-prev { left: 16px; }
+        .lightbox-next { right: 16px; }
+        .lightbox-prev:hover, .lightbox-next:hover { background: rgba(255,255,255,0.2); }
+
+        .lightbox-counter {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .gallery-slider img {
+                width: 220px;
+                height: 160px;
+            }
+        }
+    </style>
     <script src="script.js" defer></script>
 </head>
 <body>
@@ -32,16 +190,126 @@
     </nav>
 
     <section class="article-page">
-        <!-- Ez töltődik be dinamikusan a script.js-ből -->
         <div class="article-container">
             <p class="loading-text">Hír betöltése...</p>
         </div>
     </section>
+
+    <!-- LIGHTBOX -->
+    <div class="lightbox-overlay" id="lightbox" onclick="lightboxOverlayClick(event)">
+        <button class="lightbox-close" onclick="forceCloseLightbox()">&times;</button>
+        <button class="lightbox-prev" onclick="lightboxNav(-1)">&#8249;</button>
+        <img class="lightbox-img" id="lightbox-img" src="" alt="">
+        <button class="lightbox-next" onclick="lightboxNav(1)">&#8250;</button>
+        <div class="lightbox-counter" id="lightbox-counter"></div>
+    </div>
 
     <footer>
         <p>&copy; Közgazdász Klub. Minden jog fenntartva.</p>
         <a href="admin.html" class="admin-link">&#9679;</a>
     </footer>
 
+    <script>
+    // ── LIGHTBOX ──
+    let lightboxImages = [];
+    let lightboxIndex = 0;
+
+    function openLightbox(images, index) {
+        lightboxImages = images;
+        lightboxIndex = index;
+        updateLightbox();
+        document.getElementById('lightbox').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function forceCloseLightbox() {
+        document.getElementById('lightbox').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
+    function lightboxOverlayClick(e) {
+        if (e.target === document.getElementById('lightbox')) forceCloseLightbox();
+    }
+
+    function closeLightbox(e) {
+        forceCloseLightbox();
+    }
+
+    function lightboxNav(dir) {
+        lightboxIndex = (lightboxIndex + dir + lightboxImages.length) % lightboxImages.length;
+        updateLightbox();
+    }
+
+    function updateLightbox() {
+        document.getElementById('lightbox-img').src = lightboxImages[lightboxIndex];
+        document.getElementById('lightbox-counter').textContent = `${lightboxIndex + 1} / ${lightboxImages.length}`;
+    }
+
+    document.addEventListener('keydown', e => {
+        const lb = document.getElementById('lightbox');
+        if (!lb.classList.contains('open')) return;
+        if (e.key === 'ArrowLeft') lightboxNav(-1);
+        if (e.key === 'ArrowRight') lightboxNav(1);
+        if (e.key === 'Escape') { forceCloseLightbox(); }
+    });
+
+    // ── GALÉRIA CSÚSZKA ──
+    function scrollGallery(dir) {
+        const slider = document.getElementById('gallery-slider');
+        if (!slider) return;
+        slider.scrollBy({ left: dir * 300, behavior: 'smooth' });
+        setTimeout(updateGalleryNavBtns, 350);
+    }
+
+    function updateGalleryNavBtns() {
+        const slider = document.getElementById('gallery-slider');
+        const prevBtn = document.getElementById('gallery-prev');
+        const nextBtn = document.getElementById('gallery-next');
+        if (!slider || !prevBtn || !nextBtn) return;
+        prevBtn.disabled = slider.scrollLeft <= 0;
+        nextBtn.disabled = slider.scrollLeft + slider.clientWidth >= slider.scrollWidth - 2;
+    }
+
+    // Képek fokozatos betöltése (lazy load)
+    function initGalleryLazyLoad() {
+        const imgs = document.querySelectorAll('.gallery-slider img');
+        imgs.forEach(img => {
+            if (img.complete) {
+                img.classList.add('loaded');
+            } else {
+                img.addEventListener('load', () => img.classList.add('loaded'));
+                img.addEventListener('error', () => img.classList.add('loaded'));
+            }
+        });
+
+        // Csak az első 3 képet töltjük be azonnal, a többit scroll-ra
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    if (img.dataset.src) {
+                        img.src = img.dataset.src;
+                        img.removeAttribute('data-src');
+                    }
+                    observer.unobserve(img);
+                }
+            });
+        }, { rootMargin: '200px' });
+
+        imgs.forEach((img, i) => {
+            if (i >= 3 && img.src) {
+                img.dataset.src = img.src;
+                img.src = '';
+                observer.observe(img);
+            }
+        });
+    }
+
+    // Fut miután a galéria betöltődött
+    document.addEventListener('galleryLoaded', () => {
+        initGalleryLazyLoad();
+        updateGalleryNavBtns();
+    });
+    </script>
 </body>
 </html>

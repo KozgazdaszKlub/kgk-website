@@ -1,0 +1,12 @@
+# Környezeti változók – soha ne kerüljön a publikus repóba
+.env
+
+# Helyi projekt-kontextus (Claude Code) – csak ezen a gépen
+CLAUDE.md
+
+# Rendszer- és szerkesztő fájlok
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/

@@ -575,3 +575,332 @@ blockquote {
 .admin-link:hover {
     color: rgba(255,255,255,0.25);
 }
+
+/* ════════════════════════════════════════════
+   SKELETON LOADER
+════════════════════════════════════════════ */
+
+@keyframes shimmer {
+    0%   { background-position: -600px 0; }
+    100% { background-position: 600px 0; }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, #e0e0d8 25%, #ececE4 50%, #e0e0d8 75%);
+    background-size: 600px 100%;
+    animation: shimmer 1.4s infinite linear;
+    border-radius: 6px;
+}
+
+/* ── ELNÖKSÉG skeleton ── */
+.skeleton-member-card {
+    background: white;
+    padding: 30px 20px;
+    border-radius: 15px;
+    width: 250px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.skeleton-avatar {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+}
+
+.skeleton-line {
+    height: 14px;
+    width: 120px;
+}
+
+.skeleton-line.short {
+    width: 80px;
+    height: 12px;
+}
+
+/* ── HÍREK skeleton ── */
+.skeleton-news-item {
+    background: white;
+    padding: 25px;
+    border-left: 5px solid #e0e0d8;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.skeleton-news-title {
+    height: 18px;
+    width: 85%;
+}
+
+.skeleton-news-meta {
+    height: 11px;
+    width: 40%;
+}
+
+.skeleton-news-text {
+    height: 13px;
+    width: 100%;
+}
+
+.skeleton-news-text.last {
+    width: 65%;
+}
+
+.skeleton-news-link {
+    height: 13px;
+    width: 30%;
+    margin-top: 6px;
+}
+
+/* ── RENDEZVÉNYEK skeleton ── */
+.skeleton-event-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    display: flex;
+    width: 350px;
+    overflow: hidden;
+}
+
+.skeleton-event-date {
+    width: 70px;
+    min-width: 70px;
+    height: 90px;
+    border-radius: 0;
+    background: linear-gradient(90deg, #c8cdd8 25%, #d4d8e2 50%, #c8cdd8 75%);
+    background-size: 600px 100%;
+    animation: shimmer 1.4s infinite linear;
+}
+
+.skeleton-event-info {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    justify-content: center;
+}
+
+.skeleton-event-title {
+    height: 15px;
+    width: 75%;
+}
+
+.skeleton-event-desc {
+    height: 12px;
+    width: 90%;
+}
+
+/* ── MUNKACSOPORTOK skeleton ── */
+.skeleton-group-card {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    width: 280px;
+    border-top: 5px solid #e0e0d8;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.skeleton-group-title {
+    height: 16px;
+    width: 70%;
+    margin-top: 8px;
+}
+
+.skeleton-group-desc {
+    height: 12px;
+    width: 100%;
+}
+
+.skeleton-group-desc.last {
+    width: 55%;
+}
+
+/* ── RÓLUNK skeleton ── */
+.skeleton-rolunk-img {
+    width: 500px;
+    max-width: 100%;
+    height: 320px;
+    border-radius: 10px;
+}
+
+.skeleton-rolunk-text {
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.skeleton-rolunk-line {
+    height: 14px;
+    width: 100%;
+}
+
+.skeleton-rolunk-line.short {
+    width: 60%;
+}
+
+/* ── CIKK oldal skeleton ── */
+.skeleton-article-date {
+    height: 12px;
+    width: 120px;
+    margin-bottom: 12px;
+}
+
+.skeleton-article-title {
+    height: 28px;
+    width: 80%;
+    margin-bottom: 20px;
+}
+
+.skeleton-article-img {
+    width: 100%;
+    height: 300px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+}
+
+.skeleton-article-para {
+    height: 13px;
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.skeleton-article-para.short {
+    width: 70%;
+}
+
+/* --- SZPONZOROK SZEKCIÓ --- */
+#szponzorok {
+    background: #fff;
+    padding: 60px 0;
+}
+
+#szponzorok h2 {
+    text-align: center;
+    margin-bottom: 40px;
+    color: #08122b;
+}
+
+/* Statikus mód: középre igazítva */
+.sponsors-belt {
+    width: 100%;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.sponsors-track {
+    display: flex;
+    gap: 60px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: auto;
+    padding: 0 40px;
+    box-sizing: border-box;
+}
+
+/* Scrollozó mód: automatikusan kapcsol JS-ből */
+.sponsors-belt.scrolling {
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+}
+
+.sponsors-track.scrolling {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    width: max-content;
+    padding: 0;
+    animation: sponsors-scroll 24s linear infinite;
+}
+
+.sponsors-track.scrolling:hover {
+    animation-play-state: paused;
+}
+
+@keyframes sponsors-scroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+.sponsor-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sponsor-item img {
+    height: 56px;
+    width: auto;
+    max-width: 160px;
+    object-fit: contain;
+    filter: grayscale(100%);
+    opacity: 0.55;
+    transition: filter 0.3s, opacity 0.3s, transform 0.3s;
+}
+
+.sponsor-item:hover img {
+    filter: grayscale(0%);
+    opacity: 1;
+    transform: scale(1.08);
+}
+
+/* Tooltip */
+.sponsor-tooltip {
+    position: absolute;
+    bottom: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #08122b;
+    color: #F1C039;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 10;
+}
+
+.sponsor-item:hover .sponsor-tooltip {
+    opacity: 1;
+}
+
+/* Skeleton szponzor */
+.sponsor-skeleton {
+    width: 120px;
+    height: 50px;
+    flex-shrink: 0;
+    border-radius: 6px;
+}
+
+/* --- HÍREK KÁRTYA KÉP --- */
+.news-card-img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 14px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    background: #e8e8e0;
+    display: block;
+}
+
+.news-card-img.loaded {
+    opacity: 1;
+}

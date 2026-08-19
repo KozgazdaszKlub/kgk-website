@@ -1,0 +1,12 @@
+# Minden szöveges fájl LF sorvéggel tárolódjon a repóban és a munkapéldányban is.
+# Ez felülírja a core.autocrlf beállítást, így mindegy, ki melyik gépről dolgozik.
+* text=auto eol=lf
+
+# Bináris fájlokhoz a git ne nyúljon hozzá
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.webp binary
