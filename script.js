@@ -446,36 +446,90 @@ async function loadSponsors() {
     }
 
     function renderItems(list) {
-        return list.map(s => `
+        return list.map(s => {
+            // A logó mellé kirakjuk a nevet is: alapból rejtve, csak akkor látszik,
+            // ha a kép nem tölthető be (lásd initSponsorImages)
+            const logo = `
+                <img src="${s.logo_url}" alt="${s.name}" title="${s.name}">
+                <span class="sponsor-name-fallback">${s.name}</span>`;
+            return `
             <div class="sponsor-item">
                 ${s.website_url
-                    ? `<a href="${s.website_url}" target="_blank" rel="noopener noreferrer" class="sponsor-link">
-                           <img src="${s.logo_url}" alt="${s.name}" title="${s.name}" loading="lazy" onerror="this.closest('.sponsor-item').style.display='none';">
-                       </a>`
-                    : `<img src="${s.logo_url}" alt="${s.name}" title="${s.name}" loading="lazy" onerror="this.closest('.sponsor-item').style.display='none';">`
+                    ? `<a href="${s.website_url}" target="_blank" rel="noopener noreferrer" class="sponsor-link">${logo}</a>`
+                    : logo
                 }
                 <span class="sponsor-tooltip">${s.name}</span>
             </div>
-        `).join('');
+        `;
+        }).join('');
+    }
+
+    // Hibás logó esetén NEM tüntetjük el az egész szponzort, csak a képet rejtjük el,
+    // és helyette a szponzor nevét mutatjuk
+    function initSponsorImages(root) {
+        root.querySelectorAll('.sponsor-item img').forEach(img => {
+            if (img.dataset.kezelve) return;
+            img.dataset.kezelve = '1';
+
+            const hibaraNevet = () => {
+                const item = img.closest('.sponsor-item');
+                if (item) item.classList.add('no-logo');
+            };
+            img.addEventListener('error', hibaraNevet);
+            // Ha a kép már a figyelő felrakása előtt elhasalt volna
+            if (img.complete && img.naturalWidth === 0) hibaraNevet();
+
+            // Ha egy kép az időkorlát után érkezik meg, akkor is jó módba álljon a szalag
+            img.addEventListener('load', () => updateSponsorMode());
+        });
+    }
+
+    // Megvárjuk, hogy a logók tényleg betöltsenek (vagy hibázzanak), különben
+    // 0 széles képekkel mérnénk. Időkorláttal, hogy sose ragadjon be.
+    function imagesSettled(root, timeoutMs) {
+        const pending = [...root.querySelectorAll('.sponsor-item img')]
+            .filter(img => !img.complete)
+            .map(img => new Promise(resolve => {
+                img.addEventListener('load', resolve, { once: true });
+                img.addEventListener('error', resolve, { once: true });
+            }));
+        if (!pending.length) return Promise.resolve();
+        return Promise.race([
+            Promise.all(pending),
+            new Promise(resolve => setTimeout(resolve, timeoutMs))
+        ]);
+    }
+
+    // A DOM-hoz csak akkor nyúlunk, ha tényleg scrollozó módba kell váltani.
+    // Ha statikus marad, semmit nem írunk felül - így a már látszó logók nem villannak el.
+    function updateSponsorMode() {
+        if (track.classList.contains('scrolling')) return;
+
+        const beltWidth = belt ? belt.offsetWidth : window.innerWidth;
+        if (track.scrollWidth <= beltWidth * 0.85) return;
+
+        // Túl sok szponzor: scrollozó mód. A meglévő (már betöltött) elemeket nem
+        // cseréljük le, csak másolatot fűzünk mögéjük - így nincs újratöltés.
+        track.classList.add('scrolling');
+        if (belt) belt.classList.add('scrolling');
+
+        [...track.children].map(node => node.cloneNode(true)).forEach(masolat => {
+            const img = masolat.querySelector('img');
+            if (img) delete img.dataset.kezelve;
+            track.appendChild(masolat);
+        });
+        initSponsorImages(track);
     }
 
     // Először statikus középre igazított módban rendereljük
     track.classList.remove('scrolling');
     if (belt) belt.classList.remove('scrolling');
     track.innerHTML = renderItems(sponsors);
+    initSponsorImages(track);
 
-    // Egy frame után megnézzük kell-e scroll
-    requestAnimationFrame(() => {
-        const beltWidth = belt ? belt.offsetWidth : window.innerWidth;
-        const trackWidth = track.scrollWidth;
-
-        if (trackWidth > beltWidth * 0.85) {
-            // Túl sok szponzor: scrollozó módba váltunk, duplikálással
-            track.classList.add('scrolling');
-            if (belt) belt.classList.add('scrolling');
-            track.innerHTML = renderItems([...sponsors, ...sponsors]);
-        }
-    });
+    // Csak a képek betöltése után döntünk a módról
+    await imagesSettled(track, 1500);
+    updateSponsorMode();
 }
 
 // ============================================================

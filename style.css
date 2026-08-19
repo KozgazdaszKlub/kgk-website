@@ -857,6 +857,40 @@ blockquote {
     transform: scale(1.08);
 }
 
+/* A logó (és a helyette megjelenő név) sose kapjon link-aláhúzást */
+.sponsor-link {
+    text-decoration: none;
+}
+
+/* Név-fallback: ha a logó képe nem tölthető be, a kép helyén a szponzor neve jelenik meg */
+.sponsor-name-fallback {
+    display: none;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    line-height: 56px;
+    max-width: 160px;
+    color: #08122b;
+    opacity: 0.55;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.3s;
+}
+
+.sponsor-item.no-logo img {
+    display: none;
+}
+
+.sponsor-item.no-logo .sponsor-name-fallback {
+    display: block;
+}
+
+.sponsor-item:hover .sponsor-name-fallback {
+    opacity: 1;
+}
+
 /* Tooltip */
 .sponsor-tooltip {
     position: absolute;
