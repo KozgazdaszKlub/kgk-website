@@ -1828,7 +1828,7 @@ async function loadElnokseg() {
     }
     list.innerHTML = data.map(m => `
         <div class="item-card">
-            <img class="item-card-img" src="${m.image_url || 'images/placeholder.jpg'}" alt="${m.name}" onerror="this.onerror=null;this.src='images/placeholder.jpg';">
+            <img class="item-card-img" src="${m.image_url || 'images/placeholder.svg'}" alt="${m.name}" onerror="this.onerror=null;this.src='images/placeholder.svg';">
             <div class="item-card-info">
                 <div class="item-card-title">${m.name}</div>
                 <div class="item-card-meta">${m.position}</div>

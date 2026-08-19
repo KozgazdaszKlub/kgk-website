@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="Nincs feltöltött kép">
+  <!-- KGK placeholder – elnökségi tag kép nélkül.
+       Négyzetes, mert a megjelenítés mindkét helyen körre vágja
+       (style.css .member-card img 150px, admin.html .item-card-img 52px). -->
+  <rect width="200" height="200" fill="#08122b"/>
+  <!-- Fej -->
+  <circle cx="100" cy="76" r="30" fill="#F1C039"/>
+  <!-- Váll – az alja szándékosan a képkeretig fut, hogy körre vágva is kitöltse -->
+  <path d="M100 112c-38 0-68 30-74 88h148c-6-58-36-88-74-88z" fill="#F1C039"/>
+</svg>

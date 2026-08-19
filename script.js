@@ -174,7 +174,7 @@ async function loadTeam() {
     if (!members.length) { teamGrid.innerHTML = emptyMessage('Hamarosan bemutatjuk az elnökséget...'); return; }
     teamGrid.innerHTML = members.map((m, i) => `
         <div class="member-card hidden" style="transition-delay: ${i * 200}ms">
-            <img src="${m.image_url || 'images/placeholder.jpg'}" alt="${m.name}" onerror="this.onerror=null;this.src='images/placeholder.jpg';">
+            <img src="${m.image_url || 'images/placeholder.svg'}" alt="${m.name}" onerror="this.onerror=null;this.src='images/placeholder.svg';">
             <h3>${m.name}</h3>
             <p>${m.position}</p>
             ${(m.facebook_url || m.instagram_url || m.linkedin_url) ? `
@@ -391,7 +391,7 @@ async function loadArticle() {
     if (galleryImages.length > 0) {
         const urls = galleryImages.map(img => img.image_url);
         const imgTags = urls.map((url, i) => `
-            <img src="${url}" alt="Galéria kép ${i+1}" onclick="openLightbox(${JSON.stringify(urls)}, ${i})" onerror="this.style.display='none';">
+            <img src="${url}" alt="Galéria kép ${i+1}" onclick='openLightbox(${JSON.stringify(urls).replace(/'/g,"&#39;")}, ${i})' onerror="this.style.display='none';">
         `).join('');
 
         galleryHtml = `
