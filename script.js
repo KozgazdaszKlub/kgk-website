@@ -4,20 +4,40 @@
 const SUPABASE_URL = 'https://agdstsliixwysbjedppu.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_LXqTP-dPmfwWvd0IZTzrMw_tjYERBe9';
 
+// Ha a hivas `count: true`-t kap, a visszateresi ertek { data, total } objektum,
+// minden mas esetben - mint eddig - egy sima tomb.
 async function supabaseFetch(table, options = {}) {
-    const { select = '*', order = null, limit = null, eq = null } = options;
+    const { select = '*', order = null, limit = null, eq = null, offset = null, count = false } = options;
     let url = `${SUPABASE_URL}/rest/v1/${table}?select=${select}`;
     if (order) url += `&order=${order}`;
     if (limit) url += `&limit=${limit}`;
+    if (offset) url += `&offset=${offset}`;
     if (eq) url += `&${eq.column}=eq.${eq.value}`;
-    const res = await fetch(url, {
-        headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        }
-    });
-    if (!res.ok) { console.error(`Supabase hiba (${table}):`, res.status); return []; }
-    return res.json();
+
+    const headers = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+    };
+    // A lapozashoz tudnunk kell, osszesen hany sor van - ezt a Prefer fejlec keri le
+    if (count) headers['Prefer'] = 'count=exact';
+
+    const res = await fetch(url, { headers });
+
+    // 416-ot csak lapozasnal kaphatunk: a kert oldal a lista vegen tul van.
+    // Ez nem hiba - a valos darabszam ilyenkor is megjon a Content-Range fejlecben.
+    const overRange = count && res.status === 416;
+
+    if (!res.ok && !overRange) {
+        console.error(`Supabase hiba (${table}):`, res.status);
+        return count ? { data: [], total: 0 } : [];
+    }
+
+    const data = overRange ? [] : await res.json();
+    if (!count) return data;
+
+    // A teljes darabszam a Content-Range fejlecben erkezik, pl. "0-8/42" vagy "*/42"
+    const total = parseInt((res.headers.get('content-range') || '').split('/')[1], 10);
+    return { data, total: Number.isFinite(total) ? total : data.length };
 }
 
 // ============================================================
@@ -262,18 +282,11 @@ async function loadEvents() {
 }
 
 // ============================================================
-// HÍREK BETÖLTÉSE (főoldalon)
+// HÍR KÁRTYA (közös a főoldal és a hírarchívum között)
 // ============================================================
-async function loadNews() {
-    const newsGrid = document.querySelector('.news-grid');
-    if (!newsGrid) return;
-
-    newsGrid.innerHTML = skeletonNewsItems(3);
-
-    const news = await supabaseFetch('news', { order: 'date.desc', limit: 3 });
-    if (!news.length) { newsGrid.innerHTML = emptyMessage('Hamarosan érkeznek a híreink...'); return; }
-    newsGrid.innerHTML = news.map((n, i) => `
-        <article class="news-item hidden" style="transition-delay: ${i * 200}ms">
+function newsCardHtml(n, delay = 0) {
+    return `
+        <article class="news-item hidden" style="transition-delay: ${delay}ms">
             ${n.image_url ? `<img
                 class="news-card-img"
                 data-src="${n.image_url}"
@@ -286,9 +299,12 @@ async function loadNews() {
             <p>${n.excerpt || (n.content || '').replace(/<[^>]+>/g, '').substring(0, 120)}...</p>
             <a href="hir.html?slug=${n.slug}">Tovább olvasom &rarr;</a>
         </article>
-    `).join('');
+    `;
+}
 
-    // Lazy load a news kártya képeknél
+// Lazy load a hírkártya képeknél: csak akkor töltődnek le, ha a képernyőre gördülnek
+function initNewsCardLazyLoad(container) {
+    if (!container) return;
     const imgObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -301,8 +317,109 @@ async function loadNews() {
         });
     }, { rootMargin: '200px' });
 
-    newsGrid.querySelectorAll('img[data-src]').forEach(img => imgObserver.observe(img));
+    container.querySelectorAll('img[data-src]').forEach(img => imgObserver.observe(img));
+}
+
+// ============================================================
+// HÍREK BETÖLTÉSE (főoldalon)
+// ============================================================
+async function loadNews() {
+    const newsGrid = document.querySelector('.news-grid');
+    if (!newsGrid) return;
+
+    newsGrid.innerHTML = skeletonNewsItems(3);
+
+    const news = await supabaseFetch('news', { order: 'date.desc', limit: 3 });
+    if (!news.length) { newsGrid.innerHTML = emptyMessage('Hamarosan érkeznek a híreink...'); return; }
+    newsGrid.innerHTML = news.map((n, i) => newsCardHtml(n, i * 200)).join('');
+
+    initNewsCardLazyLoad(newsGrid);
     initObserver();
+}
+
+// ============================================================
+// HÍRARCHÍVUM (hirek.html) – lapozható lista
+// ============================================================
+const NEWS_PER_PAGE = 9;
+
+// Egy oldalnyi hír lekérése + a hírek teljes darabszáma
+async function fetchNewsPage(page) {
+    return supabaseFetch('news', {
+        order: 'date.desc',
+        limit: NEWS_PER_PAGE,
+        offset: (page - 1) * NEWS_PER_PAGE,
+        count: true
+    });
+}
+
+// Melyik oldalszámok látszódjanak: az első, az utolsó és az aktuális körüliek,
+// a kimaradó részek helyére "…" kerül
+function buildPageList(current, total) {
+    const wanted = [1, total, current - 1, current, current + 1];
+    const pages = [...new Set(wanted)].filter(p => p >= 1 && p <= total).sort((a, b) => a - b);
+    const list = [];
+    pages.forEach((p, i) => {
+        if (i > 0 && p - pages[i - 1] > 1) list.push('...');
+        list.push(p);
+    });
+    return list;
+}
+
+function renderPagination(container, page, totalPages) {
+    if (!container) return;
+    if (totalPages <= 1) { container.innerHTML = ''; return; }
+
+    const prev = page > 1
+        ? `<a class="page-btn" href="hirek.html?page=${page - 1}">&laquo; Előző</a>`
+        : `<span class="page-btn disabled">&laquo; Előző</span>`;
+
+    const next = page < totalPages
+        ? `<a class="page-btn" href="hirek.html?page=${page + 1}">Következő &raquo;</a>`
+        : `<span class="page-btn disabled">Következő &raquo;</span>`;
+
+    const numbers = buildPageList(page, totalPages).map(p => {
+        if (p === '...') return `<span class="page-gap">…</span>`;
+        if (p === page) return `<span class="page-num active" aria-current="page">${p}</span>`;
+        return `<a class="page-num" href="hirek.html?page=${p}" aria-label="${p}. oldal">${p}</a>`;
+    }).join('');
+
+    container.innerHTML = `${prev}<div class="page-numbers">${numbers}</div>${next}`;
+}
+
+async function loadNewsArchive() {
+    const grid = document.querySelector('#hirek-archivum .news-grid');
+    const pager = document.getElementById('pagination');
+    if (!grid) return;
+
+    grid.innerHTML = skeletonNewsItems(NEWS_PER_PAGE);
+    if (pager) pager.innerHTML = '';
+
+    // Az oldalszám az URL-ből jön (hirek.html?page=2); hiányzó vagy hibás érték = első oldal
+    let page = parseInt(new URLSearchParams(window.location.search).get('page'), 10);
+    if (!Number.isFinite(page) || page < 1) page = 1;
+
+    let result = await fetchNewsPage(page);
+    const totalPages = Math.max(1, Math.ceil(result.total / NEWS_PER_PAGE));
+
+    // Ha az URL-ben nagyobb oldalszám szerepel, mint ahány oldal van, az utolsót mutatjuk
+    if (page > totalPages) {
+        page = totalPages;
+        result = await fetchNewsPage(page);
+    }
+
+    if (!result.data.length) {
+        grid.innerHTML = emptyMessage('Még nincs egyetlen hírünk sem. Nézz vissza hamarosan!');
+        if (pager) pager.innerHTML = '';
+        return;
+    }
+
+    // Soronként (3 kártya) lépcsőzik be az animáció
+    grid.innerHTML = result.data.map((n, i) => newsCardHtml(n, (i % 3) * 200)).join('');
+    initNewsCardLazyLoad(grid);
+    initObserver();
+
+    renderPagination(pager, page, totalPages);
+    if (totalPages > 1) document.title = `Híreink – ${page}. oldal | KGK`;
 }
 
 // ============================================================
@@ -362,6 +479,25 @@ async function loadSponsors() {
 }
 
 // ============================================================
+// NEM LÉTEZŐ HÍR (hir.html)
+// ============================================================
+function showArticleNotFound(container) {
+    document.title = 'Hír nem található | KGK';
+    container.innerHTML = `
+        <div class="article-missing">
+            <div class="article-missing-badge">?</div>
+            <h1>Ez a hír nem található</h1>
+            <p>Lehet, hogy elírtuk a linket, vagy a hír időközben lekerült az oldalról.
+               A hírarchívumban minden korábbi hírünket megtalálod.</p>
+            <div class="article-missing-actions">
+                <a href="hirek.html" class="btn">Összes hír megtekintése</a>
+                <a href="index.html" class="article-missing-link">Vissza a főoldalra</a>
+            </div>
+        </div>
+    `;
+}
+
+// ============================================================
 // HÍR OLDAL BETÖLTÉSE (hir.html)
 // ============================================================
 async function loadArticle() {
@@ -373,10 +509,10 @@ async function loadArticle() {
 
     const params = new URLSearchParams(window.location.search);
     const slug = params.get('slug');
-    if (!slug) { articleContainer.innerHTML = '<p>Hír nem található.</p>'; return; }
+    if (!slug) { showArticleNotFound(articleContainer); return; }
     const results = await supabaseFetch('news', { eq: { column: 'slug', value: slug } });
     const article = results[0];
-    if (!article) { articleContainer.innerHTML = '<p>Ez a hír nem létezik.</p>'; return; }
+    if (!article) { showArticleNotFound(articleContainer); return; }
     document.title = `${article.title} | KGK`;
 
     // Galéria képek betöltése
@@ -496,6 +632,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const isArticlePage = document.querySelector('.article-container') !== null;
     const isIndexPage = document.querySelector('#hero') !== null;
+    const isNewsArchivePage = document.querySelector('#hirek-archivum') !== null;
 
     if (isIndexPage) {
         const loaders = [loadAbout, loadTeam, loadGroups, loadEvents, loadNews, loadGolyaPdf, loadSponsors];
@@ -504,5 +641,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (isArticlePage) {
         await loadArticle();
+    }
+
+    if (isNewsArchivePage) {
+        await loadNewsArchive().catch(err => console.error('loadNewsArchive hiba:', err));
     }
 });

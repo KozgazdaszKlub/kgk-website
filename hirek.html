@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Híreink | KGK</title>
+    <link rel="icon" type="image/x-icon" href="images/Copy of kgk_feher.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">
+            <a href="index.html">
+                <img src="images/Copy of kgk_feher.png" alt="KGK Logo">
+            </a>
+        </div>
+        <div class="hamburger">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="index.html#rolunk">Rólunk</a></li>
+            <li><a href="index.html#elnokseg">Elnökség</a></li>
+            <li><a href="index.html#munkacsoportok">Munkacsoportok</a></li>
+            <li><a href="index.html#rendezvenyek">Rendezvényeink</a></li>
+            <li><a href="index.html#hirek">Híreink</a></li>
+            <li><a href="index.html#kapcsolat" class="btn-contact">Elérhetőségek</a></li>
+        </ul>
+    </nav>
+
+    <!-- HÍRARCHÍVUM – dinamikusan töltődik Supabase-ből, lapozással -->
+    <section id="hirek-archivum">
+        <h2>Híreink</h2>
+        <p class="subtitle archive-intro">Böngészd végig minden korábbi hírünket és beszámolónkat.</p>
+
+        <div class="news-grid">
+            <p class="loading-text">Betöltés...</p>
+        </div>
+
+        <div class="pagination" id="pagination"></div>
+    </section>
+
+    <footer id="kapcsolat">
+        <div class="footer-content">
+            <img src="images/Copy of kgk_feher.png" alt="KGK Logo Small" class="footer-logo">
+            <p>&copy; Közgazdász Klub - Kolozsvár</p>
+            <p>Email: <a href="mailto:kozgazdaszklubkgk@gmail.com">kozgazdaszklubkgk@gmail.com</a></p>
+            <div class="footer-socials">
+                <a href="https://www.facebook.com/kozgazdaszklub" target="_blank">Facebook</a>
+                <a href="https://www.instagram.com/kozgazdaszklub" target="_blank">Instagram</a>
+                <a href="https://www.instagram.com/_kgk_x_/" target="_blank">KGKx Instagram</a>
+                <a href="#" style="opacity: 0.5; cursor: default;" title="Hamarosan...">LinkedIn (Hamarosan)</a>
+            </div>
+        </div>
+        <a href="admin.html" class="admin-link">&#9679;</a>
+    </footer>
+
+</body>
+</html>

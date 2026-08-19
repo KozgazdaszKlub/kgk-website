@@ -904,3 +904,209 @@ blockquote {
 .news-card-img.loaded {
     opacity: 1;
 }
+
+
+/* ════════════════════════════════════════════
+   HÍRARCHÍVUM (hirek.html) – LAPOZÁS
+════════════════════════════════════════════ */
+
+.archive-intro {
+    color: #666;
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+/* "Összes hír megtekintése" gomb a főoldali hírek alatt */
+.news-more {
+    margin-top: 25px;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 45px;
+}
+
+.page-numbers {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.page-btn,
+.page-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-decoration: none;
+    border-radius: 6px;
+    box-sizing: border-box;
+    transition: background-color 0.25s, border-color 0.25s, color 0.25s, transform 0.2s;
+}
+
+/* Előző / Következő gombok */
+.page-btn {
+    background-color: #08122b;
+    color: #F1C039;
+    border: 2px solid #08122b;
+    padding: 10px 18px;
+}
+
+.page-btn:hover {
+    background-color: #162047;
+    border-color: #162047;
+    transform: translateY(-2px);
+}
+
+.page-btn.disabled {
+    background-color: transparent;
+    border-color: #dcdccf;
+    color: #b3b3a6;
+    cursor: default;
+    transform: none;
+}
+
+/* Oldalszámok */
+.page-num {
+    width: 40px;
+    height: 40px;
+    background: #fff;
+    color: #08122b;
+    border: 2px solid #e2e2d6;
+}
+
+.page-num:hover {
+    border-color: #08122b;
+    transform: translateY(-2px);
+}
+
+.page-num.active {
+    background-color: #F1C039;
+    border-color: #F1C039;
+    color: #08122b;
+    cursor: default;
+    transform: none;
+}
+
+.page-gap {
+    color: #aaa;
+    font-weight: 700;
+    padding: 0 2px;
+    user-select: none;
+}
+
+@media (max-width: 768px) {
+    .pagination { gap: 8px; }
+    .page-btn { padding: 9px 14px; font-size: 0.78rem; }
+    .page-num { width: 36px; height: 36px; font-size: 0.8rem; }
+}
+
+/* ════════════════════════════════════════════
+   404 OLDAL + NEM LÉTEZŐ HÍR
+════════════════════════════════════════════ */
+
+.notfound-page {
+    min-height: 65vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 100px 20px;
+}
+
+.notfound-box {
+    background: #fff;
+    width: 100%;
+    max-width: 560px;
+    padding: 50px 40px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    box-sizing: border-box;
+}
+
+.notfound-box .notfound-code {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 4.5rem;
+    line-height: 1;
+    letter-spacing: 4px;
+    color: #F1C039;
+    margin: 0 0 10px;
+}
+
+.notfound-box h1 {
+    font-size: 1.5rem;
+    color: #08122b;
+    margin: 0 0 14px;
+}
+
+.notfound-box p {
+    color: #666;
+    line-height: 1.7;
+    margin: 0 0 30px;
+}
+
+.notfound-actions,
+.article-missing-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.notfound-link,
+.article-missing-link {
+    color: #498CFF;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.notfound-link:hover,
+.article-missing-link:hover {
+    text-decoration: underline;
+}
+
+/* Nem létező hír a hir.html-en – az article-container belsejébe kerül */
+.article-missing {
+    text-align: center;
+    padding: 50px 20px 60px;
+}
+
+.article-missing-badge {
+    width: 76px;
+    height: 76px;
+    margin: 0 auto 24px;
+    border-radius: 50%;
+    background-color: #08122b;
+    color: #F1C039;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 2.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.article-missing h1 {
+    font-size: 1.5rem;
+    color: #08122b;
+    margin: 0 0 14px;
+}
+
+.article-missing p {
+    color: #666;
+    line-height: 1.7;
+    max-width: 460px;
+    margin: 0 auto 30px;
+}
+
+@media (max-width: 768px) {
+    .notfound-box { padding: 40px 24px; }
+    .notfound-box .notfound-code { font-size: 3.4rem; }
+}
