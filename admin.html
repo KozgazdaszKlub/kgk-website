@@ -938,7 +938,7 @@
 <div id="dashboard">
     <div class="topbar">
         <div style="display:flex;align-items:center;gap:12px">
-            <button class="mobile-menu-btn" onclick="openMobileNav()">
+            <button class="mobile-menu-btn" aria-label="Menü megnyitása" aria-expanded="false" aria-controls="mobile-sidebar" onclick="openMobileNav()">
                 <i class="fas fa-bars"></i>
             </button>
             <div class="topbar-brand">KGK ADMIN</div>
@@ -954,7 +954,7 @@
     <div class="mobile-sidebar" id="mobile-sidebar">
         <div class="mobile-sidebar-header">
             <span class="mobile-sidebar-brand">KGK ADMIN</span>
-            <button class="mobile-sidebar-close" onclick="closeMobileNav()"><i class="fas fa-times"></i></button>
+            <button class="mobile-sidebar-close" aria-label="Menü bezárása" onclick="closeMobileNav()"><i class="fas fa-times"></i></button>
         </div>
         <div class="sidebar-label">Tartalom</div>
         <button class="sidebar-btn active" onclick="switchTabMobile('hirek', this)">
@@ -1204,10 +1204,10 @@
 
 <!-- HÍR modal -->
 <div class="modal-overlay" id="modal-hir">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-hir-title">
         <div class="modal-header">
             <h3 class="modal-title" id="modal-hir-title">Új hír</h3>
-            <button class="modal-close" onclick="closeModal('hir')"><i class="fas fa-times"></i></button>
+            <button class="modal-close" aria-label="Bezárás" onclick="closeModal('hir')"><i class="fas fa-times"></i></button>
         </div>
         <input type="hidden" id="hir-id">
         <div class="form-group">
@@ -1270,10 +1270,10 @@
 
 <!-- TAG modal -->
 <div class="modal-overlay" id="modal-tag">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-tag-title">
         <div class="modal-header">
             <h3 class="modal-title" id="modal-tag-title">Új elnökségi tag</h3>
-            <button class="modal-close" onclick="closeModal('tag')"><i class="fas fa-times"></i></button>
+            <button class="modal-close" aria-label="Bezárás" onclick="closeModal('tag')"><i class="fas fa-times"></i></button>
         </div>
         <input type="hidden" id="tag-id">
         <div class="form-group">
@@ -1314,10 +1314,10 @@
 
 <!-- ESEMÉNY modal -->
 <div class="modal-overlay" id="modal-esemeny">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-esemeny-title">
         <div class="modal-header">
             <h3 class="modal-title" id="modal-esemeny-title">Új rendezvény</h3>
-            <button class="modal-close" onclick="closeModal('esemeny')"><i class="fas fa-times"></i></button>
+            <button class="modal-close" aria-label="Bezárás" onclick="closeModal('esemeny')"><i class="fas fa-times"></i></button>
         </div>
         <input type="hidden" id="esemeny-id">
         <div class="form-group">
@@ -1341,10 +1341,10 @@
 
 <!-- MUNKACSOPORT modal -->
 <div class="modal-overlay" id="modal-munkacsoport">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-munkacsoport-title">
         <div class="modal-header">
             <h3 class="modal-title" id="modal-munkacsoport-title">Új munkacsoport</h3>
-            <button class="modal-close" onclick="closeModal('munkacsoport')"><i class="fas fa-times"></i></button>
+            <button class="modal-close" aria-label="Bezárás" onclick="closeModal('munkacsoport')"><i class="fas fa-times"></i></button>
         </div>
         <input type="hidden" id="munkacsoport-id">
         <div class="form-group">
@@ -1384,10 +1384,10 @@
 
 <!-- SZPONZOR modal -->
 <div class="modal-overlay" id="modal-szponzor">
-    <div class="modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-szponzor-title">
         <div class="modal-header">
             <h3 class="modal-title" id="modal-szponzor-title">Új szponzor</h3>
-            <button class="modal-close" onclick="closeModal('szponzor')"><i class="fas fa-times"></i></button>
+            <button class="modal-close" aria-label="Bezárás" onclick="closeModal('szponzor')"><i class="fas fa-times"></i></button>
         </div>
         <input type="hidden" id="szponzor-id">
         <div class="form-group">
@@ -1416,9 +1416,9 @@
 
 <!-- TÖRLÉS megerősítő -->
 <div class="confirm-overlay" id="confirm-overlay">
-    <div class="confirm-box">
+    <div class="confirm-box" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
         <i class="fas fa-trash-alt"></i>
-        <h3>Biztosan törlöd?</h3>
+        <h3 id="confirm-title">Biztosan törlöd?</h3>
         <p>Ez a művelet nem visszavonható.</p>
         <div class="confirm-btns">
             <button class="btn-confirm-cancel" onclick="closeConfirm()">Mégse</button>
@@ -2883,6 +2883,145 @@ function switchTabMobile(name, btn) {
     });
     closeMobileNav();
 }
+
+// ════════════════════════════════════════════
+// AKADÁLYMENTESÍTÉS – MODÁL FÓKUSZ KEZELÉS
+// ════════════════════════════════════════════
+// A modálok CSS-ben nem display:none-ok, csak áttetszők (opacity + pointer-events),
+// ezért zárt állapotban is beleesnének a Tab-sorrendbe. Az `inert` attribútum ezt
+// megszünteti, vizuálisan viszont semmit nem változtat. Régebbi böngésző egyszerűen
+// figyelmen kívül hagyja, tehát nem tud elrontani semmit.
+
+// Ide tér vissza a fókusz a modál bezárásakor
+let lastFocusedElement = null;
+
+const FOCUSABLE_SELECTOR = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[contenteditable="true"]',
+    '[tabindex]:not([tabindex="-1"])'
+].join(', ');
+
+// Csak azok az elemek kellenek, amik ténylegesen megjelennek: a rejtett inputok
+// és az épp elrejtett előnézetek / gombok kimaradnak a sorból
+function getFocusable(container) {
+    return Array.from(container.querySelectorAll(FOCUSABLE_SELECTOR))
+        .filter(el => el.type !== 'hidden' && el.getClientRects().length > 0);
+}
+
+// Megnyitáskor a modál első fókuszálható elemére ugrunk
+function trapFocus(modalElement) {
+    if (!modalElement) return;
+    const focusable = getFocusable(modalElement);
+    if (focusable.length) focusable[0].focus();
+}
+
+// Bezáráskor oda megy vissza a fókusz, ahonnan a modált megnyitották.
+// Ha az az elem közben eltűnt (pl. mentés után újratöltött lista), nem csinálunk semmit.
+function restoreFocus() {
+    if (lastFocusedElement && document.contains(lastFocusedElement)) {
+        lastFocusedElement.focus();
+    }
+    lastFocusedElement = null;
+}
+
+// Az épp nyitott modál. A törlés-megerősítő van legfelül, ezért az elsőbbséget élvez.
+function getOpenOverlay() {
+    return document.querySelector('.confirm-overlay.open') ||
+           document.querySelector('.modal-overlay.open');
+}
+
+document.addEventListener('keydown', e => {
+    const overlay = getOpenOverlay();
+    if (!overlay) return;
+
+    // Escape zárja a nyitott modált
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        if (overlay.id === 'confirm-overlay') closeConfirm();
+        else closeModal(overlay.id.replace('modal-', ''));
+        return;
+    }
+
+    // Tab / Shift+Tab: a fókusz nem hagyhatja el a modált
+    if (e.key !== 'Tab') return;
+    const focusable = getFocusable(overlay);
+    if (!focusable.length) { e.preventDefault(); return; }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const outside = !overlay.contains(document.activeElement);
+
+    if (e.shiftKey && (outside || document.activeElement === first)) {
+        e.preventDefault();
+        last.focus();
+    } else if (!e.shiftKey && (outside || document.activeElement === last)) {
+        e.preventDefault();
+        first.focus();
+    }
+});
+
+// A meglévő nyitó/záró függvényeket nem írjuk át, csak becsomagoljuk őket –
+// így a szponzor-modál külön ága is automatikusan megkapja a fókuszkezelést.
+const _a11yOpenModal = openModal;
+openModal = function(type, data = null) {
+    lastFocusedElement = document.activeElement;
+    _a11yOpenModal(type, data);
+    const overlay = document.getElementById(`modal-${type}`);
+    if (overlay) {
+        overlay.removeAttribute('inert');
+        trapFocus(overlay);
+    }
+};
+
+const _a11yCloseModal = closeModal;
+closeModal = function(type) {
+    _a11yCloseModal(type);
+    const overlay = document.getElementById(`modal-${type}`);
+    if (overlay) overlay.setAttribute('inert', '');
+    restoreFocus();
+};
+
+const _a11yConfirmDelete = confirmDelete;
+confirmDelete = function(table, id, imageUrl = null, bucket = null) {
+    lastFocusedElement = document.activeElement;
+    _a11yConfirmDelete(table, id, imageUrl, bucket);
+    const overlay = document.getElementById('confirm-overlay');
+    overlay.removeAttribute('inert');
+    trapFocus(overlay);
+};
+
+const _a11yCloseConfirm = closeConfirm;
+closeConfirm = function() {
+    _a11yCloseConfirm();
+    document.getElementById('confirm-overlay').setAttribute('inert', '');
+    restoreFocus();
+};
+
+// Induláskor minden zárt modál kikerül a Tab-sorrendből
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.modal-overlay, .confirm-overlay').forEach(overlay => {
+        if (!overlay.classList.contains('open')) overlay.setAttribute('inert', '');
+    });
+});
+
+// A mobil menü gomb aria-expanded állapotát szinkronban tartjuk a sidebarral
+const _a11yOpenMobileNav = openMobileNav;
+openMobileNav = function() {
+    _a11yOpenMobileNav();
+    const btn = document.querySelector('.mobile-menu-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+};
+
+const _a11yCloseMobileNav = closeMobileNav;
+closeMobileNav = function() {
+    _a11yCloseMobileNav();
+    const btn = document.querySelector('.mobile-menu-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+};
 </script>
 </body>
 </html>

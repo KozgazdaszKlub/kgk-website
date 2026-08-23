@@ -724,14 +724,39 @@ function initHamburger() {
     const hamburger = document.querySelector('.hamburger');
     const navMenu = document.querySelector('.nav-links');
     if (!hamburger) return;
-    hamburger.addEventListener('click', () => {
-        hamburger.classList.toggle('active');
+
+    // Az aria-expanded és az aria-label a képernyőolvasónak mondja meg, hogy
+    // a menü épp nyitva van-e. Egy helyen frissítjük, hogy egérrel és
+    // billentyűzettel is ugyanaz az állapot alakuljon ki.
+    const syncAria = isOpen => {
+        hamburger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        hamburger.setAttribute('aria-label', isOpen ? 'Menü bezárása' : 'Menü megnyitása');
+    };
+
+    const toggleMenu = () => {
+        const isOpen = hamburger.classList.toggle('active');
         navMenu.classList.toggle('active');
-    });
-    document.querySelectorAll('.nav-links a').forEach(n => n.addEventListener('click', () => {
+        syncAria(isOpen);
+    };
+
+    const closeMenu = () => {
         hamburger.classList.remove('active');
         navMenu.classList.remove('active');
-    }));
+        syncAria(false);
+    };
+
+    hamburger.addEventListener('click', toggleMenu);
+
+    // A hamburger <div>, nem <button>, ezért a billentyűzetes aktiválást
+    // nekünk kell megvalósítanunk: Enter és Space is nyissa/zárja a menüt.
+    hamburger.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault(); // a Space alapból görgetné az oldalt
+            toggleMenu();
+        }
+    });
+
+    document.querySelectorAll('.nav-links a').forEach(n => n.addEventListener('click', closeMenu));
 }
 
 // ============================================================
