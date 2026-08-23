@@ -971,6 +971,9 @@
         <button class="sidebar-btn" onclick="switchTabMobile('rolunk', this)">
             <i class="fas fa-info-circle"></i> Rólunk
         </button>
+        <button class="sidebar-btn" onclick="switchTabMobile('statisztikak', this)">
+            <i class="fas fa-chart-line"></i> Statisztikák
+        </button>
         <button class="sidebar-btn" onclick="switchTabMobile('golya', this)">
             <i class="fas fa-file-pdf"></i> Gólya PDF
         </button>
@@ -996,6 +999,9 @@
             </button>
             <button class="sidebar-btn" onclick="switchTab('rolunk', this)">
                 <i class="fas fa-info-circle"></i> Rólunk
+            </button>
+            <button class="sidebar-btn" onclick="switchTab('statisztikak', this)">
+                <i class="fas fa-chart-line"></i> Statisztikák
             </button>
             <button class="sidebar-btn" onclick="switchTab('golya', this)">
                 <i class="fas fa-file-pdf"></i> Gólya PDF
@@ -1079,6 +1085,75 @@
                         </div>
                     </div>
                     <button class="btn-save" onclick="saveRolunk()" style="width:100%;margin-top:8px">Mentés</button>
+                </div>
+            </div>
+
+            <!-- STATISZTIKÁK & GÓLYÁKNAK SZÖVEG -->
+            <div class="tab-panel" id="tab-statisztikak">
+                <div class="panel-header">
+                    <h2 class="panel-title">Statisztikák &amp; Gólyáknak szöveg</h2>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;">
+
+                    <div style="font-size:0.7rem;font-weight:600;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Statisztikák a főoldalon</div>
+                    <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 18px;line-height:1.5">A négy szám a főoldal sötétkék sávjában jelenik meg. A látogatónál 0-ról fut fel a megadott számig, és egy „+” jel kerül a végére.</p>
+
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:0 0 130px;">
+                            <label>1. szám</label>
+                            <input type="number" id="sc-stat-1-value" min="0" step="1" placeholder="15">
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:200px;">
+                            <label>1. felirat</label>
+                            <input type="text" id="sc-stat-1-label" placeholder="Év Tapasztalat">
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:0 0 130px;">
+                            <label>2. szám</label>
+                            <input type="number" id="sc-stat-2-value" min="0" step="1" placeholder="500">
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:200px;">
+                            <label>2. felirat</label>
+                            <input type="text" id="sc-stat-2-label" placeholder="Aktív Tag">
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:0 0 130px;">
+                            <label>3. szám</label>
+                            <input type="number" id="sc-stat-3-value" min="0" step="1" placeholder="50">
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:200px;">
+                            <label>3. felirat</label>
+                            <input type="text" id="sc-stat-3-label" placeholder="Éves Rendezvény">
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:0 0 130px;">
+                            <label>4. szám</label>
+                            <input type="number" id="sc-stat-4-value" min="0" step="1" placeholder="100">
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:200px;">
+                            <label>4. felirat</label>
+                            <input type="text" id="sc-stat-4-label" placeholder="% Közösség">
+                        </div>
+                    </div>
+
+                    <div style="border-top:1px solid var(--border);margin:10px 0 24px;"></div>
+
+                    <div style="font-size:0.7rem;font-weight:600;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Gólyáknak szekció szövege</div>
+                    <p style="font-size:0.85rem;color:var(--text-muted);margin:0 0 18px;line-height:1.5">A „Gólyáknak” szekció címe és bevezető szövege. A letölthető PDF-et külön, a „Gólya PDF” fülön tudod cserélni.</p>
+
+                    <div class="form-group">
+                        <label>Cím</label>
+                        <input type="text" id="sc-golyaknak-title" placeholder="Üdvözlünk az egyetemen!">
+                    </div>
+                    <div class="form-group">
+                        <label>Szöveg</label>
+                        <textarea id="sc-golyaknak-text" placeholder="Rövid bevezető szöveg a gólyáknak..." style="min-height:110px"></textarea>
+                    </div>
+
+                    <button class="btn-save" onclick="saveSiteContent()" style="width:100%;margin-top:8px">Mentés</button>
                 </div>
             </div>
 
@@ -1617,6 +1692,75 @@ async function uploadImage(bucket, file, path) {
 }
 
 // ════════════════════════════════════════════
+// STORAGE – Fájl törlése
+// ════════════════════════════════════════════
+// Egy fájlt töröl a Storage-ból a publikus URL alapján.
+// SOHA nem dob hibát és sosem szakítja meg a hívó folyamatot – ha a törlés
+// nem sikerül, csak console.error-ba kerül, a DB törlés attól még lefut.
+async function deleteStorageFile(bucket, url) {
+    if (!url || typeof url !== 'string') return;
+
+    // Csak a saját Storage-ba mutató publikus URL-eket bántjuk
+    const marker = `/storage/v1/object/public/${bucket}/`;
+    const idx = url.indexOf(marker);
+    if (idx === -1) {
+        console.warn(`Nem ${bucket} Storage URL, kihagyva:`, url);
+        return;
+    }
+
+    // Minden a /public/{bucket}/ után a fájl path-ja (query/hash levágva)
+    const path = url.slice(idx + marker.length).split('?')[0].split('#')[0];
+    if (!path) return;
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
+            method: 'DELETE',
+            headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${currentSession?.access_token}`
+            }
+        });
+        if (!res.ok) {
+            console.error(`Storage törlés sikertelen (${bucket}/${path}): HTTP ${res.status}`);
+        }
+    } catch (e) {
+        console.error(`Storage törlés hiba (${bucket}/${path}):`, e);
+    }
+}
+
+// Hír törlésekor a galéria képeit is takarítjuk: előbb a Storage fájlokat,
+// utána a news_images sorokat (ha van ON DELETE CASCADE a foreign key-en,
+// akkor a sortörlés már csak egy ártalmatlan no-op).
+// Visszatérési érték: false, ha lejárt a session – ilyenkor a hívó álljon le.
+async function deleteNewsGalleryFiles(newsId) {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url`, { headers: authHeaders() });
+        if (handleAuthError(res)) return false;
+        if (!res.ok) {
+            console.error('Galéria képek lekérése sikertelen: HTTP', res.status);
+            return true;
+        }
+
+        const rows = await res.json();
+        if (!rows.length) return true;
+
+        // Storage fájlok párhuzamosan
+        await Promise.all(rows.map(row => deleteStorageFile('news-images', row.image_url)));
+
+        // Utána a DB sorok
+        const delRes = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}`, {
+            method: 'DELETE',
+            headers: { ...authHeaders(), 'Prefer': 'return=minimal' }
+        });
+        if (handleAuthError(delRes)) return false;
+        if (!delRes.ok) console.error('news_images sorok törlése sikertelen: HTTP', delRes.status);
+    } catch (e) {
+        console.error('Galéria takarítás hiba:', e);
+    }
+    return true;
+}
+
+// ════════════════════════════════════════════
 // UI – TAB KEZELÉS
 // ════════════════════════════════════════════
 function switchTab(name, btn) {
@@ -1755,8 +1899,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // ════════════════════════════════════════════
 let pendingDelete = null;
 
-function confirmDelete(table, id) {
-    pendingDelete = { table, id };
+// imageUrl + bucket opcionális: ahol nincs kép (pl. rendezvény), ott elmarad
+function confirmDelete(table, id, imageUrl = null, bucket = null) {
+    pendingDelete = { table, id, imageUrl, bucket };
     document.getElementById('confirm-overlay').classList.add('open');
 }
 
@@ -1767,7 +1912,28 @@ function closeConfirm() {
 
 document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
     if (!pendingDelete) return;
-    const ok = await dbDelete(pendingDelete.table, pendingDelete.id);
+
+    // Kimásoljuk és nullázzuk, hogy dupla kattintásra ne induljon kétszer
+    const { table, id, imageUrl, bucket } = pendingDelete;
+    pendingDelete = null;
+
+    const btn = document.getElementById('confirm-delete-btn');
+    btn.disabled = true;
+
+    // 1. Hírnél a galéria képek (Storage fájl + news_images sor) takarítása
+    if (table === 'news') {
+        const authOk = await deleteNewsGalleryFiles(id);
+        if (!authOk) { btn.disabled = false; closeConfirm(); return; }
+    }
+
+    // 2. Borítókép / logó törlése a Storage-ból
+    if (imageUrl && bucket) {
+        await deleteStorageFile(bucket, imageUrl);
+    }
+
+    // 3. És csak ezután a DB sor
+    const ok = await dbDelete(table, id);
+    btn.disabled = false;
     closeConfirm();
     if (ok) {
         showToast('Sikeresen törölve!', 'success');
@@ -1913,7 +2079,7 @@ async function loadHirek() {
             </div>
             <div class="item-card-actions">
                 <button class="btn-icon" onclick='openModal("hir", ${JSON.stringify(n).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
-                <button class="btn-icon delete" onclick="confirmDelete('news', ${n.id})" title="Törlés"><i class="fas fa-trash"></i></button>
+                <button class="btn-icon delete" onclick='confirmDelete("news", ${n.id}, ${JSON.stringify(n.image_url || null).replace(/'/g,"&#39;")}, "news-images")' title="Törlés"><i class="fas fa-trash"></i></button>
             </div>
         </div>
     `).join('');
@@ -1938,7 +2104,7 @@ async function loadElnokseg() {
             <div class="item-card-actions">
                 ${sortButtons('team_members', i, data.length)}
                 <button class="btn-icon" onclick='openModal("tag", ${JSON.stringify(m).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
-                <button class="btn-icon delete" onclick="confirmDelete('team_members', ${m.id})" title="Törlés"><i class="fas fa-trash"></i></button>
+                <button class="btn-icon delete" onclick='confirmDelete("team_members", ${m.id}, ${JSON.stringify(m.image_url || null).replace(/'/g,"&#39;")}, "team-images")' title="Törlés"><i class="fas fa-trash"></i></button>
             </div>
         </div>
     `).join('');
@@ -1988,7 +2154,7 @@ async function loadMunkacsoportok() {
             <div class="item-card-actions">
                 ${sortButtons('groups', i, data.length)}
                 <button class="btn-icon" onclick='openModal("munkacsoport", ${JSON.stringify(g).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
-                <button class="btn-icon delete" onclick="confirmDelete('groups', ${g.id})" title="Törlés"><i class="fas fa-trash"></i></button>
+                <button class="btn-icon delete" onclick='confirmDelete("groups", ${g.id}, ${JSON.stringify(g.image_url || null).replace(/'/g,"&#39;")}, "group-images")' title="Törlés"><i class="fas fa-trash"></i></button>
             </div>
         </div>
     `).join('');
@@ -2238,14 +2404,17 @@ async function saveHir() {
             if (handleAuthError(existingRes)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
             const existingRows = existingRes.ok ? await existingRes.json() : [];
 
-            // 4b. Töröljük a DB-ből azokat, amiket a user kivett a galleryExisting-ből
+            // 4b. Töröljük azokat, amiket a user kivett a galleryExisting-ből –
+            // a DB sort ÉS a Storage fájlt is, hogy ne maradjon árva kép.
+            // Mindkettő ugyanabban a Promise.all-ban, hogy ne lassítsa a mentést.
             const toDelete = existingRows.filter(row => !galleryExisting.includes(row.image_url));
-            await Promise.all(toDelete.map(row =>
+            await Promise.all(toDelete.flatMap(row => [
                 fetch(`${SUPABASE_URL}/rest/v1/news_images?id=eq.${row.id}`, {
                     method: 'DELETE',
                     headers: { ...authHeaders(), 'Prefer': 'return=minimal' }
-                })
-            ));
+                }),
+                deleteStorageFile('news-images', row.image_url)
+            ]));
 
             // 4c. Új fájlok feltöltése
             if (galleryFiles.length > 0) {
@@ -2396,6 +2565,96 @@ async function saveRolunk() {
 }
 
 // ════════════════════════════════════════════
+// STATISZTIKÁK & GÓLYÁKNAK SZÖVEG BETÖLTÉSE + MENTÉSE
+// ════════════════════════════════════════════
+// A site_content táblában mindig egyetlen sor van (id=1) – ugyanaz a minta,
+// mint a Rólunk (about) szekciónál.
+async function loadSiteContentAdmin() {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/site_content?limit=1`, { headers: authHeaders() });
+    if (handleAuthError(res)) return;
+    if (!res.ok) {
+        console.error('site_content betöltése sikertelen: HTTP', res.status);
+        return;
+    }
+
+    const data = await res.json();
+    if (!data.length) return;
+    const c = data[0];
+
+    for (let i = 1; i <= 4; i++) {
+        const valueEl = document.getElementById(`sc-stat-${i}-value`);
+        const labelEl = document.getElementById(`sc-stat-${i}-label`);
+        if (valueEl) valueEl.value = c[`stat_${i}_value`] ?? '';
+        if (labelEl) labelEl.value = c[`stat_${i}_label`] || '';
+    }
+
+    const titleEl = document.getElementById('sc-golyaknak-title');
+    const textEl = document.getElementById('sc-golyaknak-text');
+    if (titleEl) titleEl.value = c.golyaknak_title || '';
+    if (textEl) textEl.value = c.golyaknak_text || '';
+}
+
+async function saveSiteContent() {
+    const btn = document.querySelector('#tab-statisztikak .btn-save');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Mentés...';
+
+    try {
+        const payload = {
+            golyaknak_title: document.getElementById('sc-golyaknak-title').value.trim(),
+            golyaknak_text: document.getElementById('sc-golyaknak-text').value.trim(),
+            updated_at: new Date().toISOString()
+        };
+
+        // A 4 statisztika – a szám csak nem negatív egész lehet, különben a
+        // mentés az adatbázisnál szállna el egy érthetetlen hibaüzenettel
+        for (let i = 1; i <= 4; i++) {
+            const raw = document.getElementById(`sc-stat-${i}-value`).value.trim();
+            const num = parseInt(raw, 10);
+            if (raw === '' || !Number.isFinite(num) || num < 0) {
+                showToast(`A ${i}. statisztika száma hiányzik vagy hibás!`, 'error');
+                btn.disabled = false;
+                btn.innerHTML = 'Mentés';
+                return;
+            }
+            const label = document.getElementById(`sc-stat-${i}-label`).value.trim();
+            if (!label) {
+                showToast(`A ${i}. statisztika felirata nem lehet üres!`, 'error');
+                btn.disabled = false;
+                btn.innerHTML = 'Mentés';
+                return;
+            }
+            payload[`stat_${i}_value`] = num;
+            payload[`stat_${i}_label`] = label;
+        }
+
+        // Upsert: ha van már sor, frissíti, ha nincs, létrehozza
+        const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/site_content?limit=1`, { headers: authHeaders() });
+        if (handleAuthError(checkRes)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
+        const existing = checkRes.ok ? await checkRes.json() : [];
+
+        let ok;
+        if (existing.length) {
+            ok = await dbUpdate('site_content', existing[0].id, payload);
+        } else {
+            ok = await dbInsert('site_content', payload);
+        }
+
+        if (ok) {
+            showToast('Statisztikák és szövegek mentve!', 'success');
+        } else {
+            showToast('Mentési hiba!', 'error');
+        }
+    } catch(e) {
+        showToast('Váratlan hiba!', 'error');
+        console.error(e);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = 'Mentés';
+}
+
+// ════════════════════════════════════════════
 // GÓLYA PDF BETÖLTÉSE + MENTÉSE
 // ════════════════════════════════════════════
 async function loadGolyaPdf() {
@@ -2485,7 +2744,7 @@ async function loadSzponzorok() {
             <div class="item-card-actions">
                 ${sortButtons('sponsors', i, data.length)}
                 <button class="btn-icon" onclick='openModal("szponzor", ${JSON.stringify(s).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
-                <button class="btn-icon delete" onclick="confirmDelete('sponsors', ${s.id})" title="Törlés"><i class="fas fa-trash"></i></button>
+                <button class="btn-icon delete" onclick='confirmDelete("sponsors", ${s.id}, ${JSON.stringify(s.logo_url || null).replace(/'/g,"&#39;")}, "sponsor-logos")' title="Törlés"><i class="fas fa-trash"></i></button>
             </div>
         </div>
     `).join('');
@@ -2562,6 +2821,7 @@ loadAll = async function() {
     loadRolunk();
     loadGolyaPdf();
     loadSzponzorok();
+    loadSiteContentAdmin();
 };
 
 // ════════════════════════════════════════════

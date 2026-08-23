@@ -181,6 +181,64 @@ async function loadGolyaPdf() {
 }
 
 // ============================================================
+// STATISZTIKÁK + GÓLYÁKNAK SZÖVEG BETÖLTÉSE
+// ============================================================
+// Ha a site_content tábla nem érhető el (hálózati hiba, üres tábla), ezek az
+// értékek jelennek meg – így a szekció sosem marad üresen vagy 0-n ragadva.
+const SITE_CONTENT_FALLBACK = {
+    stat_1_value: 15,  stat_1_label: 'Év Tapasztalat',
+    stat_2_value: 500, stat_2_label: 'Aktív Tag',
+    stat_3_value: 50,  stat_3_label: 'Éves Rendezvény',
+    stat_4_value: 100, stat_4_label: '% Közösség',
+    golyaknak_title: 'Üdvözlünk az egyetemen!',
+    golyaknak_text: 'Tudjuk, hogy az első hetek nehezek lehetnek, de mi segítünk eligazodni. Töltsd le a Gólya Kisokost, amiben mindent megtalálsz!'
+};
+
+async function loadSiteContent() {
+    const statsContainer = document.querySelector('#stats .stats-container');
+    const golyaTitle = document.getElementById('golyaknak-title');
+    const golyaText = document.getElementById('golyaknak-text');
+    if (!statsContainer && !golyaTitle && !golyaText) return;
+
+    const content = { ...SITE_CONTENT_FALLBACK };
+    try {
+        const data = await supabaseFetch('site_content', { limit: 1 });
+        if (data.length) {
+            // Csak a kitöltött mezőket vesszük át, a null-oknál marad az alapérték
+            for (const [key, val] of Object.entries(data[0])) {
+                if (key in content && val !== null && val !== undefined) content[key] = val;
+            }
+        } else {
+            console.warn('site_content: nincs sor, az alapértelmezett tartalom jelenik meg.');
+        }
+    } catch (err) {
+        console.error('loadSiteContent hiba:', err);
+    }
+
+    // Statisztikák – a data-target értéket az initCounters() olvassa ki
+    if (statsContainer) {
+        statsContainer.querySelectorAll('.stat-box').forEach((box, i) => {
+            const counter = box.querySelector('.counter');
+            const label = box.querySelector('p');
+            if (counter) {
+                counter.setAttribute('data-target', Number(content[`stat_${i + 1}_value`]) || 0);
+                counter.textContent = '0';   // a skeleton helyére a kiindulási érték
+            }
+            if (label) label.textContent = content[`stat_${i + 1}_label`] || '';
+        });
+    }
+
+    // Gólyáknak szekció szövege (a PDF gombot a loadGolyaPdf() kezeli)
+    if (golyaTitle) golyaTitle.textContent = content.golyaknak_title || '';
+    if (golyaText) golyaText.textContent = content.golyaknak_text || '';
+
+    // A számlálók CSAK most kapcsolódhatnak rá. Korábban (DOMContentLoaded-kor)
+    // még nem volt data-target, így az observer 0-ra futtatta volna a felfutást
+    // és a szám rögtön "0+"-nál akadt volna meg.
+    initCounters();
+}
+
+// ============================================================
 // ELNÖKSÉG BETÖLTÉSE
 // ============================================================
 async function loadTeam() {
@@ -682,14 +740,16 @@ function initHamburger() {
 document.addEventListener('DOMContentLoaded', async () => {
     initHamburger();
     initObserver();
-    initCounters();
+    // initCounters() NEM itt fut: a data-target a Supabase válaszából kerül a
+    // DOM-ba, ezért a loadSiteContent() végén hívjuk meg. Ide visszatéve a
+    // számlálók üres data-target-tel indulnának el.
 
     const isArticlePage = document.querySelector('.article-container') !== null;
     const isIndexPage = document.querySelector('#hero') !== null;
     const isNewsArchivePage = document.querySelector('#hirek-archivum') !== null;
 
     if (isIndexPage) {
-        const loaders = [loadAbout, loadTeam, loadGroups, loadEvents, loadNews, loadGolyaPdf, loadSponsors];
+        const loaders = [loadSiteContent, loadAbout, loadTeam, loadGroups, loadEvents, loadNews, loadGolyaPdf, loadSponsors];
         await Promise.all(loaders.map(fn => fn().catch(err => console.error(`${fn.name} hiba:`, err))));
     }
 

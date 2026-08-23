@@ -748,6 +748,30 @@ blockquote {
     width: 60%;
 }
 
+/* ── STATISZTIKÁK skeleton ── */
+/* A #stats háttere sötétkék, ezért itt nem a világos .skeleton gradienst
+   használjuk, hanem áttetsző fehéret – ugyanazzal a shimmer animációval. */
+.skeleton-stat {
+    display: block;
+    margin: 0 auto;
+    background: linear-gradient(90deg, rgba(255,255,255,0.07) 25%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.07) 75%);
+    background-size: 600px 100%;
+    animation: shimmer 1.4s infinite linear;
+    border-radius: 6px;
+}
+
+/* A magasság em-ben van, így pontosan akkora, mint majd a beírt szöveg sora
+   – nem ugrik meg a layout, amikor megérkezik az adat. */
+.skeleton-stat-value {
+    width: 96px;
+    height: 1.2em;
+}
+
+.skeleton-stat-label {
+    width: 140px;
+    height: 1.2em;
+}
+
 /* ── CIKK oldal skeleton ── */
 .skeleton-article-date {
     height: 12px;

@@ -77,24 +77,25 @@
         </div>
     </section>
 
-    <!-- STATISZTIKÁK (statikus marad) -->
+    <!-- STATISZTIKÁK – dinamikusan töltődik Supabase-ből (site_content tábla).
+         A számot és a feliratot a loadSiteContent() írja be, addig skeleton látszik. -->
     <section id="stats">
         <div class="stats-container">
             <div class="stat-box">
-                <h3 class="counter" data-target="15">0</h3>
-                <p>Év Tapasztalat</p>
+                <h3 class="counter"><span class="skeleton-stat skeleton-stat-value"></span></h3>
+                <p><span class="skeleton-stat skeleton-stat-label"></span></p>
             </div>
             <div class="stat-box">
-                <h3 class="counter" data-target="500">0</h3>
-                <p>Aktív Tag</p>
+                <h3 class="counter"><span class="skeleton-stat skeleton-stat-value"></span></h3>
+                <p><span class="skeleton-stat skeleton-stat-label"></span></p>
             </div>
             <div class="stat-box">
-                <h3 class="counter" data-target="50">0</h3>
-                <p>Éves Rendezvény</p>
+                <h3 class="counter"><span class="skeleton-stat skeleton-stat-value"></span></h3>
+                <p><span class="skeleton-stat skeleton-stat-label"></span></p>
             </div>
             <div class="stat-box">
-                <h3 class="counter" data-target="100">0</h3>
-                <p>% Közösség</p>
+                <h3 class="counter"><span class="skeleton-stat skeleton-stat-value"></span></h3>
+                <p><span class="skeleton-stat skeleton-stat-label"></span></p>
             </div>
         </div>
     </section>
@@ -113,8 +114,10 @@
         <h2>Gólyáknak</h2>
         <div class="container">
             <div class="text-box" style="max-width: 800px; text-align: center;">
-                <h3>Üdvözlünk az egyetemen!</h3>
-                <p>Tudjuk, hogy az első hetek nehezek lehetnek, de mi segítünk eligazodni. Töltsd le a Gólya Kisokost, amiben mindent megtalálsz!</p>
+                <!-- A cím és a szöveg a site_content táblából jön (loadSiteContent).
+                     A &nbsp; azért kell, hogy a sor magassága már betöltés előtt megvan. -->
+                <h3 id="golyaknak-title">&nbsp;</h3>
+                <p id="golyaknak-text">Betöltés...</p>
                 <br><br>
                 <a id="golya-pdf-btn" href="#" class="btn" style="display:none;" target="_blank">
                     <i class="fas fa-download"></i> Gólya Kisokos Letöltése
