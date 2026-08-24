@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "routes": [
+    { "src": "/hir\\.html", "dest": "/api/og-hir" }
+  ],
+  "functions": {
+    "api/og-hir.js": {
+      "includeFiles": "hir.html"
+    }
+  }
+}
