@@ -174,7 +174,14 @@ header#hero {
         /* Animáció */
         max-height: 0;       
         overflow: hidden;    
-        transition: max-height 0.5s ease-in-out; 
+
+        /* A visibility: hidden a Tab-sorrendből is kiveszi a rejtett linkeket.
+           A max-height: 0 önmagában NEM tenné meg: csukott menü mellett a
+           fókusz láthatatlan linkekre ugrálna (WCAG 2.4.3 / 2.4.7).
+           A váltás záráskor késleltetve történik (0.5s = pont a max-height
+           animáció ideje), hogy a becsukódás végig látszódjon. */
+        visibility: hidden;
+        transition: max-height 0.5s ease-in-out, visibility 0s linear 0.5s; 
     }
 
     .nav-links li {
@@ -186,6 +193,10 @@ header#hero {
     /* Aktív állapot (Kinyitva) */
     .nav-links.active {
         max-height: 100vh; /* Kinyílik teljes képernyőig */
+        /* Nyitáskor azonnal láthatóvá kell válnia, hogy a linkek rögtön
+           fókuszálhatók legyenek – itt tehát nincs késleltetés */
+        visibility: visible;
+        transition: max-height 0.5s ease-in-out, visibility 0s linear 0s;
     }
 
     .nav-links.active li {
