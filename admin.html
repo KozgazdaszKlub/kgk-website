@@ -972,13 +972,49 @@
             border-radius: 8px;
             overflow: hidden;
             border: 2px solid var(--border);
+            /* Húzható kártya: a fogás egyértelmű, a hosszú nyomás pedig ne
+               jelöljön ki szöveget és ne hozzon fel iOS-en menüt */
+            cursor: grab;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s, opacity 0.15s;
         }
+
+        .gallery-preview-item:hover { border-color: var(--gold); }
 
         .gallery-preview-item img {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            /* A natív képhúzás elrontaná a saját pointer-alapú megoldást */
+            pointer-events: none;
+            -webkit-user-drag: none;
         }
+
+        /* Érintésnél a hosszú nyomás visszajelzése – még mozgatás előtt */
+        .gallery-preview-item.press-hold {
+            transform: scale(1.06);
+            border-color: var(--gold);
+            box-shadow: 0 0 0 2px rgba(241,192,57,0.35);
+        }
+
+        /* Az éppen húzott kártya: gold kiemelés, félig áttetsző */
+        .gallery-preview-item.dragging {
+            opacity: 0.55;
+            cursor: grabbing;
+            border-color: var(--gold);
+            box-shadow: 0 6px 18px rgba(8,18,43,0.6), 0 0 0 2px rgba(241,192,57,0.5);
+            transform: scale(1.06);
+            z-index: 2;
+        }
+
+        /* Húzás közben a többi kártya háttérbe lép, és az (x) gomb nem kattintható,
+           hogy egy ejtés véletlenül se töröljön képet */
+        .gallery-preview-grid.reordering { cursor: grabbing; }
+        .gallery-preview-grid.reordering .gallery-preview-item:not(.dragging) { opacity: 0.7; }
+        .gallery-preview-grid.reordering .gallery-preview-item:not(.dragging):hover { border-color: var(--gold); }
+        .gallery-preview-grid.reordering .remove-img { pointer-events: none; opacity: 0; }
 
         .gallery-preview-item .remove-img {
             position: absolute;
@@ -1002,6 +1038,16 @@
             color: var(--text-muted);
             margin-top: 8px;
         }
+
+        /* Sorrend-átrendezés súgó – csak akkor látszik, ha van mit átrendezni */
+        .gallery-hint {
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            display: none;
+        }
+
+        .gallery-hint i { color: var(--gold); margin-right: 5px; }
 
         @media (max-width: 768px) {
             .sidebar { display: none; }
@@ -1373,6 +1419,7 @@
             </div>
             <div class="gallery-preview-grid" id="gallery-preview-grid"></div>
             <p class="gallery-count" id="gallery-count"></p>
+            <p class="gallery-hint" id="gallery-hint"><i class="fas fa-arrows-up-down-left-right"></i>Húzd a képeket a kívánt sorrendbe. Mobilon tartsd nyomva a képet, aztán húzd.</p>
         </div>
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeModal('hir')">Mégse</button>
@@ -2532,7 +2579,9 @@ async function loadExistingGallery(newsId) {
     if (handleAuthError(res)) return;
     if (!res.ok) return;
     const images = await res.json();
-    galleryExisting = images.map(img => img.image_url);
+    // A DB sorrendje (sort_order.asc) adja a kiinduló megjelenítési sorrendet
+    galleryOrder = images.map(img => ({ type: 'existing', url: img.image_url }));
+    syncGalleryArrays();
     renderGalleryPreviews();
 }
 
@@ -2755,21 +2804,43 @@ document.addEventListener('DOMContentLoaded', () => {
 // ════════════════════════════════════════════
 // KÉPGALÉRIA KEZELÉS
 // ════════════════════════════════════════════
+// A galéria egyetlen, egyesített sorrendet tart számon: a már feltöltött és a
+// most kiválasztott képek EGY listában vannak, így egymáshoz képest is
+// átrendezhetők. Egy elem:
+//   { type: 'existing', url }       – már feltöltött kép (news_images sor)
+//   { type: 'new', file, objUrl }   – most választott, még feltöltetlen fájl
+const GALLERY_MAX = 10;
+let galleryOrder = [];
+
+// A régi két tömb megmarad, de már a galleryOrder-ből származik – a mentő és
+// törlő logika változatlanul használhatja őket.
 let galleryFiles = [];     // új fájlok feltöltéshez
 let galleryExisting = [];  // már feltöltött URL-ek (szerkesztéskor)
+
+function syncGalleryArrays() {
+    galleryExisting = galleryOrder.filter(it => it.type === 'existing').map(it => it.url);
+    galleryFiles = galleryOrder.filter(it => it.type === 'new').map(it => it.file);
+}
 
 function handleGallerySelect() {
     const input = document.getElementById('file-gallery');
     const newFiles = Array.from(input.files);
-    const total = galleryFiles.length + galleryExisting.length + newFiles.length;
+    const total = galleryOrder.length + newFiles.length;
 
-    if (total > 10) {
-        showToast(`Maximum 10 kép tölthető fel! (jelenleg ${galleryFiles.length + galleryExisting.length})`, 'error');
+    if (total > GALLERY_MAX) {
+        showToast(`Maximum ${GALLERY_MAX} kép tölthető fel! (jelenleg ${galleryOrder.length})`, 'error');
         input.value = '';
         return;
     }
 
-    galleryFiles = [...galleryFiles, ...newFiles];
+    // Az új fájlok a lista végére kerülnek, onnan húzhatók bárhová.
+    // Az objektum-URL egyszer készül el és megmarad: így az újrarajzolás
+    // (minden húzás után) nem szór szét használatlan URL-eket.
+    newFiles.forEach(file => {
+        galleryOrder.push({ type: 'new', file, objUrl: URL.createObjectURL(file) });
+    });
+
+    syncGalleryArrays();
     renderGalleryPreviews();
     input.value = '';
 }
@@ -2777,51 +2848,252 @@ function handleGallerySelect() {
 function renderGalleryPreviews() {
     const grid = document.getElementById('gallery-preview-grid');
     const count = document.getElementById('gallery-count');
+    const hint = document.getElementById('gallery-hint');
     if (!grid) return;
 
-    const total = galleryExisting.length + galleryFiles.length;
-    count.textContent = total > 0 ? `${total} / 10 kép kiválasztva` : '';
+    const total = galleryOrder.length;
+    if (count) count.textContent = total > 0 ? `${total} / ${GALLERY_MAX} kép kiválasztva` : '';
+    // Egy képnél nincs mit átrendezni, ne zavarjuk feleslegesen a felhasználót
+    if (hint) hint.style.display = total > 1 ? 'block' : 'none';
 
-    // Existing (already uploaded)
-    const existingHtml = galleryExisting.map((url, i) => `
-        <div class="gallery-preview-item">
-            <img src="${url}" alt="Galéria kép">
-            <button class="remove-img" onclick="removeExistingGallery(${i})"><i class="fas fa-times"></i></button>
-        </div>
-    `).join('');
-
-    // New files
-    const newHtml = galleryFiles.map((file, i) => {
-        const objUrl = URL.createObjectURL(file);
+    // A data-index a jelenlegi megjelenítési pozíció – húzás után ebből áll
+    // össze az új galleryOrder (lásd applyGalleryDomOrder)
+    grid.innerHTML = galleryOrder.map((item, i) => {
+        const src = item.type === 'existing' ? item.url : item.objUrl;
+        const alt = item.type === 'existing' ? 'Galéria kép' : 'Új kép';
         return `
-            <div class="gallery-preview-item">
-                <img src="${objUrl}" alt="Új kép">
-                <button class="remove-img" onclick="removeNewGallery(${i})"><i class="fas fa-times"></i></button>
-            </div>
-        `;
+        <div class="gallery-preview-item" data-index="${i}" title="Húzd az átrendezéshez">
+            <img src="${src}" alt="${alt}" draggable="false">
+            <button class="remove-img" type="button" title="Kép eltávolítása" onclick="removeGalleryItem(${i})"><i class="fas fa-times"></i></button>
+        </div>`;
     }).join('');
-
-    grid.innerHTML = existingHtml + newHtml;
 }
 
-function removeExistingGallery(index) {
-    galleryExisting.splice(index, 1);
-    renderGalleryPreviews();
-}
-
-function removeNewGallery(index) {
-    galleryFiles.splice(index, 1);
+// Egységes törlés: mindegy, hogy meglévő vagy új képről van szó, a
+// megjelenítési index alapján vesszük ki – a sorrend nem törik el
+function removeGalleryItem(index) {
+    const item = galleryOrder[index];
+    if (!item) return;
+    // Az új fájl objektum-URL-jét elengedjük, hogy ne maradjon a memóriában
+    if (item.type === 'new' && item.objUrl) URL.revokeObjectURL(item.objUrl);
+    galleryOrder.splice(index, 1);
+    syncGalleryArrays();
     renderGalleryPreviews();
 }
 
 function resetGallery() {
-    galleryFiles = [];
-    galleryExisting = [];
+    galleryOrder.forEach(item => {
+        if (item.type === 'new' && item.objUrl) URL.revokeObjectURL(item.objUrl);
+    });
+    galleryOrder = [];
+    syncGalleryArrays();
     const grid = document.getElementById('gallery-preview-grid');
     const count = document.getElementById('gallery-count');
+    const hint = document.getElementById('gallery-hint');
     if (grid) grid.innerHTML = '';
     if (count) count.textContent = '';
+    if (hint) hint.style.display = 'none';
 }
+
+// ════════════════════════════════════════════
+// GALÉRIA SORREND – HÚZD-ÉS-EJTSD (egér + érintés)
+// ════════════════════════════════════════════
+// Saját, függőség nélküli pointer-alapú megoldás. A natív HTML5
+// drag-and-drop API-t szándékosan kerüljük: érintőképernyőn a legtöbb mobil
+// böngészőben el sem indul.
+//
+// Egérrel: 5px elmozdulás után indul a húzás (így a sima kattintás nem zavar).
+// Érintéssel: 220ms nyomva tartás után – addig a lapgörgetés az úr,
+// utána viszont a touchmove-ot elnyeljük, hogy húzás közben ne mozduljon a modál.
+const GALLERY_DRAG_THRESHOLD = 5;   // px – egérnél ennyitől számít húzásnak
+const GALLERY_TOUCH_HOLD_MS = 220;  // érintésnél ennyi nyomva tartás után indul
+
+let galleryDrag = null;             // az éppen futó húzás állapota
+let gallerySuppressClick = false;
+
+// Elnyeli a húzás után esetleg megérkező click-et – különben egy éppen az (x)
+// gomb fölött befejezett ejtés törölhetné a képet
+document.addEventListener('click', (e) => {
+    if (!gallerySuppressClick) return;
+    gallerySuppressClick = false;
+    if (e.target.closest && e.target.closest('#gallery-preview-grid')) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+}, true);
+
+// Húzás közben az oldal ne gördüljön (csak aktív húzásnál nyeli el az eseményt)
+function galleryTouchMoveBlocker(e) {
+    if (galleryDrag && galleryDrag.active) e.preventDefault();
+}
+
+function initGalleryReorder() {
+    const grid = document.getElementById('gallery-preview-grid');
+    if (!grid || grid.dataset.reorderInit) return;
+    grid.dataset.reorderInit = '1';
+
+    grid.addEventListener('pointerdown', onGalleryPointerDown);
+    document.addEventListener('pointermove', onGalleryPointerMove);
+    document.addEventListener('pointerup', endGalleryDrag);
+    document.addEventListener('pointercancel', endGalleryDrag);
+    // passive: false kell, különben a preventDefault nem állítja meg a görgetést.
+    // A rácsra kötjük, nem a document-re: az érintéses események végig ahhoz az
+    // elemhez mennek, ahol az ujj hozzáért – így nem lassul a többi oldalrész görgetése
+    grid.addEventListener('touchmove', galleryTouchMoveBlocker, { passive: false });
+}
+
+function onGalleryPointerDown(e) {
+    // Már fut egy húzás (pl. második ujj ér a képernyőhöz) – azt nem szakítjuk félbe
+    if (galleryDrag) return;
+    // Csak a bal egérgomb húz (a jobb/középső gomb ne indítson semmit)
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    // Az (x) gomb kattintása törlés, nem húzás
+    if (e.target.closest('.remove-img')) return;
+
+    const el = e.target.closest('.gallery-preview-item');
+    const grid = document.getElementById('gallery-preview-grid');
+    // Egyetlen képnél nincs mit átrendezni
+    if (!el || !grid || galleryOrder.length < 2) return;
+
+    galleryDrag = {
+        el,
+        grid,
+        pointerId: e.pointerId,
+        touch: e.pointerType === 'touch',
+        startX: e.clientX,
+        startY: e.clientY,
+        active: false,
+        holdTimer: null
+    };
+
+    if (galleryDrag.touch) {
+        // Érintésnél nyomva tartásra indul – addig görgethet a felhasználó
+        el.classList.add('press-hold');
+        galleryDrag.holdTimer = setTimeout(() => {
+            if (galleryDrag) activateGalleryDrag();
+        }, GALLERY_TOUCH_HOLD_MS);
+    }
+}
+
+function activateGalleryDrag() {
+    if (!galleryDrag || galleryDrag.active) return;
+    galleryDrag.active = true;
+    galleryDrag.el.classList.remove('press-hold');
+    galleryDrag.el.classList.add('dragging');
+    galleryDrag.grid.classList.add('reordering');
+    try { galleryDrag.el.setPointerCapture(galleryDrag.pointerId); } catch (err) {}
+}
+
+function onGalleryPointerMove(e) {
+    if (!galleryDrag || e.pointerId !== galleryDrag.pointerId) return;
+
+    if (!galleryDrag.active) {
+        const dist = Math.hypot(e.clientX - galleryDrag.startX, e.clientY - galleryDrag.startY);
+        if (dist < GALLERY_DRAG_THRESHOLD) return;
+        if (galleryDrag.touch) {
+            // Nyomva tartás előtt elmozdult az ujj – ez görgetés, nem húzás
+            cancelGalleryDrag();
+            return;
+        }
+        activateGalleryDrag();
+    }
+
+    moveGalleryDragTo(e.clientX, e.clientY);
+}
+
+// Az áthúzott kártyát a mutató alatti kártya elé vagy mögé tesszük a DOM-ban.
+// A tényleges elemet mozgatjuk (nem szellemképet), így a többi kártya azonnal
+// a helyére csusszan – ez mutatja, hova kerül a kép.
+function moveGalleryDragTo(x, y) {
+    const { el, grid } = galleryDrag;
+    const items = [...grid.children].filter(node => node !== el);
+    if (!items.length) return;
+
+    // Ha a mutató a húzott kártyán belül van, már jó helyen áll – ilyenkor
+    // semmit nem mozgatunk. Enélkül a lenti "legközelebbi kártya" ág
+    // odébb rántaná a képet, pedig a felhasználó nem is mozdult el róla.
+    const own = el.getBoundingClientRect();
+    if (x >= own.left && x <= own.right && y >= own.top && y <= own.bottom) return;
+
+    const rects = items.map(node => ({ node, r: node.getBoundingClientRect() }));
+
+    let target = rects.find(({ r }) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom)?.node;
+
+    // Ha a képek közti résbe vagy a sor végére ejtenénk, a legközelebbi kártya
+    // számít – de csak akkor, ha a mutató még nagyjából a rácson belül van
+    if (!target) {
+        const g = grid.getBoundingClientRect();
+        if (x < g.left - 24 || x > g.right + 24 || y < g.top - 24 || y > g.bottom + 24) return;
+
+        // Előbb csak abban a sorban keresünk, ahol a mutató függőlegesen áll –
+        // a rács tördelt, és sorok között ugrálva kiszámíthatatlan lenne
+        const sameRow = rects.filter(({ r }) => y >= r.top && y <= r.bottom);
+        const pool = sameRow.length ? sameRow : rects;
+
+        let best = null, bestDist = Infinity;
+        pool.forEach(({ node, r }) => {
+            const dx = x - (r.left + r.width / 2);
+            const dy = sameRow.length ? 0 : y - (r.top + r.height / 2);
+            const d = Math.hypot(dx, dy);
+            if (d < bestDist) { bestDist = d; best = node; }
+        });
+        target = best;
+    }
+    if (!target) return;
+
+    const r = target.getBoundingClientRect();
+    const after = x > r.left + r.width / 2;
+    const ref = after ? target.nextSibling : target;
+    if (ref === el) return;          // már ott van, nincs teendő
+    grid.insertBefore(el, ref);
+}
+
+// Ejtés: a DOM-ban kialakult sorrendből állítjuk vissza a galleryOrder-t.
+// Minden kártya data-index-e az EREDETI (renderelés kori) pozícióra mutat.
+function applyGalleryDomOrder(grid) {
+    const next = [...grid.children]
+        .map(node => galleryOrder[Number(node.dataset.index)])
+        .filter(Boolean);
+    // Csak akkor cserélünk, ha minden elem megvan – félkész állapotot ne írjunk
+    if (next.length !== galleryOrder.length) return false;
+    const changed = next.some((item, i) => item !== galleryOrder[i]);
+    galleryOrder = next;
+    syncGalleryArrays();
+    return changed;
+}
+
+function endGalleryDrag(e) {
+    if (!galleryDrag) return;
+    if (e && e.pointerId !== undefined && e.pointerId !== galleryDrag.pointerId) return;
+
+    const { el, grid, active, pointerId } = galleryDrag;
+    if (galleryDrag.holdTimer) clearTimeout(galleryDrag.holdTimer);
+    try { el.releasePointerCapture(pointerId); } catch (err) {}
+    el.classList.remove('press-hold', 'dragging');
+    grid.classList.remove('reordering');
+    galleryDrag = null;
+
+    if (!active) return;
+    // A húzás után érkező click-et elnyeljük, de csak a következő pillanatra:
+    // ennél tovább élve egy későbbi, valódi (x) kattintást is megölne
+    gallerySuppressClick = true;
+    setTimeout(() => { gallerySuppressClick = false; }, 0);
+
+    const changed = applyGalleryDomOrder(grid);
+    renderGalleryPreviews();
+    if (changed) showToast('Sorrend frissítve – ne felejtsd el menteni!');
+}
+
+// Megszakítás (pl. görgetés indult érintéssel): marad az eredeti állapot
+function cancelGalleryDrag() {
+    if (!galleryDrag) return;
+    if (galleryDrag.holdTimer) clearTimeout(galleryDrag.holdTimer);
+    galleryDrag.el.classList.remove('press-hold', 'dragging');
+    galleryDrag.grid.classList.remove('reordering');
+    galleryDrag = null;
+}
+
+document.addEventListener('DOMContentLoaded', initGalleryReorder);
 
 // ════════════════════════════════════════════
 // HÍREK MENTÉSE (FRISSÍTETT)
@@ -2880,8 +3152,9 @@ async function saveHir() {
         }
 
         if (newsId) {
-            // 4a. Meglévő DB sorok lekérése
-            const existingRes = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url`, { headers: authHeaders() });
+            // 4a. Meglévő DB sorok lekérése (a sort_order is kell, hogy csak a
+            // ténylegesen elmozdult sorokat írjuk felül)
+            const existingRes = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url,sort_order`, { headers: authHeaders() });
             if (handleAuthError(existingRes)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
             const existingRows = existingRes.ok ? await existingRes.json() : [];
 
@@ -2897,10 +3170,29 @@ async function saveHir() {
                 deleteStorageFile('news-images', row.image_url)
             ]));
 
-            // 4c. Új fájlok feltöltése
-            if (galleryFiles.length > 0) {
-                let sortOrder = galleryExisting.length;
-                const compressions = galleryFiles.map(f => compressGalleryImage(f));
+            // 4c. A sort_order a modálban kialakított VÉGLEGES sorrendet követi.
+            // A galleryOrder egy listában tartja a meglévő és az új képeket, így
+            // ha a user egy régi képet előre húzott egy új elé, az itt is látszik.
+            const orderIndex = new Map();
+            galleryOrder.forEach((item, idx) => {
+                if (item.type === 'existing') orderIndex.set(item.url, idx);
+            });
+
+            // A megmaradó régi sorok sorrendjének igazítása
+            const reorders = existingRows
+                .filter(row => orderIndex.has(row.image_url))
+                .filter(row => row.sort_order !== orderIndex.get(row.image_url))
+                .map(row => dbUpdate('news_images', row.id, { sort_order: orderIndex.get(row.image_url) }));
+            if (reorders.length) await Promise.all(reorders);
+
+            // 4d. Új fájlok feltöltése – mindegyik a saját megjelenítési
+            // pozícióját kapja sort_order-nek (nem a lista végét)
+            const newItems = galleryOrder
+                .map((item, idx) => ({ item, idx }))
+                .filter(entry => entry.item.type === 'new');
+
+            if (newItems.length > 0) {
+                const compressions = newItems.map(entry => compressGalleryImage(entry.item.file));
                 const compressedFiles = await Promise.all(compressions);
 
                 const chunkSize = 3;
@@ -2911,9 +3203,10 @@ async function saveHir() {
                         return uploadImage('news-images', file, path);
                     });
                     const urls = await Promise.all(uploads);
-                    const inserts = urls.filter(Boolean).map(url =>
-                        dbInsert('news_images', { news_id: newsId, image_url: url, sort_order: sortOrder++ })
-                    );
+                    const inserts = urls
+                        .map((url, j) => ({ url, sortOrder: newItems[i + j].idx }))
+                        .filter(entry => entry.url)
+                        .map(entry => dbInsert('news_images', { news_id: newsId, image_url: entry.url, sort_order: entry.sortOrder }));
                     await Promise.all(inserts);
                 }
             }
