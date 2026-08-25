@@ -153,7 +153,8 @@
             align-items: center;
             justify-content: space-between;
             position: sticky;
-            top: 0;
+            /* Ha kint van a session sáv, a topbar alá tapad, nem alája csúszik */
+            top: var(--session-banner-h, 0px);
             z-index: 100;
         }
 
@@ -562,6 +563,118 @@
         .toast i { font-size: 1rem; }
         .toast.success i { color: var(--success); }
         .toast.error i { color: var(--danger); }
+
+        /* ── SESSION SÁV (lejárat figyelmeztetés / piszkozat) ── */
+        /* A toast 3.5 mp után eltűnik – ez a sáv viszont kint marad, amíg a
+           felhasználó nem reagál rá. Ezért külön elem, nem toast-változat. */
+        .session-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--surface2);
+            border-bottom: 3px solid var(--gold);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            z-index: 9998;
+            transform: translateY(-110%);
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+
+        .session-banner.show { transform: translateY(0); }
+
+        .session-banner > i {
+            font-size: 1.15rem;
+            color: var(--gold);
+            flex-shrink: 0;
+        }
+
+        .session-banner.expired { border-bottom-color: var(--danger); }
+        .session-banner.expired > i { color: var(--danger); }
+
+        .session-banner-text {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .session-banner-text strong {
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.9rem;
+            color: var(--text);
+        }
+
+        .session-banner-text span {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .session-banner-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .session-banner-btn {
+            background: var(--gold);
+            border: none;
+            border-radius: 8px;
+            padding: 9px 14px;
+            color: var(--navy);
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .session-banner-btn:hover { background: var(--gold-dark); }
+        .session-banner-btn:disabled { opacity: 0.6; cursor: default; }
+
+        .session-banner-btn.secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .session-banner-btn.secondary:hover {
+            background: transparent;
+            color: var(--text);
+        }
+
+        .session-banner-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 6px 8px;
+            line-height: 1;
+        }
+
+        .session-banner-close:hover { color: var(--text); }
+
+        @media (max-width: 700px) {
+            .session-banner {
+                flex-wrap: wrap;
+                padding: 10px 14px;
+                gap: 8px;
+            }
+            .session-banner-text { flex-basis: calc(100% - 40px); }
+            .session-banner-actions {
+                flex-basis: 100%;
+                justify-content: flex-end;
+                flex-wrap: wrap;
+            }
+        }
 
         /* ── CONFIRM DIALOG ── */
         .confirm-overlay {
@@ -1433,6 +1546,23 @@
     <span id="toast-msg"></span>
 </div>
 
+<!-- SESSION sáv: lejárat figyelmeztetés, lejárt session, piszkozat felajánlás.
+     Egy elem, három állapot – a gombokat a JS mutatja/rejti. -->
+<div class="session-banner" id="session-banner" role="alert" aria-live="assertive">
+    <i class="fas fa-clock" id="session-banner-icon"></i>
+    <div class="session-banner-text">
+        <strong id="session-banner-title"></strong>
+        <span id="session-banner-msg"></span>
+    </div>
+    <div class="session-banner-actions">
+        <button class="session-banner-btn" id="session-extend-btn" onclick="extendSession()">Munkamenet meghosszabbítása</button>
+        <button class="session-banner-btn secondary" id="session-relogin-btn" onclick="sessionRelogin()">Jelentkezz be újra</button>
+        <button class="session-banner-btn" id="draft-restore-btn" onclick="restoreDraft()">Visszaállítom</button>
+        <button class="session-banner-btn secondary" id="draft-discard-btn" onclick="discardDraft()">Elvetem</button>
+        <button class="session-banner-close" id="session-dismiss-btn" aria-label="Figyelmeztetés elrejtése" onclick="hideSessionBanner()"><i class="fas fa-times"></i></button>
+    </div>
+</div>
+
 <script>
 // ════════════════════════════════════════════
 // KONFIGURÁCIÓ
@@ -1479,6 +1609,7 @@ async function doLogin() {
 
         currentSession = data;
         localStorage.setItem('kgk_session', JSON.stringify(data));
+        scheduleSessionWarning();
         showDashboard(email);
 
     } catch (e) {
@@ -1495,6 +1626,12 @@ function showLoginError(msg) {
 }
 
 function doLogout() {
+    // A session sáv és az időzítők takarítása – a kilépés viselkedése
+    // egyébként változatlan (a kézi "Kilépés" gomb ugyanezt csinálja).
+    clearSessionTimers();
+    hideSessionBanner();
+    document.getElementById('session-banner').classList.remove('expired');
+
     currentSession = null;
     localStorage.removeItem('kgk_session');
     document.getElementById('dashboard').style.display = 'none';
@@ -1509,6 +1646,7 @@ function showDashboard(email) {
     document.getElementById('dashboard').style.display = 'block';
     document.getElementById('topbar-email').textContent = email;
     loadAll();
+    offerDraftRestore();
 }
 
 // Enter gomb login-nál
@@ -1528,6 +1666,7 @@ window.addEventListener('load', () => {
             const expiresAt = session.expires_at || 0;
             if (Date.now() / 1000 < expiresAt) {
                 currentSession = session;
+                scheduleSessionWarning();
                 showDashboard(session.user?.email || 'Admin');
                 return;
             }
@@ -1535,6 +1674,331 @@ window.addEventListener('load', () => {
         localStorage.removeItem('kgk_session');
     }
 });
+
+// ════════════════════════════════════════════
+// SESSION LEJÁRAT – KÉT RÉTEGŰ VÉDELEM
+// ════════════════════════════════════════════
+// 1. réteg (megelőzés): a lejárat előtt 5 perccel figyelmeztető sáv jelenik
+//    meg, rajta egy "Munkamenet meghosszabbítása" gombbal, ami a
+//    refresh_token-nel új access_token-t kér.
+// 2. réteg (mentés): ha mégis lejár mentés közben, a modál NEM záródik be és
+//    a mezők tartalma megmarad – a felhasználó dönti el, mikor lép ki.
+
+const SESSION_WARN_BEFORE_MS = 5 * 60 * 1000;  // 5 perccel a lejárat előtt szólunk
+const DRAFT_KEY = 'kgk_draft';
+
+let sessionWarnTimer = null;   // mikor jelenjen meg a figyelmeztetés
+let sessionTickTimer = null;   // a visszaszámláló másodpercenkénti frissítése
+let sessionExpiredAt = 0;      // mikor észleltük a lejáratot
+
+// A session lejárati ideje ezredmásodpercben (0, ha nincs session)
+function sessionExpiryMs() {
+    const exp = currentSession?.expires_at;
+    return exp ? exp * 1000 : 0;
+}
+
+function clearSessionTimers() {
+    if (sessionWarnTimer) { clearTimeout(sessionWarnTimer); sessionWarnTimer = null; }
+    if (sessionTickTimer) { clearInterval(sessionTickTimer); sessionTickTimer = null; }
+}
+
+// Beütemezi a figyelmeztetést. Bejelentkezéskor, mentett session
+// visszaállításakor és sikeres meghosszabbítás után hívjuk.
+function scheduleSessionWarning() {
+    clearSessionTimers();
+    const expiry = sessionExpiryMs();
+    if (!expiry) return;
+
+    const delay = expiry - Date.now() - SESSION_WARN_BEFORE_MS;
+    if (delay <= 0) {
+        // Már 5 percen belül van a lejárat – azonnal szólunk
+        showSessionWarning();
+        return;
+    }
+    sessionWarnTimer = setTimeout(showSessionWarning, delay);
+}
+
+// A sáv fixen a lap tetején ül, ezért eltakarná a topbart (és benne a Kilépés
+// gombot). Ezzel a dashboardot lejjebb toljuk pontosan a sáv magasságával.
+function applyBannerOffset() {
+    const banner = document.getElementById('session-banner');
+    const dash = document.getElementById('dashboard');
+    if (!banner || !dash) return;
+    const h = banner.offsetHeight;
+    dash.style.paddingTop = h + 'px';
+    document.documentElement.style.setProperty('--session-banner-h', h + 'px');
+}
+
+function clearBannerOffset() {
+    const dash = document.getElementById('dashboard');
+    if (dash) dash.style.paddingTop = '';
+    document.documentElement.style.setProperty('--session-banner-h', '0px');
+}
+
+// Ablakméret-változáskor (telefon elforgatása, ablak átméretezése) a sáv
+// tördelése és magassága is változhat – ilyenkor újraszámoljuk az eltolást
+window.addEventListener('resize', () => {
+    const banner = document.getElementById('session-banner');
+    if (banner && banner.classList.contains('show')) applyBannerOffset();
+});
+
+// A sáv gombjainak be/kikapcsolása – mindhárom állapot ezt használja
+function setBannerButtons({ extend, relogin, restore, discard, dismiss }) {
+    document.getElementById('session-extend-btn').style.display = extend ? '' : 'none';
+    document.getElementById('session-relogin-btn').style.display = relogin ? '' : 'none';
+    document.getElementById('draft-restore-btn').style.display = restore ? '' : 'none';
+    document.getElementById('draft-discard-btn').style.display = discard ? '' : 'none';
+    document.getElementById('session-dismiss-btn').style.display = dismiss ? '' : 'none';
+}
+
+// ── 1. RÉTEG: előzetes figyelmeztetés ──
+// A sáv kint marad, amíg a user nem reagál (elrejti vagy meghosszabbítja).
+function showSessionWarning() {
+    const banner = document.getElementById('session-banner');
+    if (!banner) return;
+
+    banner.classList.remove('expired');
+    document.getElementById('session-banner-icon').className = 'fas fa-clock';
+    document.getElementById('session-banner-title').textContent = 'A bejelentkezésed hamarosan lejár';
+    const extendBtn = document.getElementById('session-extend-btn');
+    extendBtn.disabled = false;
+    extendBtn.textContent = 'Munkamenet meghosszabbítása';
+    setBannerButtons({ extend: true, relogin: false, restore: false, discard: false, dismiss: true });
+
+    updateSessionCountdown();
+    banner.classList.add('show');
+    applyBannerOffset();
+
+    if (sessionTickTimer) clearInterval(sessionTickTimer);
+    sessionTickTimer = setInterval(updateSessionCountdown, 1000);
+}
+
+function updateSessionCountdown() {
+    const msg = document.getElementById('session-banner-msg');
+    if (!msg) return;
+
+    const left = sessionExpiryMs() - Date.now();
+    if (left <= 0) {
+        msg.textContent = 'Mentsd el a munkádat! A bejelentkezés lejárt.';
+        if (sessionTickTimer) { clearInterval(sessionTickTimer); sessionTickTimer = null; }
+        return;
+    }
+    const perc = Math.floor(left / 60000);
+    const mp = Math.floor((left % 60000) / 1000);
+    msg.textContent = `Mentsd el a munkádat! Hátralévő idő: ${perc}:${String(mp).padStart(2, '0')}`;
+}
+
+function hideSessionBanner() {
+    const banner = document.getElementById('session-banner');
+    if (banner) banner.classList.remove('show');
+    clearBannerOffset();
+    if (sessionTickTimer) { clearInterval(sessionTickTimer); sessionTickTimer = null; }
+}
+
+// Meghosszabbítás a refresh_token-nel. Siker esetén az új session lép
+// életbe, és az időzítő az új lejárathoz igazodik.
+async function extendSession() {
+    const btn = document.getElementById('session-extend-btn');
+    const msg = document.getElementById('session-banner-msg');
+    const refreshToken = currentSession?.refresh_token;
+
+    if (!refreshToken) {
+        msg.textContent = 'Nem sikerült meghosszabbítani – mentsd el a munkádat, és jelentkezz be újra.';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Meghosszabbítás...';
+    if (sessionTickTimer) { clearInterval(sessionTickTimer); sessionTickTimer = null; }
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY
+            },
+            body: JSON.stringify({ refresh_token: refreshToken })
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.access_token) throw new Error('HTTP ' + res.status);
+
+        // A user objektum nem minden válaszban jön vissza – a régit megtartjuk,
+        // hogy a topbar e-mail címe ne tűnjön el.
+        currentSession = { ...currentSession, ...data };
+        if (!data.expires_at && data.expires_in) {
+            currentSession.expires_at = Math.floor(Date.now() / 1000) + data.expires_in;
+        }
+        localStorage.setItem('kgk_session', JSON.stringify(currentSession));
+
+        document.getElementById('session-banner').classList.remove('expired');
+        hideSessionBanner();
+        scheduleSessionWarning();
+        showToast('Munkamenet meghosszabbítva.', 'success');
+    } catch (e) {
+        console.error('Session meghosszabbítás hiba:', e);
+        // A visszaszámlálót szándékosan nem indítjuk újra, hogy ne írja felül ezt
+        msg.textContent = 'Nem sikerült meghosszabbítani – mentsd el a munkádat, és jelentkezz be újra.';
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Munkamenet meghosszabbítása';
+}
+
+// ── 2. RÉTEG: lejárt session mentés közben ──
+function showSessionExpired() {
+    const banner = document.getElementById('session-banner');
+    if (!banner) return;
+
+    clearSessionTimers();
+    banner.classList.add('expired');
+    document.getElementById('session-banner-icon').className = 'fas fa-exclamation-triangle';
+    document.getElementById('session-banner-title').textContent = 'A bejelentkezésed lejárt mentés közben';
+    document.getElementById('session-banner-msg').textContent =
+        'A beírt szöveged megmaradt — jelentkezz be újra, majd próbáld meg újra menteni.';
+
+    // A meghosszabbítás itt is felajánlható: a refresh_token tovább él, mint az
+    // access_token, így sokszor elég egy kattintás, és mehet az újramentés.
+    const extendBtn = document.getElementById('session-extend-btn');
+    extendBtn.disabled = false;
+    extendBtn.textContent = 'Munkamenet meghosszabbítása';
+    setBannerButtons({ extend: true, relogin: true, restore: false, discard: false, dismiss: false });
+
+    banner.classList.add('show');
+    applyBannerOffset();
+}
+
+// Csak explicit kattintásra dobjuk a login képernyőre – így a felhasználó
+// maga dönti el, mikor adja fel a nyitott modál tartalmát.
+function sessionRelogin() {
+    doLogout();
+}
+
+// Igaz, ha az imént észleltük a session lejáratát. A mentő függvények
+// általános hibaüzenete ilyenkor félrevezető lenne a sáv üzenete mellett.
+function sessionJustExpired() {
+    return Date.now() - sessionExpiredAt < 3000;
+}
+
+// Mentési hibaüzenet. Lejárt session után elnyeljük, mert olyankor a sáv már
+// pontosabban elmondja, mi történt – két egymásnak ellentmondó üzenet helyett.
+function showSaveError(msg) {
+    if (sessionJustExpired()) return;
+    showToast(msg, 'error');
+}
+
+// ── VÉSZMENTÉS (piszkozat) ──
+// Csak a 401 pillanatában mentünk, nem folyamatosan. Fájlokat (borítókép,
+// galéria) nem lehet localStorage-ba tenni – azokat újra ki kell választani.
+function saveDraftSnapshot(overlayEl) {
+    try {
+        const fields = {};
+        overlayEl.querySelectorAll('input, textarea, select').forEach(el => {
+            if (!el.id || el.type === 'file') return;
+            fields[el.id] = el.value;
+        });
+        const editor = overlayEl.querySelector('.editor-content');
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+            type: overlayEl.id.replace('modal-', ''),
+            fields,
+            editorHtml: editor ? editor.innerHTML : null,
+            savedAt: new Date().toISOString()
+        }));
+    } catch (e) {
+        console.error('Piszkozat mentése sikertelen:', e);
+    }
+}
+
+const DRAFT_LABELS = {
+    hir: 'Hír',
+    tag: 'Elnökségi tag',
+    esemeny: 'Rendezvény',
+    munkacsoport: 'Munkacsoport',
+    szponzor: 'Szponzor'
+};
+
+const MODAL_EDIT_TITLES = {
+    hir: 'Hír szerkesztése',
+    tag: 'Tag szerkesztése',
+    esemeny: 'Rendezvény szerkesztése',
+    munkacsoport: 'Csoport szerkesztése',
+    szponzor: 'Szponzor szerkesztése'
+};
+
+function readDraft() {
+    try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return null;
+        const draft = JSON.parse(raw);
+        return (draft && draft.type && DRAFT_LABELS[draft.type]) ? draft : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Bejelentkezés után felajánljuk a legutóbbi vészmentést, ha van.
+function offerDraftRestore() {
+    const draft = readDraft();
+    if (!draft) return;
+
+    const banner = document.getElementById('session-banner');
+    if (!banner) return;
+    // Ha épp fontosabb üzenet van kint (pl. lejárat), most nem toljuk félre –
+    // a piszkozat a localStorage-ban marad, a következő belépéskor felajánljuk.
+    if (banner.classList.contains('show')) return;
+
+    let mikor = '';
+    try { mikor = new Date(draft.savedAt).toLocaleString('hu-HU'); } catch (e) {}
+
+    banner.classList.remove('expired');
+    document.getElementById('session-banner-icon').className = 'fas fa-file-alt';
+    document.getElementById('session-banner-title').textContent = 'Van egy nem mentett piszkozatod';
+    document.getElementById('session-banner-msg').textContent =
+        `${DRAFT_LABELS[draft.type]}${mikor ? ' – ' + mikor : ''}. Visszaállítod? (A képeket és a galériát újra ki kell választani.)`;
+    setBannerButtons({ extend: false, relogin: false, restore: true, discard: true, dismiss: false });
+
+    banner.classList.add('show');
+    applyBannerOffset();
+}
+
+function restoreDraft() {
+    const draft = readDraft();
+    hideSessionBanner();
+    if (!draft) return;
+
+    // openModal alaphelyzetbe hozza a modált, utána töltjük vissza a mezőket
+    openModal(draft.type);
+    const overlay = document.getElementById(`modal-${draft.type}`);
+
+    Object.keys(draft.fields || {}).forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.type !== 'file') el.value = draft.fields[id];
+    });
+
+    const editor = overlay.querySelector('.editor-content');
+    if (editor && draft.editorHtml !== null) editor.innerHTML = draft.editorHtml;
+
+    // Szerkesztés volt: az állapotot a rejtett id mezőből állítjuk vissza.
+    // A galériát is újratöltjük – enélkül a mentés árva képnek hinné a
+    // meglévő galériát, és letörölné.
+    const idEl = document.getElementById(`${draft.type}-id`);
+    const savedId = idEl ? idEl.value : '';
+    if (savedId) {
+        editingId = savedId;
+        const titleEl = document.getElementById(`modal-${draft.type}-title`);
+        if (titleEl) titleEl.textContent = MODAL_EDIT_TITLES[draft.type];
+        if (draft.type === 'hir') loadExistingGallery(savedId);
+    }
+
+    localStorage.removeItem(DRAFT_KEY);
+    showToast('Piszkozat visszaállítva. Ellenőrizd, majd mentsd el!', 'success');
+}
+
+function discardDraft() {
+    localStorage.removeItem(DRAFT_KEY);
+    hideSessionBanner();
+}
 
 // ════════════════════════════════════════════
 // API SEGÉDFÜGGVÉNYEK
@@ -1559,14 +2023,27 @@ async function dbFetch(table, options = {}) {
     return res.json();
 }
 
-// Lejárt/érvénytelen session esetén automatikus kijelentkezés
-function handleAuthError(res) {
-    if (res.status === 401) {
+// Lejárt/érvénytelen session kezelése.
+//
+// Ha van veszíteni való – nyitva van egy modál, VAGY épp egy mentés futott
+// (isWrite) –, akkor NEM jelentkeztetünk ki azonnal: a modál nyitva marad a
+// beírt szöveggel, és a felhasználó dönti el, mikor lép ki.
+// Ha nincs nyitott modál és csak olvasás futott, marad a régi, automatikus
+// kijelentkezés, mert olyankor nincs mit elveszíteni.
+function handleAuthError(res, isWrite = false) {
+    if (res.status !== 401) return false;
+
+    sessionExpiredAt = Date.now();
+    const openOverlay = document.querySelector('.modal-overlay.open');
+
+    if (openOverlay || isWrite) {
+        if (openOverlay) saveDraftSnapshot(openOverlay);
+        showSessionExpired();
+    } else {
         showToast('A bejelentkezés lejárt, jelentkezz be újra.', 'error');
         doLogout();
-        return true;
     }
-    return false;
+    return true;
 }
 
 async function dbInsert(table, data) {
@@ -1575,7 +2052,7 @@ async function dbInsert(table, data) {
         headers: authHeaders(),
         body: JSON.stringify(data)
     });
-    if (handleAuthError(res)) return false;
+    if (handleAuthError(res, true)) return false;
     return res.ok;
 }
 
@@ -1585,7 +2062,7 @@ async function dbUpdate(table, id, data) {
         headers: authHeaders(),
         body: JSON.stringify(data)
     });
-    if (handleAuthError(res)) return false;
+    if (handleAuthError(res, true)) return false;
     return res.ok;
 }
 
@@ -1688,6 +2165,9 @@ async function uploadImage(bucket, file, path) {
         },
         body: finalFile
     });
+    // Lejárt session esetén is mentés-jellegű művelet: a hívó nyitva hagyja a
+    // modált, mi pedig a sávval jelezzük, mi történt
+    if (handleAuthError(res, true)) return null;
     if (!res.ok) return null;
     return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${finalPath}`;
 }
@@ -2180,7 +2660,7 @@ async function saveWithImage(key, bucket, buildData) {
             const path = `${key}_${Date.now()}.${ext}`;
             imageUrl = await uploadImage(bucket, file, path);
             if (!imageUrl) {
-                showToast('Képfeltöltés sikertelen!', 'error');
+                showSaveError('Képfeltöltés sikertelen!');
                 btn.disabled = false;
                 btn.innerHTML = 'Mentés';
                 return;
@@ -2207,7 +2687,7 @@ async function saveWithImage(key, bucket, buildData) {
             closeModal(key);
             loadAll();
         } else {
-            showToast('Mentési hiba! Ellenőrizd a mezőket.', 'error');
+            showSaveError('Mentési hiba! Ellenőrizd a mezőket.');
         }
     } catch(e) {
         showToast('Váratlan hiba történt.', 'error');
@@ -2360,7 +2840,7 @@ async function saveHir() {
             const ext = file.name.split('.').pop();
             imageUrl = await uploadImage('news-images', file, `cover_${Date.now()}.${ext}`);
             if (!imageUrl) {
-                showToast('Borítókép feltöltése sikertelen!', 'error');
+                showSaveError('Borítókép feltöltése sikertelen!');
                 btn.disabled = false;
                 btn.innerHTML = 'Mentés';
                 return;
@@ -2384,7 +2864,7 @@ async function saveHir() {
 
         const ok = id ? await dbUpdate('news', id, payload) : await dbInsert('news', payload);
         if (!ok) {
-            showToast('Mentési hiba! Ellenőrizd a mezőket.', 'error');
+            showSaveError('Mentési hiba! Ellenőrizd a mezőket.');
             btn.disabled = false;
             btn.innerHTML = 'Mentés';
             return;
@@ -2486,7 +2966,7 @@ async function saveEsemeny() {
         closeModal('esemeny');
         loadAll();
     } else {
-        showToast('Mentési hiba!', 'error');
+        showSaveError('Mentési hiba!');
     }
 
     btn.disabled = false;
@@ -2554,7 +3034,7 @@ async function saveRolunk() {
         if (ok) {
             showToast('Rólunk sikeresen mentve!', 'success');
         } else {
-            showToast('Mentési hiba!', 'error');
+            showSaveError('Mentési hiba!');
         }
     } catch(e) {
         showToast('Váratlan hiba!', 'error');
@@ -2631,7 +3111,9 @@ async function saveSiteContent() {
 
         // Upsert: ha van már sor, frissíti, ha nincs, létrehozza
         const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/site_content?limit=1`, { headers: authHeaders() });
-        if (handleAuthError(checkRes)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
+        // Ez olvasás, de egy MENTÉS közben fut: ha itt jár le a session, a
+        // beírt statisztikák és a Gólyáknak szöveg nem veszhet el
+        if (handleAuthError(checkRes, true)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
         const existing = checkRes.ok ? await checkRes.json() : [];
 
         let ok;
@@ -2644,7 +3126,7 @@ async function saveSiteContent() {
         if (ok) {
             showToast('Statisztikák és szövegek mentve!', 'success');
         } else {
-            showToast('Mentési hiba!', 'error');
+            showSaveError('Mentési hiba!');
         }
     } catch(e) {
         showToast('Váratlan hiba!', 'error');
@@ -2712,7 +3194,7 @@ async function saveGolyaPdf() {
             showToast('PDF sikeresen feltöltve!', 'success');
             loadGolyaPdf();
         } else {
-            showToast('Mentési hiba!', 'error');
+            showSaveError('Mentési hiba!');
         }
     } catch(e) {
         showToast('Váratlan hiba!', 'error');
