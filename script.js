@@ -776,11 +776,58 @@ function initHamburger() {
 }
 
 // ============================================================
+// VISSZA A TETEJÉRE GOMB
+// ============================================================
+// A gombot innen hozzuk létre és fűzzük a body végére – így egyik publikus
+// HTML fájlt sem kell módosítani, és mind a négy oldal (index, hir, hirek,
+// 404) automatikusan megkapja. Az admin.html nem tölti be ezt a scriptet,
+// ott tehát nem jelenik meg.
+const BACK_TO_TOP_THRESHOLD = 400; // px – ennyi görgetés után bukkan elő
+
+function initBackToTop() {
+    if (!document.body || document.querySelector('.back-to-top')) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'back-to-top';
+    btn.setAttribute('aria-label', 'Vissza a tetejére');
+    // Beágyazott SVG nyíl, nem Font Awesome ikon: a Font Awesome CSAK az
+    // index.html-en van betöltve, a hir/hirek/404 oldalakon üres helyet
+    // hagyna maga után.
+    btn.innerHTML =
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+        '<path d="M12 5 L5 12 M12 5 L19 12 M12 5 L12 20" fill="none" ' +
+        'stroke="currentColor" stroke-width="2.4" stroke-linecap="round" ' +
+        'stroke-linejoin="round"/></svg>';
+    document.body.appendChild(btn);
+
+    btn.addEventListener('click', () => {
+        // A rendszerszintű „kevesebb animáció" beállítást tiszteletben tartjuk
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    });
+
+    // A .visible osztály kapcsolja be a gombot. Mivel a küszöb a görgetési
+    // pozícióhoz van kötve, egy a küszöbnél rövidebb oldalon (pl. 404) a gomb
+    // sosem jelenik meg – ott nincs is mit visszagörgetni.
+    const syncVisibility = () => {
+        btn.classList.toggle('visible', window.scrollY > BACK_TO_TOP_THRESHOLD);
+    };
+
+    // passive: true – nem hívunk preventDefault-ot, így a görgetés gördülékeny marad
+    window.addEventListener('scroll', syncVisibility, { passive: true });
+    // Frissítéskor a böngésző visszaállíthatja a korábbi görgetési pozíciót,
+    // ezért induláskor is egyeztetjük az állapotot
+    syncVisibility();
+}
+
+// ============================================================
 // OLDAL BETÖLTÉSE
 // ============================================================
 document.addEventListener('DOMContentLoaded', async () => {
     initHamburger();
     initObserver();
+    initBackToTop();
     // initCounters() NEM itt fut: a data-target a Supabase válaszából kerül a
     // DOM-ba, ezért a loadSiteContent() végén hívjuk meg. Ide visszatéve a
     // számlálók üres data-target-tel indulnának el.

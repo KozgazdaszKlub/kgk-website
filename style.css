@@ -1168,3 +1168,81 @@ blockquote {
     .notfound-box { padding: 40px 24px; }
     .notfound-box .notfound-code { font-size: 3.4rem; }
 }
+
+/* ════════════════════════════════════════════
+   VISSZA A TETEJÉRE GOMB
+════════════════════════════════════════════ */
+
+/* A gombot a script.js initBackToTop() hozza létre és fűzi a body végére,
+   ezért egyik publikus HTML fájlban sincs jelen. Az admin.html nem tölti be
+   a script.js-t, ott tehát nem is jelenik meg. */
+.back-to-top {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #F1C039;
+    border-radius: 50%;
+    background-color: #08122b;
+    color: #F1C039;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(8, 18, 43, 0.35);
+
+    /* A sticky nav (1000) és a hir.html lightboxa (9999) fölé SOHA ne kerüljön */
+    z-index: 900;
+
+    /* Alapból rejtve. A visibility azért kell az opacity mellé, mert az
+       önmagában nem venné ki a gombot a Tab-sorrendből – rejtett állapotban
+       a fókusz ráugorhatna. */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(8px);
+    transition: opacity 0.3s ease, transform 0.3s ease,
+                background-color 0.2s ease, color 0.2s ease,
+                visibility 0s linear 0.3s;
+}
+
+/* Megjelenés: a visibility itt késleltetés nélkül vált, hogy a gomb azonnal
+   kattintható és fókuszálható legyen, amint elkezd előbukkanni */
+.back-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition-delay: 0s;
+}
+
+.back-to-top:hover {
+    background-color: #F1C039;
+    color: #08122b;
+}
+
+.back-to-top:focus-visible {
+    outline: 3px solid #498CFF;
+    outline-offset: 3px;
+}
+
+.back-to-top svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+}
+
+/* Nyitott mobil menü mellett a gomb ne lebegjen a menüpontok fölött */
+body:has(.nav-links.active) .back-to-top {
+    opacity: 0;
+    visibility: hidden;
+}
+
+@media (max-width: 768px) {
+    .back-to-top {
+        right: 16px;
+        bottom: 16px;
+        width: 44px;
+        height: 44px;
+    }
+}
