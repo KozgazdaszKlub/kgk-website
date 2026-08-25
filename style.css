@@ -192,7 +192,20 @@ header#hero {
 
     /* Aktív állapot (Kinyitva) */
     .nav-links.active {
-        max-height: 100vh; /* Kinyílik teljes képernyőig */
+        /* FONTOS: a .nav-links content-box, és van rajta 100px padding-top,
+           ezért a sima 100vh-ból a doboz TELJES magassága 100vh + 100px lenne,
+           vagyis mindig kilógna a képernyő aljából. A padding levonásával a
+           teljes magasság pontosan a képernyőbe fér.
+           (A 100px a fenti padding-top értéke – együtt kell mozogniuk.) */
+        max-height: calc(100vh - 100px);
+        /* Ha a menüpontok nem férnek ki (alacsony kijelzőn, pl. 640-780px magas
+           telefonon), a nyitott menü legyen görgethető. Enélkül az utolsó
+           menüpontok az overflow: hidden miatt levágódnának, és sem koppintással,
+           sem Tab-bal nem lennének elérhetők. Ha kifér, nincs hatása: görgetősáv
+           sem jelenik meg. Az overscroll-behavior megakadályozza, hogy a menü
+           aljára érve a mögötte lévő oldal kezdjen el görögni. */
+        overflow-y: auto;
+        overscroll-behavior: contain;
         /* Nyitáskor azonnal láthatóvá kell válnia, hogy a linkek rögtön
            fókuszálhatók legyenek – itt tehát nincs késleltetés */
         visibility: visible;
@@ -354,6 +367,20 @@ footer {
     color: #F1C039;
     margin: 0 10px;
     text-decoration: none;
+}
+
+/* Link a kapcsolatfelvételi űrlapra a footer #kapcsolat szekciójában.
+   Arany, mint a footer többi kiemelt linkje - a sötétkék háttéren jól olvasható. */
+.footer-form-link {
+    margin: 6px 0 0;
+}
+.footer-form-link a {
+    color: #F1C039;
+    text-decoration: none;
+    font-weight: 600;
+}
+.footer-form-link a:hover {
+    text-decoration: underline;
 }
 
 /* --- RENDEZVÉNYEK --- */
@@ -1255,5 +1282,195 @@ body:has(.nav-links.active) .back-to-top {
         bottom: 16px;
         width: 44px;
         height: 44px;
+    }
+}
+
+/* ════════════════════════════════════════════
+   KAPCSOLAT OLDAL (kapcsolat.html)
+════════════════════════════════════════════ */
+
+/* A 404 oldal mintájára: középre igazított, önálló kártya.
+   A globális `section` szabály paddingjét felülírjuk. */
+.kapcsolat-page {
+    min-height: 65vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 90px 20px;
+}
+
+.kapcsolat-box {
+    background: #fff;
+    width: 100%;
+    max-width: 640px;
+    padding: 50px 44px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    box-sizing: border-box;
+}
+
+.kapcsolat-box h1 {
+    font-size: 1.6rem;
+    color: #08122b;
+    margin: 0 0 14px;
+}
+
+.kapcsolat-intro {
+    color: #666;
+    line-height: 1.7;
+    margin: 0 0 34px;
+}
+
+/* --- MAGA AZ ŰRLAP --- */
+.kapcsolat-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    text-align: left;
+}
+
+.form-mezo {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-mezo label {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #08122b;
+    margin-bottom: 8px;
+}
+
+.form-mezo .kotelezo {
+    color: #d33;
+}
+
+.form-mezo input,
+.form-mezo textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 13px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    color: #333;
+    background-color: #fbfbf6;
+    border: 2px solid #e4e4da;
+    border-radius: 6px;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.form-mezo input::placeholder,
+.form-mezo textarea::placeholder {
+    color: #b3b3a8;
+}
+
+.form-mezo input:focus,
+.form-mezo textarea:focus {
+    outline: none;
+    background-color: #fff;
+    border-color: #F1C039;
+    box-shadow: 0 0 0 3px rgba(241, 192, 57, 0.28);
+}
+
+.form-mezo textarea {
+    min-height: 150px;
+    resize: vertical; /* csak függőlegesen, hogy ne lógjon ki a kártyából */
+}
+
+/* A gomb a design system arany .btn stílusát viszi tovább – itt csak azok a
+   tulajdonságok kellenek, amiket egy <button>-nél alapból a böngésző ad. */
+.kapcsolat-form .btn {
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    padding: 15px 24px;
+    font-size: 1rem;
+    margin-top: 4px;
+}
+
+/* Küldés közbeni ("Küldés...") állapot */
+.kapcsolat-form .btn:disabled {
+    background-color: #ddd9c9;
+    color: #7d7d72;
+    cursor: default;
+    transform: none;
+}
+
+/* --- VISSZAJELZÉS A FORM ALATT (alert() helyett) --- */
+.form-uzenet {
+    display: none;
+    margin-top: 24px;
+    padding: 15px 18px;
+    border-radius: 6px;
+    font-weight: 600;
+    line-height: 1.6;
+    text-align: left;
+}
+
+.form-uzenet.latszik {
+    display: block;
+}
+
+.form-uzenet.siker {
+    background-color: #e7f6ec;
+    color: #19653a;
+    border-left: 5px solid #2e9e52;
+}
+
+.form-uzenet.hiba {
+    background-color: #fdeaea;
+    color: #8f2020;
+    border-left: 5px solid #d33;
+}
+
+.form-uzenet a {
+    color: inherit;
+    font-weight: 700;
+}
+
+/* Tartalék elérési út a form alatt */
+.kapcsolat-fallback {
+    margin: 26px 0 0;
+    font-size: 0.9rem;
+    color: #888;
+}
+
+.kapcsolat-fallback a {
+    color: #498CFF;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.kapcsolat-fallback a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .kapcsolat-page {
+        padding: 60px 16px;
+    }
+
+    .kapcsolat-box {
+        padding: 34px 22px;
+    }
+
+    .kapcsolat-box h1 {
+        font-size: 1.35rem;
+    }
+
+    /* 16px alatt az iOS Safari ráközelít a mezőre fókuszáláskor – ezért
+       mobilon pont 16px a betűméret. A magasabb padding a kényelmes
+       érintéshez kell (min. ~48px magas mezők és gomb). */
+    .form-mezo input,
+    .form-mezo textarea {
+        font-size: 16px;
+        padding: 14px 14px;
+    }
+
+    .kapcsolat-form .btn {
+        padding: 16px 24px;
     }
 }
