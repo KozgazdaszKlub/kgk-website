@@ -1,0 +1,95 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  MIRE VALÓ EZ A FÁJL? (nem kell hozzá programozói tudás)
+#
+#  A weboldal adatai (hírek, elnökség, rendezvények, képek) egy Supabase nevű
+#  ingyenes szolgáltatásban vannak. Az ingyenes csomagban a Supabase
+#  "elaltatja" (szünetelteti) a projektet, ha 7 napig senki nem kér tőle
+#  adatot. Ha ez megtörténik, a kgk-website.vercel.app oldalon a hírek, a
+#  csoportok stb. nem töltenek be, amíg valaki kézzel fel nem ébreszti a
+#  projektet a Supabase felületén.
+#
+#  Ez a fájl ezt előzi meg: minden éjjel egyszer a GitHub automatikusan
+#  lekérdez EGYETLEN sort a hírek táblából. Ez a Supabase szemében
+#  aktivitásnak számít, így a projekt sosem alszik el – akkor sem, ha
+#  vizsgaidőszakban vagy nyáron hetekig senki nem nyitja meg az oldalt.
+#
+#  FONTOS: ez a lekérdezés CSAK OLVAS. Semmit nem ír, nem módosít és nem
+#  töröl az adatbázisban.
+#
+#  Ha valami elromlik (pl. lejár a kulcs, vagy törlődik a Supabase projekt),
+#  az Actions fülön piros X jelenik meg a futásnál – ez a jelzés, hogy
+#  utána kell nézni.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Supabase keep-alive (ébren tartás)
+
+on:
+  schedule:
+    # Minden nap 3:17 UTC-kor (romániai idő szerint télen 5:17, nyáron 6:17).
+    # Miért pont ekkor? Hajnalban gyakorlatilag nincs látogató az oldalon, így
+    # ha a futás hibázna, az nem esik egybe valódi használattal. A percérték
+    # szándékosan nem :00 – a GitHub ingyenes futtatói egész órakor túl vannak
+    # terhelve, egy "furcsa" perc esetén sokkal pontosabban indul a futás.
+    - cron: '17 3 * * *'
+
+  # Kézi indítás: az Actions fülön a "Run workflow" gombbal bármikor
+  # azonnal lefuttatható, nem kell megvárni a következő éjszakát.
+  workflow_dispatch:
+
+# A workflow-nak semmilyen írási joga nincs a repóhoz.
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Supabase ping
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Olvasó lekérdezés a Supabase felé
+        env:
+          # A kulcs GitHub repository secret-ből jön, nem a fájlból.
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -uo pipefail
+
+          if [ -z "${SUPABASE_ANON_KEY}" ]; then
+            echo "::error::Hiányzik a SUPABASE_ANON_KEY repository secret. Beállítás: Settings → Secrets and variables → Actions → New repository secret."
+            exit 1
+          fi
+
+          URL="https://agdstsliixwysbjedppu.supabase.co/rest/v1/news?select=id&limit=1"
+
+          # Csak GET kérés – egyetlen hír azonosítóját kéri le, semmit nem ír.
+          HTTP_CODE="$(curl --silent --show-error \
+            --max-time 30 \
+            --retry 3 --retry-delay 10 --retry-all-errors \
+            --output response.txt \
+            --write-out '%{http_code}' \
+            --header "apikey: ${SUPABASE_ANON_KEY}" \
+            --header "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            "${URL}")" || HTTP_CODE="000"
+
+          echo "HTTP státuszkód: ${HTTP_CODE}"
+          echo "A Supabase válasza (első 200 karakter):"
+          head -c 200 response.txt 2>/dev/null || true
+          echo ""
+
+          case "${HTTP_CODE}" in
+            2??)
+              echo "✅ A Supabase válaszolt – a projekt ébren van."
+              ;;
+            000)
+              echo "::error::Nem sikerült elérni a Supabase-t (hálózati hiba vagy időtúllépés). Ha ez ismétlődik, nézd meg a Supabase dashboardon, hogy él-e a projekt."
+              exit 1
+              ;;
+            401|403)
+              echo "::error::A Supabase elutasította a kérést (HTTP ${HTTP_CODE}). Valószínűleg hibás vagy lejárt a SUPABASE_ANON_KEY secret értéke."
+              exit 1
+              ;;
+            *)
+              echo "::error::A Supabase ping nem sikerült (HTTP ${HTTP_CODE}). Ellenőrizd a Supabase projekt állapotát."
+              exit 1
+              ;;
+          esac
