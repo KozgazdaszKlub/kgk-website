@@ -723,7 +723,7 @@ function initCounters() {
 function initHamburger() {
     const hamburger = document.querySelector('.hamburger');
     const navMenu = document.querySelector('.nav-links');
-    if (!hamburger) return;
+    if (!hamburger || !navMenu) return;
 
     // Az aria-expanded és az aria-label a képernyőolvasónak mondja meg, hogy
     // a menü épp nyitva van-e. Egy helyen frissítjük, hogy egérrel és
@@ -757,6 +757,22 @@ function initHamburger() {
     });
 
     document.querySelectorAll('.nav-links a').forEach(n => n.addEventListener('click', closeMenu));
+
+    // Kívülre kattintás/koppintás bezárja a nyitott menüt (mobil overlay).
+    // A hamburgert kihagyjuk, mert annak saját toggle-je van: e nélkül a
+    // kattintás előbb bezárná, majd ez a listener visszanyitná a menüt.
+    document.addEventListener('click', e => {
+        if (!navMenu.classList.contains('active')) return;
+        if (navMenu.contains(e.target) || hamburger.contains(e.target)) return;
+        closeMenu();
+    });
+
+    // Escape is zárja a menüt (külső billentyűzet, akadálymentesítés).
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && navMenu.classList.contains('active')) {
+            closeMenu();
+        }
+    });
 }
 
 // ============================================================
