@@ -1049,6 +1049,121 @@
 
         .gallery-hint i { color: var(--gold); margin-right: 5px; }
 
+        /* ── FUNKCIÓ-KAPCSOLÓK (Szekciók fül) ── */
+        .flag-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px 22px;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .flag-card-info { flex: 1; min-width: 0; }
+
+        .flag-card-label {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text);
+            line-height: 1.45;
+        }
+
+        /* A gépi név (flag_key) – ez köti össze a sort a weboldal HTML-jével.
+           Halványan, hogy ne vonja el a figyelmet, de baj esetén látszódjon. */
+        .flag-card-key {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+        }
+
+        /* Szöveges állapot a kapcsoló mellett: a színt nem látó felhasználó is
+           egyértelműen lássa, hogy be vagy ki van kapcsolva. */
+        .flag-state {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            min-width: 62px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .flag-card.on .flag-state { color: var(--success); }
+
+        /* CSS-only kapcsoló. A checkbox NEM display:none, csak áttetsző – így
+           Tab-bal elérhető marad, és a fókuszgyűrű is megjelenhet rajta. */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .switch input:disabled { cursor: wait; }
+
+        .switch-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--navy);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            transition: background 0.25s, border-color 0.25s;
+            pointer-events: none;
+        }
+
+        .switch-slider::before {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: transform 0.25s, background 0.25s;
+        }
+
+        .switch input:checked + .switch-slider {
+            background: rgba(241, 192, 57, 0.25);
+            border-color: var(--gold);
+        }
+
+        .switch input:checked + .switch-slider::before {
+            transform: translateX(24px);
+            background: var(--gold);
+        }
+
+        .switch input:focus-visible + .switch-slider {
+            outline: 2px solid var(--gold);
+            outline-offset: 2px;
+        }
+
+        /* Mentés közben: látsszon, hogy épp dolgozik */
+        .switch input:disabled + .switch-slider { opacity: 0.5; }
+
+        .flag-intro {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 20px;
+            max-width: 640px;
+        }
+
         @media (max-width: 768px) {
             .sidebar { display: none; }
             .mobile-menu-btn { display: flex; }
@@ -1060,6 +1175,10 @@
             .item-card { padding: 16px 14px; gap: 12px; }
             .item-card-actions { gap: 6px; }
             .btn-icon { width: 30px; height: 30px; }
+            /* A hosszabb leírásoknak kell a hely – a kapcsoló maga is
+               egyértelműen mutatja az állapotot, a szöveges felirat mehet. */
+            .flag-card { padding: 16px 14px; gap: 12px; }
+            .flag-state { display: none; }
         }
     </style>
 </head>
@@ -1140,6 +1259,10 @@
         <button class="sidebar-btn" onclick="switchTabMobile('szponzorok', this)">
             <i class="fas fa-handshake"></i> Szponzorok
         </button>
+        <div class="sidebar-label">Beállítások</div>
+        <button class="sidebar-btn" onclick="switchTabMobile('szekciok', this)">
+            <i class="fas fa-toggle-on"></i> Szekciók
+        </button>
     </div>
 
     <div class="layout">
@@ -1168,6 +1291,10 @@
             </button>
             <button class="sidebar-btn" onclick="switchTab('szponzorok', this)">
                 <i class="fas fa-handshake"></i> Szponzorok
+            </button>
+            <div class="sidebar-label">Beállítások</div>
+            <button class="sidebar-btn" onclick="switchTab('szekciok', this)">
+                <i class="fas fa-toggle-on"></i> Szekciók
             </button>
         </aside>
 
@@ -1349,6 +1476,25 @@
                     </button>
                 </div>
                 <div class="items-list" id="list-szponzorok">
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Betöltés...</div>
+                </div>
+            </div>
+
+            <!-- SZEKCIÓK (funkció-kapcsolók) -->
+            <!-- A lista TELJESEN dinamikus: amit a feature_flags táblában talál,
+                 azt rajzolja ki. Új kapcsolóhoz elég egy SQL INSERT, ehhez a
+                 fájlhoz nem kell hozzányúlni. -->
+            <div class="tab-panel" id="tab-szekciok">
+                <div class="panel-header">
+                    <h2 class="panel-title">Szekciók megjelenítése</h2>
+                </div>
+                <p class="flag-intro">
+                    Itt tudod ki- és bekapcsolni a weboldal egyes részeit. A változtatás
+                    <strong>azonnal mentődik</strong>, és a látogatóknál a következő
+                    oldalfrissítéskor látszik. A tartalom nem vész el: a kikapcsolt szekció
+                    csak nem jelenik meg, bármikor visszakapcsolható.
+                </p>
+                <div class="items-list" id="list-szekciok">
                     <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Betöltés...</div>
                 </div>
             </div>
@@ -3590,6 +3736,97 @@ closeModal = function(type) {
     _origCloseModal(type);
 };
 
+// ════════════════════════════════════════════
+// FUNKCIÓ-KAPCSOLÓK (Szekciók fül)
+// ════════════════════════════════════════════
+// A `feature_flags` tábla soronként egy be/ki kapcsolót tárol. A publikus
+// oldal (script.js → loadFeatureFlags) ebből dönti el, mit mutasson meg.
+//
+// Itt SEM új sort nem hozunk létre, SEM nem törlünk – csak az `enabled`
+// mezőt írjuk át. Az adatbázisban is így van beállítva: a feature_flags
+// táblán szándékosan NINCS INSERT és DELETE policy, csak UPDATE.
+// (Lásd migrations/feature_flags.sql.)
+
+// A kapcsoló két állapotának szöveges felirata – egy helyen, hogy a
+// betöltés és az átkapcsolás biztosan ugyanazt írja ki.
+const FLAG_STATE_TEXT = { on: 'Látszik', off: 'Rejtve' };
+
+async function loadFeatureFlagsAdmin() {
+    const list = document.getElementById('list-szekciok');
+    if (!list) return;
+
+    const data = await dbFetch('feature_flags', { order: 'id.asc' });
+
+    if (!data.length) {
+        // Ugyanez az ág fut le akkor is, ha a tábla MÉG NEM LÉTEZIK: a dbFetch
+        // hiba esetén is üres tömböt ad vissza. Ezért van itt a segítő mondat
+        // az SQL scriptről – enélkül ez egy néma, érthetetlen üres lista lenne.
+        list.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-toggle-off"></i>
+                Még nincs egyetlen kapcsoló sem.<br>
+                <span style="font-size:0.85rem;line-height:1.6;display:inline-block;margin-top:8px">
+                    Ha most vezettük be ezt a funkciót, előbb le kell futtatni a
+                    <code>migrations/feature_flags.sql</code> scriptet
+                    a Supabase SQL Editorban.
+                </span>
+            </div>`;
+        return;
+    }
+
+    list.innerHTML = data.map(f => {
+        // Csak az explicit `false` jelent kikapcsolt állapotot – ugyanaz az
+        // elv, mint a publikus oldalon: bizonytalan érték = látszik.
+        const on = f.enabled !== false;
+        return `
+        <div class="flag-card ${on ? 'on' : ''}" id="flag-card-${f.id}">
+            <div class="flag-card-info">
+                <div class="flag-card-label" id="flag-label-${f.id}">${f.label || f.flag_key}</div>
+                <div class="flag-card-key">${f.flag_key}</div>
+            </div>
+            <span class="flag-state" id="flag-state-${f.id}">${on ? FLAG_STATE_TEXT.on : FLAG_STATE_TEXT.off}</span>
+            <label class="switch">
+                <input type="checkbox" ${on ? 'checked' : ''}
+                       aria-labelledby="flag-label-${f.id}"
+                       onchange="toggleFeatureFlag(${f.id}, this)">
+                <span class="switch-slider"></span>
+            </label>
+        </div>`;
+    }).join('');
+}
+
+async function toggleFeatureFlag(id, input) {
+    // A checkbox állapota a kattintás UTÁNI, kívánt érték
+    const kivant = input.checked;
+    const card = document.getElementById(`flag-card-${id}`);
+    const state = document.getElementById(`flag-state-${id}`);
+
+    // Mentés közben letiltjuk: egy türelmetlen dupla kattintás különben két,
+    // egymást keresztező mentést indítana, és a végén nem tudnánk, melyik nyert
+    input.disabled = true;
+
+    const ok = await dbUpdate('feature_flags', id, {
+        enabled: kivant,
+        updated_at: new Date().toISOString()
+    });
+
+    input.disabled = false;
+
+    if (ok) {
+        if (card) card.classList.toggle('on', kivant);
+        if (state) state.textContent = kivant ? FLAG_STATE_TEXT.on : FLAG_STATE_TEXT.off;
+        showToast(kivant
+            ? 'Bekapcsolva – a szekció mostantól látszik az oldalon.'
+            : 'Kikapcsolva – a szekció mostantól nem jelenik meg.', 'success');
+    } else {
+        // Sikertelen mentésnél VISSZAÁLLÍTJUK a kapcsolót. Enélkül a felület
+        // olyan állapotot mutatna, ami az adatbázisban nincs is így – és a
+        // felhasználó azt hinné, elmentette.
+        input.checked = !kivant;
+        showSaveError('A kapcsoló mentése nem sikerült!');
+    }
+}
+
 // loadAll kiegészítése
 const _origLoadAll = loadAll;
 loadAll = async function() {
@@ -3598,6 +3835,7 @@ loadAll = async function() {
     loadGolyaPdf();
     loadSzponzorok();
     loadSiteContentAdmin();
+    loadFeatureFlagsAdmin();
 };
 
 // ════════════════════════════════════════════

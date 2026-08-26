@@ -28,24 +28,41 @@
             <li><a href="index.html#elnokseg">Elnökség</a></li>
             <li><a href="index.html#munkacsoportok">Munkacsoportok</a></li>
             <li><a href="index.html#rendezvenyek">Rendezvényeink</a></li>
-            <li><a href="index.html#golyaknak">Gólyáknak</a></li>
+            <li data-flag="golya_visible"><a href="index.html#golyaknak" id="nav-golya-link">Gólyáknak</a></li>
             <li><a href="index.html#hirek">Híreink</a></li>
-            <li><a href="kapcsolat.html" aria-current="page">Írj nekünk</a></li>
+            <li data-flag="kapcsolat_visible"><a href="kapcsolat.html" id="nav-kapcsolat-link" aria-current="page">Írj nekünk</a></li>
             <li><a href="index.html#kapcsolat" class="btn-contact">Elérhetőségek</a></li>
         </ul>
     </nav>
 
+    <!-- Az űrlap adminból ki/be kapcsolható ("kapcsolat_visible" kapcsoló).
+         Betöltés közben a doboz `flag-pending` állapotban van: a lenti
+         shimmer látszik a tartalom helyett, így nem villan fel egy űrlap,
+         amit aztán rögtön el is tüntetnénk. Kikapcsolt állapotban a form
+         helyett a legalul lévő #kapcsolat-kikapcsolva doboz jelenik meg.
+         Az egészet a script.js applyFeatureFlags() kapcsolja. -->
     <section class="kapcsolat-page">
-        <div class="kapcsolat-box">
+        <div class="kapcsolat-box flag-pending">
+            <div class="flag-skeleton" aria-hidden="true">
+                <div class="skeleton skeleton-flag-title"></div>
+                <div class="skeleton skeleton-flag-line"></div>
+                <div class="skeleton skeleton-flag-line short"></div>
+                <div class="skeleton skeleton-flag-field"></div>
+                <div class="skeleton skeleton-flag-field"></div>
+                <div class="skeleton skeleton-flag-field"></div>
+                <div class="skeleton skeleton-flag-field tall"></div>
+                <div class="skeleton skeleton-flag-btn"></div>
+            </div>
+
             <h1>Lépj velünk kapcsolatba</h1>
-            <p class="kapcsolat-intro">
+            <p class="kapcsolat-intro" data-flag="kapcsolat_visible">
                 Kérdésed van, együttműködnél velünk, vagy csak szeretnél többet tudni a
                 Közgazdász Klubról? Írd meg nekünk – igyekszünk minél hamarabb válaszolni.
             </p>
 
             <!-- A natív HTML5 validáció szándékosan BE van kapcsolva (nincs novalidate):
                  üres kötelező mezőnél a böngésző jelez, és a submit esemény el sem indul. -->
-            <form id="kapcsolat-form" class="kapcsolat-form">
+            <form id="kapcsolat-form" class="kapcsolat-form" data-flag="kapcsolat_visible">
                 <div class="form-mezo">
                     <label for="mezo-nev">Neved <span class="kotelezo" aria-hidden="true">*</span></label>
                     <input type="text" id="mezo-nev" name="nev" required maxlength="120"
@@ -90,11 +107,25 @@
 
             <!-- Visszajelzés a form alatt (nem alert!). A JS a .siker / .hiba
                  osztállyal színezi, és a .latszik osztállyal jeleníti meg. -->
-            <div id="form-uzenet" class="form-uzenet" role="status" aria-live="polite"></div>
+            <div id="form-uzenet" class="form-uzenet" role="status" aria-live="polite"
+                 data-flag="kapcsolat_visible"></div>
 
-            <p class="kapcsolat-fallback">
+            <p class="kapcsolat-fallback" data-flag="kapcsolat_visible">
                 Inkább közvetlenül írnál? <a href="mailto:kozgazdaszklubkgk@gmail.com">kozgazdaszklubkgk@gmail.com</a>
             </p>
+
+            <!-- KIKAPCSOLT ÁLLAPOT – ez a doboz a form HELYETT jelenik meg, ha
+                 a "kapcsolat_visible" kapcsoló ki van kapcsolva az adminban.
+                 Alapból a `hidden` attribútum rejti; a script.js csak akkor
+                 veszi le, ha a kapcsoló tényleg ki van kapcsolva. Így ha a
+                 kapcsolók lekérése bármiért elszállna, ez NEM jelenik meg –
+                 marad a működő űrlap. -->
+            <div id="kapcsolat-kikapcsolva" class="kapcsolat-kikapcsolva"
+                 data-flag-off="kapcsolat_visible" hidden>
+                A kapcsolatfelvételi űrlap jelenleg nem elérhető.
+                Írj nekünk közvetlenül:
+                <a href="mailto:kozgazdaszklubkgk@gmail.com">kozgazdaszklubkgk@gmail.com</a>
+            </div>
         </div>
     </section>
 

@@ -28,9 +28,9 @@
             <li><a href="index.html#elnokseg">Elnökség</a></li>
             <li><a href="index.html#munkacsoportok">Munkacsoportok</a></li>
             <li><a href="index.html#rendezvenyek">Rendezvényeink</a></li>
-            <li><a href="index.html#golyaknak">Gólyáknak</a></li>
+            <li data-flag="golya_visible"><a href="index.html#golyaknak" id="nav-golya-link">Gólyáknak</a></li>
             <li><a href="index.html#hirek">Híreink</a></li>
-            <li><a href="kapcsolat.html">Írj nekünk</a></li>
+            <li data-flag="kapcsolat_visible"><a href="kapcsolat.html" id="nav-kapcsolat-link">Írj nekünk</a></li>
             <li><a href="index.html#kapcsolat" class="btn-contact">Elérhetőségek</a></li>
         </ul>
     </nav>
@@ -110,8 +110,19 @@
         </div>
     </section>
 
-    <!-- GÓLYÁKNAK – dinamikusan töltődik Supabase-ből -->
-    <section id="golyaknak" style="background-color: white;">
+    <!-- GÓLYÁKNAK – dinamikusan töltődik Supabase-ből.
+         A szekció adminból ki/be kapcsolható: data-flag="golya_visible".
+         A `flag-pending` osztály miatt betöltés közben a lenti shimmer
+         látszik a tartalom helyett – így egy kikapcsolt szekció nem villan
+         fel egy pillanatra. Az osztályt a script.js applyFeatureFlags()
+         veszi le. -->
+    <section id="golyaknak" class="flag-pending" data-flag="golya_visible" style="background-color: white;">
+        <div class="flag-skeleton" aria-hidden="true">
+            <div class="skeleton skeleton-flag-title"></div>
+            <div class="skeleton skeleton-flag-line"></div>
+            <div class="skeleton skeleton-flag-line short"></div>
+            <div class="skeleton skeleton-flag-btn"></div>
+        </div>
         <h2>Gólyáknak</h2>
         <div class="container">
             <div class="text-box" style="max-width: 800px; text-align: center;">
@@ -139,8 +150,20 @@
         </div>
     </section>
 
-    <!-- SZPONZOROK – dinamikusan töltődik Supabase-ből -->
-    <section id="szponzorok">
+    <!-- SZPONZOROK – dinamikusan töltődik Supabase-ből.
+         Adminból ki/be kapcsolható: data-flag="szponzorok_visible".
+         (A szekció ettől függetlenül automatikusan is elrejtőzik, ha egyetlen
+         szponzor sincs felvéve – azt a script.js loadSponsors() intézi.) -->
+    <section id="szponzorok" class="flag-pending" data-flag="szponzorok_visible">
+        <div class="flag-skeleton" aria-hidden="true">
+            <div class="skeleton skeleton-flag-title"></div>
+            <div class="flag-skeleton-logos">
+                <div class="skeleton sponsor-skeleton"></div>
+                <div class="skeleton sponsor-skeleton"></div>
+                <div class="skeleton sponsor-skeleton"></div>
+                <div class="skeleton sponsor-skeleton"></div>
+            </div>
+        </div>
         <h2>Szponzoraink</h2>
         <div class="sponsors-belt">
             <div class="sponsors-track"></div>
@@ -152,7 +175,7 @@
             <img src="images/Copy of kgk_feher.png" alt="KGK Logo Small" class="footer-logo">
             <p>&copy; Közgazdász Klub - Kolozsvár</p>
             <p>Email: <a href="mailto:kozgazdaszklubkgk@gmail.com">kozgazdaszklubkgk@gmail.com</a></p>
-            <p class="footer-form-link"><a href="kapcsolat.html">Vagy töltsd ki kapcsolatfelvételi űrlapunkat &rarr;</a></p>
+            <p class="footer-form-link" data-flag="kapcsolat_visible"><a href="kapcsolat.html">Vagy töltsd ki kapcsolatfelvételi űrlapunkat &rarr;</a></p>
             <div class="footer-socials">
                 <a href="https://www.facebook.com/kozgazdaszklub" target="_blank">Facebook</a>
                 <a href="https://www.instagram.com/kozgazdaszklub" target="_blank">Instagram</a>

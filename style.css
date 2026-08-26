@@ -1474,3 +1474,108 @@ body:has(.nav-links.active) .back-to-top {
         padding: 16px 24px;
     }
 }
+
+
+/* ════════════════════════════════════════════
+   FUNKCIÓ-KAPCSOLÓK (feature flags) – BETÖLTŐ ÁLLAPOT
+════════════════════════════════════════════ */
+
+/* Az admin felületről ki/be kapcsolható szekciók a HTML-ben már eleve
+   `class="flag-pending"` állapotban születnek. Amíg a kapcsolók állapota meg
+   nem érkezik a Supabase-ből, a szekció VALÓDI tartalma nincs kirajzolva –
+   helyette a projekt megszokott shimmer-csíkjai látszanak. Így egy kikapcsolt
+   szekció soha nem villan fel egy pillanatra, mielőtt eltűnne.
+
+   Az osztályt a script.js applyFeatureFlags() veszi le. Ha a hálózat elszáll
+   vagy a feature_flags tábla nem létezik, a loadFeatureFlags() akkor is
+   lefut (időkorláttal), tehát a shimmer sosem ragad be. */
+
+/* Specificitás: (0,2,0) – magasabb, mint a .container / .sponsors-belt /
+   .kapcsolat-form `display: flex` szabálya (0,1,0), ezért nem kell
+   !important. Ha ide valaha ID-vel címzett display szabály kerülne
+   (pl. `#golyaknak .container`), az felülírná ezt – arra figyelj. */
+.flag-pending > *:not(.flag-skeleton) { display: none; }
+
+/* A skeleton fordítva: alapból rejtve, CSAK pending állapotban látszik.
+   Így a kész oldalon nem marad ott egy üres doboz. */
+.flag-skeleton { display: none; }
+
+.flag-pending > .flag-skeleton {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* A magasságok a valódi tartalom méretéhez vannak igazítva, hogy a szekció
+   ne ugorjon meg túlzottan, amikor a tartalom a skeleton helyére lép. */
+.skeleton-flag-title {
+    height: 30px;
+    width: 240px;
+    max-width: 80%;
+}
+
+.skeleton-flag-line {
+    height: 14px;
+    width: 100%;
+}
+
+.skeleton-flag-line.short {
+    width: 55%;
+}
+
+.skeleton-flag-btn {
+    height: 48px;
+    width: 260px;
+    max-width: 100%;
+    border-radius: 6px;
+    margin-top: 18px;
+}
+
+/* Űrlapmező-alakú csík (kapcsolat.html) */
+.skeleton-flag-field {
+    height: 46px;
+    width: 100%;
+    border-radius: 6px;
+}
+
+.skeleton-flag-field.tall {
+    height: 130px;
+}
+
+/* Logó-sor (szponzorok szekció) – a .sponsor-skeleton méreteit használja,
+   ugyanazzal a 60px-es térközzel, mint a valódi .sponsors-track */
+.flag-skeleton-logos {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 60px;
+    margin-top: 26px;
+}
+
+/* ── KIKAPCSOLT KAPCSOLAT OLDAL (kapcsolat.html) ──
+   Ez a doboz akkor jelenik meg a form HELYETT, ha a „kapcsolat_visible"
+   kapcsoló ki van kapcsolva. Alapból a `hidden` attribútum rejti. */
+.kapcsolat-kikapcsolva {
+    margin-top: 10px;
+    padding: 26px 22px;
+    background-color: #f4f4ec;
+    border-left: 5px solid #F1C039;
+    border-radius: 6px;
+    text-align: left;
+    line-height: 1.7;
+    color: #444;
+}
+
+.kapcsolat-kikapcsolva a {
+    color: #498CFF;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.kapcsolat-kikapcsolva a:hover {
+    text-decoration: underline;
+}

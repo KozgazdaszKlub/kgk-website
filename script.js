@@ -54,6 +54,101 @@ function formatDateHu(dateStr) {
 }
 
 // ============================================================
+// FUNKCIÓ-KAPCSOLÓK (feature flags)
+// ============================================================
+// Az admin felületről ki/be kapcsolható szekciók állapota a `feature_flags`
+// táblából jön. A HTML-ben a jelölők kötik össze az adatbázissal:
+//
+//   data-flag="<flag_key>"      → az elem CSAK akkor látszik, ha a kapcsoló BE van kapcsolva
+//   data-flag-off="<flag_key>"  → az elem CSAK akkor látszik, ha a kapcsoló KI van kapcsolva
+//   class="flag-pending"        → betöltés alatt a tartalom helyett shimmer látszik (style.css)
+//
+// Új kapcsolóhoz így NEM kell ehhez a fájlhoz hozzányúlni: elég egy új sor az
+// adatbázisban, és a HTML-ben a data-flag jelölő.
+//
+// FONTOS ALAPELV – „hiba esetén MINDEN LÁTSZIK".
+// Ha a tábla még nem létezik, üres, vagy a hálózat elszáll, akkor az összes
+// szekció láthatóan marad. Egy adatbázishiba soha ne tüntesse el az oldal
+// tartalmát – rosszabb egy üres főoldal, mint egy kapcsoló, ami nem hatott.
+const FEATURE_FLAG_FALLBACK = {
+    golya_visible: true,
+    kapcsolat_visible: true,
+    szponzorok_visible: true
+};
+
+// Időkorlát: ha a lekérés ennyi alatt nem jön meg, a shimmer NE ragadjon be –
+// inkább jelenjen meg minden. (Ugyanaz az elv, mint a szponzor-logók
+// betöltésénél az imagesSettled() időkorlátjánál.)
+const FEATURE_FLAG_TIMEOUT_MS = 4000;
+
+let featureFlags = { ...FEATURE_FLAG_FALLBACK };
+
+async function loadFeatureFlags() {
+    try {
+        // A supabaseFetch hiba esetén magától üres tömböt ad vissza (és logol),
+        // tehát egy nem létező tábla itt nem dob kivételt – marad a fallback.
+        const rows = await Promise.race([
+            supabaseFetch('feature_flags', { select: 'flag_key,enabled' }),
+            new Promise(resolve => setTimeout(() => resolve(null), FEATURE_FLAG_TIMEOUT_MS))
+        ]);
+
+        if (!Array.isArray(rows)) {
+            console.warn('feature_flags: időtúllépés – minden szekció láthatóan marad.');
+        } else if (!rows.length) {
+            console.warn('feature_flags: nincs sor (vagy nincs tábla) – minden szekció láthatóan marad.');
+        } else {
+            rows.forEach(row => {
+                if (!row || typeof row.flag_key !== 'string') return;
+                // Csak az explicit `false` kapcsol ki. A null/undefined érték
+                // „látszik"-ot jelent – lásd a fenti alapelvet.
+                featureFlags[row.flag_key] = row.enabled !== false;
+            });
+        }
+    } catch (err) {
+        console.error('loadFeatureFlags hiba:', err);
+    }
+    return featureFlags;
+}
+
+// Egy kapcsoló állapota. Ismeretlen kulcsra `true`-t ad: ha valaki elír egy
+// data-flag nevet a HTML-ben, a szekció látszani fog, nem tűnik el némán.
+function isFeatureEnabled(key) {
+    return featureFlags[key] !== false;
+}
+
+function applyFeatureFlags() {
+    // 1) Bekapcsolt állapotban látszó elemek
+    document.querySelectorAll('[data-flag]').forEach(el => {
+        const enabled = isFeatureEnabled(el.dataset.flag);
+
+        // A pending osztály MINDKÉT ágon lekerül: bekapcsolva azért, hogy a
+        // tartalom megjelenjen, kikapcsolva azért, hogy ne maradjon ott egy
+        // örökké villogó shimmer egy display:none-olt elem belsejében.
+        el.classList.remove('flag-pending');
+        if (enabled) return;
+
+        el.style.display = 'none';
+
+        // A display:none önmagában nem tenné használhatatlanná egy űrlap
+        // mezőit (programozott beküldés, autofill). A letiltás igen.
+        el.querySelectorAll('input, textarea, select, button').forEach(mezo => {
+            mezo.disabled = true;
+        });
+    });
+
+    // 2) Kikapcsolt állapotban látszó elemek (pl. a „form nem elérhető" üzenet)
+    document.querySelectorAll('[data-flag-off]').forEach(el => {
+        if (isFeatureEnabled(el.dataset.flagOff)) return;
+        el.hidden = false;
+    });
+
+    // 3) A pending konténerek, amikre nincs saját data-flag (pl. a
+    //    kapcsolat.html doboza, ahol nem az egészet rejtjük el, csak a
+    //    tartalmát cseréljük). Ezekről is le kell venni az osztályt.
+    document.querySelectorAll('.flag-pending').forEach(el => el.classList.remove('flag-pending'));
+}
+
+// ============================================================
 // SKELETON GENERÁTOROK
 // ============================================================
 function skeletonMemberCards(count = 4) {
@@ -832,6 +927,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     // DOM-ba, ezért a loadSiteContent() végén hívjuk meg. Ide visszatéve a
     // számlálók üres data-target-tel indulnának el.
 
+    // A funkció-kapcsolók MINDEN publikus oldalon kellenek: az „Írj nekünk"
+    // menüpont mindegyik nav-ban ott van.
+    //
+    // Szándékosan NEM await-eljük itt, hanem a többi loaderrel PÁRHUZAMOSAN
+    // fut – különben minden szekció megvárná ezt az egy kérést, és lassulna
+    // az egész oldal. A villanás ettől még kizárt: a kapcsolható szekciók a
+    // HTML-ben `flag-pending` állapotban indulnak (shimmer látszik), és az
+    // osztályt CSAK az applyFeatureFlags() veszi le, tehát az garantáltan a
+    // válasz UTÁN történik.
+    const flagsReady = loadFeatureFlags()
+        .then(applyFeatureFlags)
+        .catch(err => console.error('applyFeatureFlags hiba:', err));
+
     const isArticlePage = document.querySelector('.article-container') !== null;
     const isIndexPage = document.querySelector('#hero') !== null;
     const isNewsArchivePage = document.querySelector('#hirek-archivum') !== null;
@@ -848,4 +956,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isNewsArchivePage) {
         await loadNewsArchive().catch(err => console.error('loadNewsArchive hiba:', err));
     }
+
+    // A fenti loaderekkel párhuzamosan futott, itt már csak bevárjuk – így a
+    // DOMContentLoaded kezelő nem fejeződik be korábban, mint a kapcsolók.
+    await flagsReady;
 });
