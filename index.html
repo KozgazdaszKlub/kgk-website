@@ -110,6 +110,25 @@
         </div>
     </section>
 
+    <!-- KAPCSOLAT CTA – statikus szekció, NEM töltődik Supabase-ből.
+         Ugyanahhoz a kapcsolóhoz tartozik, mint a kapcsolat.html űrlapja és az
+         „Írj nekünk" menüpont: data-flag="kapcsolat_visible". Így ha a form ki
+         van kapcsolva, ez a gomb sem marad itt egy zsákutcába mutató linkként.
+         A `flag-pending` osztály miatt betöltés közben a lenti shimmer látszik
+         a tartalom helyett – az osztályt a script.js applyFeatureFlags() veszi
+         le, tehát egy kikapcsolt szekció itt sem villan fel egy pillanatra. -->
+    <section id="kapcsolat-cta" class="flag-pending" data-flag="kapcsolat_visible">
+        <div class="flag-skeleton" aria-hidden="true">
+            <div class="skeleton skeleton-flag-title"></div>
+            <div class="skeleton skeleton-flag-line"></div>
+            <div class="skeleton skeleton-flag-line short"></div>
+            <div class="skeleton skeleton-flag-btn"></div>
+        </div>
+        <h2>Vedd fel velünk a kapcsolatot</h2>
+        <p>Ha kérdésed van a klubról, a rendezvényeinkről vagy a csatlakozásról, írj nekünk bátran – igyekszünk minél hamarabb válaszolni.</p>
+        <a href="kapcsolat.html" class="btn">Írj nekünk</a>
+    </section>
+
     <!-- GÓLYÁKNAK – dinamikusan töltődik Supabase-ből.
          A szekció adminból ki/be kapcsolható: data-flag="golya_visible".
          A `flag-pending` osztály miatt betöltés közben a lenti shimmer

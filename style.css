@@ -1579,3 +1579,96 @@ body:has(.nav-links.active) .back-to-top {
 .kapcsolat-kikapcsolva a:hover {
     text-decoration: underline;
 }
+
+
+/* ════════════════════════════════════════════
+   KAPCSOLAT CTA SÁV (index.html – #kapcsolat-cta)
+════════════════════════════════════════════ */
+
+/* Önálló, statikus szekció a Rendezvények és a Gólyáknak között. Sötétkék
+   sávként megtöri a világos hátterű szekciók sorát – így nem tűnik úgy,
+   mintha két egyforma doboz (CTA + Gólyáknak) ismétlődne egymás után.
+   A #stats sávtól a cím alatti arany vonal és a gomb különbözteti meg.
+
+   FONTOS – a `flag-pending` állapot miatt: ezek a szabályok ID-vel vannak
+   címezve (1,0,x), tehát ERŐSEBBEK a
+   `.flag-pending > *:not(.flag-skeleton) { display: none; }` szabálynál
+   (0,2,0). Ezért itt a szekció KÖZVETLEN gyerekeire (h2, p, .btn) SOHA nem
+   írunk `display` értéket – az felülírná a betöltő állapotot, és a tartalom
+   a kapcsolók megérkezése előtt felvillanna. (A h2::after kivétel: az
+   pszeudo-elem, nem közvetlen gyerek, és a rejtett h2-vel együtt eltűnik.) */
+#kapcsolat-cta {
+    background-color: #08122b;
+    color: #fff;
+    padding: 70px 20px;
+}
+
+#kapcsolat-cta h2 {
+    margin: 0;
+    font-size: 2rem;
+    letter-spacing: 1px;
+    color: #fff;
+}
+
+/* Rövid arany vonal a cím alatt – a design system kiemelő eleme. */
+#kapcsolat-cta h2::after {
+    content: "";
+    display: block;
+    width: 64px;
+    height: 4px;
+    margin: 18px auto 0;
+    background-color: #F1C039;
+    border-radius: 2px;
+}
+
+#kapcsolat-cta p {
+    max-width: 620px;
+    margin: 22px auto 32px;
+    font-size: 1.1rem;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* A gomb az általános arany .btn stílust viszi tovább (sötétkék háttéren
+   önmagában is erős kontraszt) – itt csak nagyobb lesz, hogy CTA-súlya
+   legyen. A fókuszgyűrű fehér, mert a böngésző alapértelmezett, sötét
+   körvonala a sötétkék sávon alig látszana. */
+#kapcsolat-cta .btn {
+    padding: 14px 34px;
+    font-size: 1.05rem;
+}
+
+#kapcsolat-cta .btn:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 3px;
+}
+
+/* Betöltő shimmer sötét háttéren: a világos .skeleton gradiens itt kiütne,
+   ezért – a #stats .skeleton-stat mintájára – áttetsző fehérre cseréljük.
+   A `background-size` ismétlése KÖTELEZŐ: a `background` rövidítés
+   alaphelyzetbe állítaná, és a shimmer animáció megállna. */
+#kapcsolat-cta .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.07) 25%, rgba(255,255,255,0.16) 50%, rgba(255,255,255,0.07) 75%);
+    background-size: 600px 100%;
+}
+
+@media (max-width: 768px) {
+    #kapcsolat-cta {
+        padding: 55px 18px;
+    }
+
+    #kapcsolat-cta h2 {
+        font-size: 1.5rem;
+    }
+
+    #kapcsolat-cta p {
+        font-size: 1rem;
+        margin: 20px auto 26px;
+    }
+
+    /* Csak a belső térköz nő – `display: block`-ot itt sem adhatunk
+       (lásd a fenti specificitás-megjegyzést). */
+    #kapcsolat-cta .btn {
+        padding: 14px 28px;
+    }
+}
