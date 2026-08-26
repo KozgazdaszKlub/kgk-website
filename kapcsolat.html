@@ -70,6 +70,21 @@
                               placeholder="Írd ide az üzeneted..."></textarea>
                 </div>
 
+                <!-- CSAPDA-MEZŐ (honeypot) – spamvédelem.
+                     Valódi látogató ezt nem látja (a képernyőn kívülre van
+                     tolva), nem tudja Tab-bal elérni (tabindex="-1"), és a
+                     felolvasó programok is átugorják (aria-hidden). Az űrlapot
+                     automatikusan kitöltő botok viszont minden mezőt kitöltenek
+                     – ha ez nem üresen érkezik a szerverre, az üzenet csendben
+                     eldobódik. NE add hozzá a "required" attribútumot, és ne
+                     töröld a rejtő stílust! -->
+                <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden;"
+                     aria-hidden="true">
+                    <label for="mezo-website">Ezt a mezőt hagyd üresen</label>
+                    <input type="text" id="mezo-website" name="website"
+                           tabindex="-1" autocomplete="off">
+                </div>
+
                 <button type="submit" id="kapcsolat-submit" class="btn">Üzenet küldése</button>
             </form>
 
@@ -100,47 +115,38 @@
 
     <script>
     // ════════════════════════════════════════════════════════════════
-    //  KAPCSOLATFELVÉTELI ŰRLAP – küldés Google Apps Script Web App-ra
+    //  KAPCSOLATFELVÉTELI ŰRLAP – küldés a saját backendünkre
     // ════════════════════════════════════════════════════════════════
     //
-    //  >>>  ZSOLTI: IDE KELL A SAJÁT GOOGLE APPS SCRIPT WEB APP URL-ED  <<<
+    //  Az űrlap adata a saját Vercel függvényünkhöz megy (api/kapcsolat-submit.js),
+    //  ami e-mailben továbbítja a klub postafiókjába.
     //
-    //  Az alábbi sorban cseréld ki a placeholder szöveget arra az URL-re, amit
-    //  a Google Apps Script telepítése (Deploy > Web app) után kaptál.
-    //  Így néz ki egy ilyen URL:
-    //      https://script.google.com/macros/s/AKfycb..../exec
+    //  ITT NINCS SEMMILYEN JELSZÓ VAGY TITKOS KULCS – és ne is kerüljön ide!
+    //  Ez a fájl a böngészőben fut, bárki elolvashatja. Az SMTP fiók adatai a
+    //  Vercel környezeti változóiban élnek (SMTP_USER, SMTP_APP_PASSWORD,
+    //  CONTACT_EMAIL_TO), oda a látogató soha nem lát bele.
     //
-    //  Amíg a placeholder itt van, a form NEM küld semmit: helyette a piros
-    //  hibaüzenet jelenik meg, és a böngésző konzoljába figyelmeztetést ír.
+    //  Relatív útvonal, mert a végpont ugyanazon a domainen fut, mint az oldal.
+    //  Így a kozgazdaszklub.com rákötésekor sem kell hozzányúlni.
     //
-    const GOOGLE_SCRIPT_URL = 'IDE_KERÜL_A_GOOGLE_APPS_SCRIPT_URL'; // TODO: Zsolti cseréli le a saját Google Apps Script Web App URL-jére
-    //
-    //  >>>  EDDIG TART, AMIT ÁT KELL ÍRNI  <<<
+    const CONTACT_API_URL = '/api/kapcsolat-submit';
 
     // ─────────────────────────────────────────────────────────────────
     //  KÜLDÉSI FORMÁTUM
     // ─────────────────────────────────────────────────────────────────
-    //  A Google Apps Script kétféleképpen szokta fogadni az adatot, attól
-    //  függően, hogyan van megírva benne a doPost(e) függvény:
+    //   'json' -> az adat JSON-ként megy, 'application/json' fejléccel.
+    //             EZ A HASZNÁLT BEÁLLÍTÁS, a backend ezt várja.
     //
     //   'form' -> az adat űrlapmezőként megy (application/x-www-form-urlencoded).
-    //             A scriptben így olvasod: e.parameter.nev, e.parameter.email...
-    //             EZ AZ ALAPÉRTELMEZÉS, a legtöbb bevált minta ezt várja.
+    //             A backend ezt is elfogadja, de nincs rá szükség –
+    //             csak tartalék, ha valami mégis közbejönne.
     //
-    //   'json' -> az adat JSON szövegként megy.
-    //             A scriptben így olvasod: JSON.parse(e.postData.contents).nev
-    //
-    //  HA A MEGLÉVŐ SCRIPT MÁS FORMÁTUMOT VÁR, csak ezt az egy sort kell
-    //  átírni ('form' <-> 'json'), a form többi részéhez nem kell nyúlni.
-    //
-    const KULDESI_FORMATUM = 'form'; // 'form' vagy 'json'
+    const KULDESI_FORMATUM = 'json'; // 'json' vagy 'form'
 
-    // FONTOS (CORS): JSON módban SEM használunk 'application/json' fejlécet,
-    // hanem 'text/plain'-t. Az 'application/json' ugyanis előzetes OPTIONS
-    // (preflight) kérést váltana ki, amit a Google Apps Script nem tud
-    // megválaszolni – így a küldés mindig hibára futna. A 'text/plain' viszont
-    // "egyszerű kérés", megy preflight nélkül, és a script oldalán ugyanúgy az
-    // e.postData.contents-ben landol a JSON szöveg.
+    // Megjegyzés (CORS): az 'application/json' fejléc itt SZABAD, mert a kérés
+    // azonos domainre (same-origin) megy – ilyenkor a böngésző nem küld előzetes
+    // OPTIONS (preflight) kérést. Ez a korábbi, külső Google Apps Script-es
+    // megoldásnál volt tiltó ok; a saját végpontunknál már nem az.
 
     (function initKapcsolatForm() {
         const form     = document.getElementById('kapcsolat-form');
@@ -182,9 +188,13 @@
             const uzenet = document.getElementById('mezo-uzenet').value.trim();
             const most   = new Date().toISOString();
 
+            // A rejtett csapda-mező (honeypot) értéke. Valódi látogatónál ez
+            // mindig üres; ha ki van töltve, a szerver csendben eldobja az
+            // üzenetet. Lásd a form végén lévő magyarázatot.
+            const csapdaEl = document.getElementById('mezo-website');
+
             // Az elküldött adat. Minden mezőt magyar ÉS angol kulcsnévvel is
-            // elküldünk, hogy a meglévő Apps Script bármelyiket használhassa –
-            // így nem kell hozzá átírni a scriptet.
+            // elküldünk, hogy a backend bármelyiket olvashassa.
             const adat = {
                 // magyar kulcsok
                 nev:       nev,
@@ -196,22 +206,17 @@
                 name:      nev,
                 subject:   targy,
                 message:   uzenet,
-                timestamp: most
+                timestamp: most,
+                // csapda-mező
+                website:   csapdaEl ? csapdaEl.value : ''
             };
 
             try {
-                // Ha a placeholder még nincs lecserélve, meg se próbáljuk elküldeni
-                if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.indexOf('http') !== 0) {
-                    console.warn('[KGK kapcsolat] A GOOGLE_SCRIPT_URL még nincs beállítva a kapcsolat.html-ben – ' +
-                                 'a form addig nem tud üzenetet küldeni.');
-                    throw new Error('GOOGLE_SCRIPT_URL nincs beállítva');
-                }
-
                 let kuldesiBeallitas;
                 if (KULDESI_FORMATUM === 'json') {
                     kuldesiBeallitas = {
                         method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(adat)
                     };
                 } else {
@@ -221,12 +226,35 @@
                     };
                 }
 
-                const valasz = await fetch(GOOGLE_SCRIPT_URL, kuldesiBeallitas);
+                const valasz = await fetch(CONTACT_API_URL, kuldesiBeallitas);
 
-                // Megengedően kezeljük: a válasz TARTALMÁT nem vizsgáljuk, mert
-                // scriptenként más lehet ({"result":"success"}, "OK", üres, stb.).
-                // Csak akkor tekintjük hibának, ha maga a HTTP válasz hibás.
-                if (!valasz.ok) throw new Error('HTTP ' + valasz.status);
+                // A backend siker esetén 200-at és { success: true }-t ad vissza.
+                // Hibánál a HTTP kód jelzi a bajt (400 = hibás adat,
+                // 429 = túl sok küldés, 500 = szerverhiba).
+                if (!valasz.ok) {
+                    // A szerver küld olvasható magyar hibaüzenetet – ha van,
+                    // azt mutatjuk, mert konkrétabb, mint az általános szöveg.
+                    let reszletes = '';
+                    try {
+                        const valaszAdat = await valasz.json();
+                        if (valaszAdat && typeof valaszAdat.error === 'string') {
+                            // A visszajelző doboz innerHTML-lel dolgozik (a
+                            // általános üzenetben mailto-link van), ezért a
+                            // szervertől jövő szöveget escape-eljük.
+                            reszletes = valaszAdat.error
+                                .replace(/&/g, '&amp;')
+                                .replace(/</g, '&lt;')
+                                .replace(/>/g, '&gt;');
+                        }
+                    } catch (err) {
+                        // Nem JSON válasz (pl. a Vercel általános hibaoldala) –
+                        // marad az általános hibaüzenet.
+                    }
+
+                    const hibaObjektum = new Error('HTTP ' + valasz.status);
+                    hibaObjektum.felhasznaloiUzenet = reszletes;
+                    throw hibaObjektum;
+                }
 
                 mutatUzenet(SIKER_SZOVEG, 'siker');
                 form.reset(); // sikeres küldés után ürítjük a mezőket
@@ -235,7 +263,7 @@
                 console.error('[KGK kapcsolat] Küldési hiba:', hiba);
                 // Hiba esetén a beírt szöveg SZÁNDÉKOSAN a mezőkben marad,
                 // hogy a felhasználó ne veszítse el, amit megírt.
-                mutatUzenet(HIBA_SZOVEG, 'hiba');
+                mutatUzenet(hiba.felhasznaloiUzenet || HIBA_SZOVEG, 'hiba');
 
             } finally {
                 gomb.disabled = false;

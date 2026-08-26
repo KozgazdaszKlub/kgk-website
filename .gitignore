@@ -10,3 +10,7 @@ desktop.ini
 .DS_Store
 .vscode/
 .idea/
+
+# npm – a nodemailer az api/ függvényekhez kell, de a Vercel deploy-kor
+# maga telepíti a package.json alapján; a node_modules nem való a repóba.
+node_modules/

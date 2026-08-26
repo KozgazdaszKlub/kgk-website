@@ -1,0 +1,9 @@
+{
+  "name": "kgk-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Közgazdász Klub weboldal. A publikus oldal statikus HTML/CSS/JS – ez a package.json KIZÁROLAG az api/ mappában lévő Vercel függvények npm-függőségei miatt létezik. Nincs build step: szándékosan nincs benne \"build\" script sem, hogy a Vercel továbbra is statikusként szolgálja ki a gyökérből a HTML fájlokat.",
+  "dependencies": {
+    "nodemailer": "^9.0.5"
+  }
+}
