@@ -369,96 +369,89 @@ footer {
     text-decoration: none;
 }
 
-/* Link a kapcsolatfelvételi űrlapra a footer #kapcsolat szekciójában.
-   Arany, mint a footer többi kiemelt linkje - a sötétkék háttéren jól olvasható. */
-.footer-form-link {
-    margin: 6px 0 0;
-}
-.footer-form-link a {
-    color: #F1C039;
-    text-decoration: none;
-    font-weight: 600;
-}
-.footer-form-link a:hover {
-    text-decoration: underline;
-}
-
 /* --- INTÉZMÉNYI PARTNEREK A FOOTERBEN ---
-   A két logó (kar + egyetem) egymás mellett, középen. A tartalmat a
-   script.js loadInstitutionalPartners() teszi bele; üresen a konténer
-   nem foglal helyet, tehát a footer olyan, mint a funkció előtt.
+   A két logó (kar + egyetem) egymás mellett, a KGK logó ALATT és a copyright
+   sor FÖLÖTT: a lábléc tetején így a három logó egy vizuális egységet alkot.
+   A tartalmat a script.js loadInstitutionalPartners() teszi bele.
 
-   MIÉRT VILÁGOS DOBOZ VAN A LOGÓK MÖGÖTT
-   A footer háttere sötétkék (#08122b), az intézményi logók viszont jellemzően
-   sötét grafikák világos háttérre tervezve - háttér nélkül beleolvadnának.
-   Ezért kap mindegyik egy visszafogott, halvány fehér lapot; a `padding` és a
-   `border-radius` teszi láthatóan szándékossá, nem véletlen fehér foltnak. */
+   NINCS HÁTTÉRKÁRTYA A LOGÓK MÖGÖTT
+   A logók közvetlenül a sötétkék láblécen "lebegnek", keret és doboz nélkül.
+   FIGYELEM, ez a döntés a LOGÓFÁJLOKRA hárít egy követelményt: a grafikának
+   világosnak kell lennie, hogy a #08122b háttéren látszódjon. Egy fekete vagy
+   sötétkék grafikájú logó itt gyakorlatilag eltűnik. CSS-filterrel (invert /
+   brightness) NEM javítjuk: az meghamisítaná az intézmény hivatalos
+   arculati színeit. A helyes megoldás mindig egy világos/fehér változat
+   feltöltése az adminból. */
 .footer-partners {
     /* ÜRESEN `display: none` – ez NEM ízlés kérdése.
        A `display: flex` önálló formázási kontextust hoz létre, ami akkor is
        MEGAKADÁLYOZZA a szomszédos margók összeolvadását, ha a doboz nulla
-       magas. A hir.html rövid láblécében pont ez történt: a <p> alsó (16px) és
-       az admin-link felső (20px) margója addig 20px-re olvadt össze, utána
-       viszont 36px lett – vagyis a lábléc 16px-szel magasabb lett attól, hogy
-       a partner-blokk ÜRESEN ott volt. `display: none` mellett a doboz ki van
-       véve az elrendezésből, tehát a migráció ELŐTT a lábléc pixelre azonos
-       a mostanival. (Mérve: mind az öt oldalon.)
+       magas. A hir.html rövid láblécében pont ez történt: a szomszédos margók
+       addig összeolvadtak, utána viszont összeadódtak – vagyis a lábléc
+       magasabb lett attól, hogy a partner-blokk ÜRESEN ott volt.
+       `display: none` mellett a doboz ki van véve az elrendezésből, tehát ha
+       a tábla nem elérhető, a lábléc pixelre azonos a partnerek nélkülivel.
        A `loaded` osztályt a loadInstitutionalPartners() csak akkor teszi rá,
        ha tényleg került bele tartalom. */
     display: none;
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
-    gap: 18px;
+    /* Nagyobb térköz, mint a kártyás változatban: háttér nélkül a két logó
+       vizuálisan összefolyna, a doboz éle már nem választja el őket. */
+    gap: 40px;
 }
 
+/* A margó a KGK logó és a copyright sor közé illeszti a blokkot. A .footer-logo
+   saját `margin-bottom: 20px`-ja adja a felső térközt, ezért itt csak egy kis
+   ráadás kell; alul több, mert a copyright szöveg közvetlenül következik. */
 .footer-partners.loaded {
     display: flex;
-    margin-top: 28px;
+    margin: 6px 0 26px;
 }
 
 /* Ugyanaz a szabály állja meg a helyét linkként (<a>, ha van weboldal) és
-   sima <span>-ként is (ha még nincs megadva link). */
+   sima <span>-ként is (ha még nincs megadva link).
+   Se háttér, se keret, se padding – a logó közvetlenül a láblécen ül. */
 .footer-partner {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 96px;
-    min-height: 62px;
-    padding: 10px 16px;
-    box-sizing: border-box;
-    background: rgba(255, 255, 255, 0.92);
-    border-radius: 8px;
     text-decoration: none;
-    transition: background 0.3s, transform 0.3s, box-shadow 0.3s;
+    transition: opacity 0.3s, transform 0.3s;
 }
 
-/* A hover CSAK a linkre vonatkozik: link nélküli állapotban félrevezető
-   lenne kattinthatóságot sugallni. */
+/* A hover CSAK a linkre vonatkozik: link nélküli állapotban félrevezető lenne
+   kattinthatóságot sugallni. Doboz híján nem háttérrel jelezzük a
+   rámutatást, hanem egy finom megemeléssel. */
 a.footer-partner:hover {
-    background: #fff;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+    transform: translateY(-3px);
+    opacity: 0.85;
 }
 
+/* ~1,8x a korábbi 42px-hez képest. A max-width azért ilyen bőséges, mert a
+   két logó képaránya nagyon eltér (az egyik négyzetes, a másik kb. 2:1
+   fekvő) – szűkebb korlát mellett a fekvő logó magassága leesne, és a kettő
+   nem tűnne egyforma súlyúnak. */
 .footer-partner img {
-    height: 42px;
+    height: 76px;
     width: auto;
-    max-width: 150px;
+    max-width: 260px;
     object-fit: contain;
     display: block;
 }
 
 /* Név-fallback: amíg nincs feltöltött logó (vagy ha a kép nem tölthető be),
-   a partner neve jelenik meg a fehér lapon. Sötétkék szöveg, hogy olvasható
-   maradjon - ugyanaz az elv, mint a szponzoroknál. */
+   a partner neve jelenik meg. Háttérkártya nélkül a szöveg most közvetlenül
+   a sötétkék láblécen van, ezért VILÁGOS a betűszín – a korábbi sötétkék
+   olvashatatlan lenne. */
 .footer-partner-name {
     font-family: 'Montserrat', sans-serif;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.5px;
-    line-height: 1.35;
-    color: #08122b;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.85);
     text-align: center;
     max-width: 190px;
 }
@@ -1775,21 +1768,27 @@ body:has(.nav-links.active) .back-to-top {
 /* ════════════════════════════════════════════
    INTÉZMÉNYI PARTNEREK – MOBIL
 ════════════════════════════════════════════ */
-/* Keskeny kijelzőn a két logó egymás alá is törhet (flex-wrap), ezért kisebb
-   térköz és kisebb logóméret kell, hogy ne nyúljon el a footer. */
+/* Keskeny kijelzőn a két logó jellemzően EGYMÁS ALÁ kerül (flex-wrap), mert a
+   nagyobb méret mellett kettő már nem fér ki egy sorba. Ez így szándékos: a
+   logók összenyomása helyett inkább tördelünk, hogy olvashatók maradjanak.
+   A `gap` ilyenkor függőleges térközként működik – ezért van külön sor- és
+   oszlopérték: alá tördelve elég szűkebb távolság is. */
 @media (max-width: 768px) {
     .footer-partners {
-        gap: 12px;
+        row-gap: 22px;
+        column-gap: 28px;
     }
 
-    .footer-partner {
-        min-height: 56px;
-        padding: 9px 14px;
+    .footer-partners.loaded {
+        margin: 4px 0 22px;
     }
 
+    /* A max-width itt a képernyő szélességéhez kötött, nem fix px: így a
+       fekvő logó a legkeskenyebb telefonon sem lóg ki, és nem okoz
+       vízszintes görgetést. A 20px a lábléc oldalsó paddingja. */
     .footer-partner img {
-        height: 36px;
-        max-width: 120px;
+        height: 58px;
+        max-width: calc(100vw - 60px);
     }
 }
 

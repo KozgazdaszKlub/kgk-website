@@ -137,6 +137,15 @@
     <footer>
         <div class="footer-content">
             <img src="images/Copy of kgk_feher.png" alt="KGK Logo Small" class="footer-logo">
+            <!-- INTÉZMÉNYI PARTNEREK — a script.js loadInstitutionalPartners()
+                 tölti fel az `institutional_partners` táblából (pontosan 2 sor).
+                 Szándékosan a KGK logó ALATT és a copyright sor FÖLÖTT áll:
+                 a lábléc tetején a három logó (KGK + a két intézmény) egy
+                 vizuális egységet alkot.
+                 Üresen marad, ha a tábla nem elérhető — az üres div nem foglal
+                 helyet (display: none), a lábléc olyan, mint eddig. -->
+            <div class="footer-partners" id="footer-partners"></div>
+
             <p>&copy; Közgazdász Klub - Kolozsvár</p>
             <p>Email: <a href="mailto:kozgazdaszklubkgk@gmail.com">kozgazdaszklubkgk@gmail.com</a></p>
             <div class="footer-socials">
@@ -145,12 +154,6 @@
                 <a href="https://www.instagram.com/_kgk_x_/" target="_blank">KGKx Instagram</a>
                 <a href="#" style="opacity: 0.5; cursor: default;" title="Hamarosan...">LinkedIn (Hamarosan)</a>
             </div>
-
-            <!-- INTÉZMÉNYI PARTNEREK — a script.js loadInstitutionalPartners()
-                 tölti fel az `institutional_partners` táblából (pontosan 2 sor).
-                 Üresen marad, ha a tábla még nem létezik vagy a kérés elszáll —
-                 az üres div nem foglal helyet, a footer olyan, mint eddig. -->
-            <div class="footer-partners" id="footer-partners"></div>
 
             <p class="footer-legal"><a href="adatvedelem.html">Adatvédelem</a></p>
         </div>

@@ -218,13 +218,16 @@
          gyereke, nem a .footer-content-é; a CSS mindkét helyen ugyanúgy
          működik. -->
     <footer>
-        <p>&copy; Közgazdász Klub. Minden jog fenntartva.</p>
-
         <!-- INTÉZMÉNYI PARTNEREK — a script.js loadInstitutionalPartners()
              tölti fel az `institutional_partners` táblából (pontosan 2 sor).
-             Üresen marad, ha a tábla még nem létezik vagy a kérés elszáll —
-             az üres div nem foglal helyet, a footer olyan, mint eddig. -->
+             A többi oldalon a KGK logó ALATT és a copyright sor FÖLÖTT áll;
+             itt nincs KGK logó, ezért a copyright fölé, a lábléc tetejére
+             kerül – így a sorrend mindenhol ugyanaz.
+             Üresen marad, ha a tábla nem elérhető — az üres div nem foglal
+             helyet (display: none), a lábléc olyan, mint eddig. -->
         <div class="footer-partners" id="footer-partners"></div>
+
+        <p>&copy; Közgazdász Klub. Minden jog fenntartva.</p>
 
         <p class="footer-legal"><a href="adatvedelem.html">Adatvédelem</a></p>
 
