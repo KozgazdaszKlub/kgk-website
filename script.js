@@ -920,6 +920,25 @@ function initBackToTop() {
 // OLDAL BETÖLTÉSE
 // ============================================================
 document.addEventListener('DOMContentLoaded', async () => {
+    // ── KARBANTARTÁS MÓD — mindennél előbb ──
+    // A maintenance.js (a <head>-ben, defer nélkül) már elindította a
+    // `maintenance_mode` kapcsoló lekérését, és ide teszi a promise-t.
+    // Ha be van kapcsolva, ITT MEGÁLLUNK: nem indítunk egyetlen Supabase
+    // lekérést sem, és nem is teszünk hozzá semmit a DOM-hoz (az
+    // initBackToTop() például egy gombot fűzne a body végére, ami átlátszana
+    // a karbantartás képernyőn).
+    //
+    // Azért promise-t várunk be, és nem egy egyszerű globális változót,
+    // mert a válasz még nem biztos, hogy megjött, mire ide érünk.
+    //
+    // Az `if` azért kell, mert a maintenance.js hiánya (pl. ha valaki egy új
+    // oldalról kifelejti a <script> tag-et) nem törhet el mindent – olyankor
+    // egyszerűen a régi viselkedés marad.
+    if (window.KGK_MAINTENANCE_READY) {
+        const karbantartas = await window.KGK_MAINTENANCE_READY.catch(() => false);
+        if (karbantartas) return;
+    }
+
     initHamburger();
     initObserver();
     initBackToTop();

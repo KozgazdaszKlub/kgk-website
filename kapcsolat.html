@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- KARBANTARTÁS MÓD — szándékosan NEM defer, és szándékosan a legelső
+         script: a takarásnak minden más előtt fel kell kerülnie, különben
+         egy pillanatra felvillanna a valódi tartalom. Az admin.html-be EZ
+         SOHA nem kerülhet be — karbantartás alatt is elérhetőnek kell lennie. -->
+    <script src="maintenance.js"></script>
     <title>Kapcsolat | KGK</title>
     <meta name="description" content="Írj a Közgazdász Klubnak! Töltsd ki a kapcsolatfelvételi űrlapot, és hamarosan válaszolunk.">
     <link rel="icon" type="image/x-icon" href="images/Copy of kgk_feher.ico">

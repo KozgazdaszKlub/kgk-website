@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- KARBANTARTÁS MÓD — szándékosan NEM defer, és szándékosan a legelső
+         script: a takarásnak minden más előtt fel kell kerülnie, különben
+         egy pillanatra felvillanna a valódi tartalom. Az admin.html-be EZ
+         SOHA nem kerülhet be — karbantartás alatt is elérhetőnek kell lennie. -->
+    <script src="/maintenance.js"></script>
     <title>Az oldal nem található | KGK</title>
     <!-- FONTOS: ezen az oldalon minden hivatkozás "/"-rel kezdődik (gyökérhez képest),
          mert a 404 bármilyen mély URL-en megjelenhet (pl. /valami/masik/oldal). -->

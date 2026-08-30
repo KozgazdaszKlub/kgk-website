@@ -3,6 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- KARBANTARTÁS MÓD — szándékosan NEM defer, és szándékosan a legelső
+         script: a takarásnak minden más előtt fel kell kerülnie, különben
+         egy pillanatra felvillanna a valódi tartalom. Az admin.html-be EZ
+         SOHA nem kerülhet be — karbantartás alatt is elérhetőnek kell lennie. -->
+    <script src="maintenance.js"></script>
     <title>Home | KGK</title>
     <link rel="icon" type="image/x-icon" href="images/Copy of kgk_feher.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">

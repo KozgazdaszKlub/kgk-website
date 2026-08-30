@@ -1164,6 +1164,116 @@
             max-width: 640px;
         }
 
+        /* ── KARBANTARTÁS MÓD (a Szekciók fül különleges kapcsolója) ──
+           Ez a kapcsoló egy szinttel feljebb dolgozik a többinél: nem egy
+           szekciót rejt el, hanem az EGÉSZ publikus oldalt. Ezért kap saját,
+           feltűnő megjelenést – nehogy valaki véletlenül elkattintsa, és ne
+           vegye észre, hogy a weboldal eltűnt a látogatók elől.
+
+           A színek FORDÍTVA vannak, mint a többi kapcsolónál: itt a
+           „bekapcsolva" a veszélyes állapot (a látogató nem látja az
+           oldalt), a „kikapcsolva" pedig a jó (az oldal él). */
+        .flag-card.flag-karbantartas {
+            border-color: rgba(224, 85, 85, 0.35);
+        }
+
+        .flag-card.flag-karbantartas.on {
+            border-color: var(--danger);
+            background: rgba(224, 85, 85, 0.10);
+        }
+
+        .flag-card.flag-karbantartas.on .flag-state { color: var(--danger); }
+        .flag-card.flag-karbantartas:not(.on) .flag-state { color: var(--success); }
+
+        /* A hosszabb feliratok („Oldal rejtve") ne törjenek két sorba. */
+        .flag-card.flag-karbantartas .flag-state { min-width: 92px; }
+
+        /* A kapcsoló alatti magyarázó doboz. Külön elem, nem a .flag-card
+           gyereke: a kártya `display: flex` sorelrendezésű, egy beleírt blokk
+           szétzilálná.
+
+           Önálló kártyaként van megformázva (körben lekerekítve), NEM a fenti
+           kapcsolóhoz tapasztva: az .items-list `gap: 12px`-e úgyis elválasztja
+           őket, azt egy negatív margó sem tudná behúzni. Az összetartozást a
+           bal oldali arany sáv jelzi. */
+        .flag-bypass {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--gold);
+            border-radius: var(--radius);
+            padding: 16px 22px 18px;
+        }
+
+        .flag-bypass-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 8px;
+        }
+
+        .flag-bypass-title i { margin-right: 6px; }
+
+        .flag-bypass p {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.65;
+            margin-bottom: 12px;
+            max-width: 620px;
+        }
+
+        .flag-bypass p:last-child { margin-bottom: 0; }
+
+        .flag-bypass-row {
+            display: flex;
+            align-items: stretch;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        /* A link hosszú és nem tördelhető szó – `min-width: 0` nélkül a flex
+           elem nem zsugorodhatna, és kilógna a dobozból mobilon. */
+        .flag-bypass-url {
+            flex: 1;
+            min-width: 0;
+            background: var(--navy);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+            font-size: 0.78rem;
+            color: var(--text);
+            word-break: break-all;
+            line-height: 1.5;
+        }
+
+        .btn-masol {
+            flex-shrink: 0;
+            background: transparent;
+            border: 1px solid var(--gold);
+            border-radius: 8px;
+            padding: 10px 16px;
+            color: var(--gold);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .btn-masol:hover { background: var(--gold); color: var(--navy); }
+        .btn-masol i { margin-right: 6px; }
+
+        .flag-bypass code {
+            background: var(--navy);
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-size: 0.76rem;
+            color: var(--gold);
+        }
+
         @media (max-width: 768px) {
             .sidebar { display: none; }
             .mobile-menu-btn { display: flex; }
@@ -3751,6 +3861,26 @@ closeModal = function(type) {
 // betöltés és az átkapcsolás biztosan ugyanazt írja ki.
 const FLAG_STATE_TEXT = { on: 'Látszik', off: 'Rejtve' };
 
+// ── A KARBANTARTÁS KAPCSOLÓ KÜLÖNBÖZIK A TÖBBITŐL ──
+// Nála a „bekapcsolva" azt jelenti, hogy a látogató NEM látja az oldalt.
+// Ha ugyanazt a szöveget írnánk ki, mint a szekcióknál („Látszik"), az pont
+// az ellenkezőjét sugallná annak, ami történik – ezért van saját felirata,
+// saját színezése és saját visszajelző üzenete.
+const MAINTENANCE_FLAG_KEY = 'maintenance_mode';
+const MAINTENANCE_STATE_TEXT = { on: 'Oldal rejtve', off: 'Oldal él' };
+
+// A bypass „kulcs". UGYANEZ AZ ÉRTÉK szerepel a maintenance.js-ben
+// (BYPASS_VALUE) – ha ott átírod, ITT IS át kell írni, különben a felületen
+// hibás linket mutatnánk.
+const MAINTENANCE_BYPASS_VALUE = 'kgk-belso-2f8a4d61';
+
+// A linket az AKTUÁLIS címből építjük, nem beégetve: így a vercel.app-on és
+// a kozgazdaszklub.com-on is a helyes cím jelenik meg, és domainváltáskor
+// nem kell hozzányúlni ehhez a fájlhoz.
+function maintenanceBypassUrl(ertek) {
+    return `${window.location.origin}/?preview=${ertek}`;
+}
+
 async function loadFeatureFlagsAdmin() {
     const list = document.getElementById('list-szekciok');
     if (!list) return;
@@ -3778,21 +3908,96 @@ async function loadFeatureFlagsAdmin() {
         // Csak az explicit `false` jelent kikapcsolt állapotot – ugyanaz az
         // elv, mint a publikus oldalon: bizonytalan érték = látszik.
         const on = f.enabled !== false;
+        const karb = f.flag_key === MAINTENANCE_FLAG_KEY;
+        const felirat = karb
+            ? (on ? MAINTENANCE_STATE_TEXT.on : MAINTENANCE_STATE_TEXT.off)
+            : (on ? FLAG_STATE_TEXT.on : FLAG_STATE_TEXT.off);
+
         return `
-        <div class="flag-card ${on ? 'on' : ''}" id="flag-card-${f.id}">
+        <div class="flag-card ${karb ? 'flag-karbantartas' : ''} ${on ? 'on' : ''}" id="flag-card-${f.id}">
             <div class="flag-card-info">
                 <div class="flag-card-label" id="flag-label-${f.id}">${f.label || f.flag_key}</div>
                 <div class="flag-card-key">${f.flag_key}</div>
             </div>
-            <span class="flag-state" id="flag-state-${f.id}">${on ? FLAG_STATE_TEXT.on : FLAG_STATE_TEXT.off}</span>
+            <span class="flag-state" id="flag-state-${f.id}">${felirat}</span>
             <label class="switch">
                 <input type="checkbox" ${on ? 'checked' : ''}
                        aria-labelledby="flag-label-${f.id}"
+                       data-flag-key="${f.flag_key}"
                        onchange="toggleFeatureFlag(${f.id}, this)">
                 <span class="switch-slider"></span>
             </label>
-        </div>`;
+        </div>${karb ? maintenanceBypassDoboz() : ''}`;
     }).join('');
+}
+
+// A karbantartás kapcsoló alatti magyarázó doboz az előnézeti (bypass)
+// linkkel. Azért van MINDIG kirajzolva – nem csak bekapcsolt állapotban –,
+// hogy Zsolti ELŐRE el tudja menteni könyvjelzőnek: bekapcsolás után már
+// nem tudná kényelmesen kimásolni, ha közben ő maga is kizárná magát.
+function maintenanceBypassDoboz() {
+    const be = maintenanceBypassUrl(MAINTENANCE_BYPASS_VALUE);
+    const ki = maintenanceBypassUrl('ki');
+    return `
+        <div class="flag-bypass">
+            <div class="flag-bypass-title"><i class="fas fa-key"></i> A te előnézeti linked</div>
+            <p>
+                Karbantartás mód alatt <strong>ezzel a linkkel te továbbra is a valódi
+                oldalt látod</strong>, miközben a látogatók a „Hamarosan érkezik" üzenetet
+                kapják. Elég <strong>egyszer</strong> megnyitni: a böngésződ ezután megjegyzi,
+                és minden aloldalon a rendes oldal jelenik meg.
+                <strong>Mentsd el könyvjelzőnek!</strong>
+            </p>
+            <div class="flag-bypass-row">
+                <div class="flag-bypass-url" id="bypass-url-be">${be}</div>
+                <button type="button" class="btn-masol" onclick="masolVagolapra('bypass-url-be', this)">
+                    <i class="fas fa-copy"></i>Másolás
+                </button>
+            </div>
+            <p>
+                Meg akarod nézni, mit lát a látogató? Nyisd meg ezt a linket – ezzel
+                törlöd magadról az előnézeti jogot, és te is a karbantartás oldalt
+                fogod látni. (A fenti linkkel bármikor visszakapcsolhatod.)
+            </p>
+            <div class="flag-bypass-row">
+                <div class="flag-bypass-url" id="bypass-url-ki">${ki}</div>
+                <button type="button" class="btn-masol" onclick="masolVagolapra('bypass-url-ki', this)">
+                    <i class="fas fa-copy"></i>Másolás
+                </button>
+            </div>
+            <p>
+                <strong>Fontos:</strong> ez nem jelszavas védelem. Aki ismeri ezt a linket,
+                az karbantartás alatt is látja az oldalt – arra való, hogy a véletlen
+                látogató ne egy félkész oldalt lásson. Az admin felület
+                (<code>/admin.html</code>) karbantartás alatt is mindig elérhető.
+            </p>
+        </div>`;
+}
+
+// Vágólapra másolás. A modern clipboard API csak biztonságos környezetben
+// (https vagy localhost) és aktív fülön működik, ezért van kézi tartalék:
+// kijelöljük a szöveget, hogy a felhasználó Ctrl+C-vel akkor is tudja másolni.
+async function masolVagolapra(elemId, gomb) {
+    const el = document.getElementById(elemId);
+    if (!el) return;
+    const szoveg = el.textContent.trim();
+
+    try {
+        await navigator.clipboard.writeText(szoveg);
+        const eredeti = gomb.innerHTML;
+        gomb.innerHTML = '<i class="fas fa-check"></i>Kimásolva';
+        setTimeout(() => { gomb.innerHTML = eredeti; }, 2000);
+    } catch (err) {
+        // Nem sikerült automatikusan – jelöljük ki, és mondjuk meg, mit tegyen.
+        try {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } catch (e) { /* a kijelölés sem ment – marad a kézi kijelölés */ }
+        showToast('A másolás nem sikerült. A link ki van jelölve – nyomj Ctrl+C-t!', 'error');
+    }
 }
 
 async function toggleFeatureFlag(id, input) {
@@ -3813,11 +4018,26 @@ async function toggleFeatureFlag(id, input) {
     input.disabled = false;
 
     if (ok) {
+        // A karbantartás kapcsolónál a szöveg FORDÍTOTT: ott a „bekapcsolva"
+        // azt jelenti, hogy az oldal eltűnt a látogatók elől.
+        const karb = input.dataset.flagKey === MAINTENANCE_FLAG_KEY;
+
         if (card) card.classList.toggle('on', kivant);
-        if (state) state.textContent = kivant ? FLAG_STATE_TEXT.on : FLAG_STATE_TEXT.off;
-        showToast(kivant
-            ? 'Bekapcsolva – a szekció mostantól látszik az oldalon.'
-            : 'Kikapcsolva – a szekció mostantól nem jelenik meg.', 'success');
+        if (state) {
+            state.textContent = karb
+                ? (kivant ? MAINTENANCE_STATE_TEXT.on : MAINTENANCE_STATE_TEXT.off)
+                : (kivant ? FLAG_STATE_TEXT.on : FLAG_STATE_TEXT.off);
+        }
+
+        if (karb) {
+            showToast(kivant
+                ? 'Karbantartás mód BEKAPCSOLVA – a látogatók mostantól a „Hamarosan érkezik" üzenetet látják.'
+                : 'Karbantartás mód kikapcsolva – a weboldal újra elérhető mindenkinek.', 'success');
+        } else {
+            showToast(kivant
+                ? 'Bekapcsolva – a szekció mostantól látszik az oldalon.'
+                : 'Kikapcsolva – a szekció mostantól nem jelenik meg.', 'success');
+        }
     } else {
         // Sikertelen mentésnél VISSZAÁLLÍTJUK a kapcsolót. Enélkül a felület
         // olyan állapotot mutatna, ami az adatbázisban nincs is így – és a
