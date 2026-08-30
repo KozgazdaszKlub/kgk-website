@@ -212,8 +212,20 @@
         <div class="lightbox-counter" id="lightbox-counter"></div>
     </div>
 
+    <!-- FIGYELEM: ez a footer SZÁNDÉKOSAN rövidebb a többi oldalénál – nincs
+         benne .footer-content, logó és közösségi linkek sem. A cikkoldal a
+         szövegre koncentrál. A partner-blokk ezért közvetlenül a <footer>
+         gyereke, nem a .footer-content-é; a CSS mindkét helyen ugyanúgy
+         működik. -->
     <footer>
         <p>&copy; Közgazdász Klub. Minden jog fenntartva.</p>
+
+        <!-- INTÉZMÉNYI PARTNEREK — a script.js loadInstitutionalPartners()
+             tölti fel az `institutional_partners` táblából (pontosan 2 sor).
+             Üresen marad, ha a tábla még nem létezik vagy a kérés elszáll —
+             az üres div nem foglal helyet, a footer olyan, mint eddig. -->
+        <div class="footer-partners" id="footer-partners"></div>
+
         <a href="admin.html" class="admin-link">&#9679;</a>
     </footer>
 

@@ -383,6 +383,86 @@ footer {
     text-decoration: underline;
 }
 
+/* --- INTÉZMÉNYI PARTNEREK A FOOTERBEN ---
+   A két logó (kar + egyetem) egymás mellett, középen. A tartalmat a
+   script.js loadInstitutionalPartners() teszi bele; üresen a konténer
+   nem foglal helyet, tehát a footer olyan, mint a funkció előtt.
+
+   MIÉRT VILÁGOS DOBOZ VAN A LOGÓK MÖGÖTT
+   A footer háttere sötétkék (#08122b), az intézményi logók viszont jellemzően
+   sötét grafikák világos háttérre tervezve - háttér nélkül beleolvadnának.
+   Ezért kap mindegyik egy visszafogott, halvány fehér lapot; a `padding` és a
+   `border-radius` teszi láthatóan szándékossá, nem véletlen fehér foltnak. */
+.footer-partners {
+    /* ÜRESEN `display: none` – ez NEM ízlés kérdése.
+       A `display: flex` önálló formázási kontextust hoz létre, ami akkor is
+       MEGAKADÁLYOZZA a szomszédos margók összeolvadását, ha a doboz nulla
+       magas. A hir.html rövid láblécében pont ez történt: a <p> alsó (16px) és
+       az admin-link felső (20px) margója addig 20px-re olvadt össze, utána
+       viszont 36px lett – vagyis a lábléc 16px-szel magasabb lett attól, hogy
+       a partner-blokk ÜRESEN ott volt. `display: none` mellett a doboz ki van
+       véve az elrendezésből, tehát a migráció ELŐTT a lábléc pixelre azonos
+       a mostanival. (Mérve: mind az öt oldalon.)
+       A `loaded` osztályt a loadInstitutionalPartners() csak akkor teszi rá,
+       ha tényleg került bele tartalom. */
+    display: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 18px;
+}
+
+.footer-partners.loaded {
+    display: flex;
+    margin-top: 28px;
+}
+
+/* Ugyanaz a szabály állja meg a helyét linkként (<a>, ha van weboldal) és
+   sima <span>-ként is (ha még nincs megadva link). */
+.footer-partner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 96px;
+    min-height: 62px;
+    padding: 10px 16px;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 8px;
+    text-decoration: none;
+    transition: background 0.3s, transform 0.3s, box-shadow 0.3s;
+}
+
+/* A hover CSAK a linkre vonatkozik: link nélküli állapotban félrevezető
+   lenne kattinthatóságot sugallni. */
+a.footer-partner:hover {
+    background: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.footer-partner img {
+    height: 42px;
+    width: auto;
+    max-width: 150px;
+    object-fit: contain;
+    display: block;
+}
+
+/* Név-fallback: amíg nincs feltöltött logó (vagy ha a kép nem tölthető be),
+   a partner neve jelenik meg a fehér lapon. Sötétkék szöveg, hogy olvasható
+   maradjon - ugyanaz az elv, mint a szponzoroknál. */
+.footer-partner-name {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    line-height: 1.35;
+    color: #08122b;
+    text-align: center;
+    max-width: 190px;
+}
+
 /* --- RENDEZVÉNYEK --- */
 .events-grid {
     display: flex;
@@ -1670,5 +1750,26 @@ body:has(.nav-links.active) .back-to-top {
        (lásd a fenti specificitás-megjegyzést). */
     #kapcsolat-cta .btn {
         padding: 14px 28px;
+    }
+}
+
+/* ════════════════════════════════════════════
+   INTÉZMÉNYI PARTNEREK – MOBIL
+════════════════════════════════════════════ */
+/* Keskeny kijelzőn a két logó egymás alá is törhet (flex-wrap), ezért kisebb
+   térköz és kisebb logóméret kell, hogy ne nyúljon el a footer. */
+@media (max-width: 768px) {
+    .footer-partners {
+        gap: 12px;
+    }
+
+    .footer-partner {
+        min-height: 56px;
+        padding: 9px 14px;
+    }
+
+    .footer-partner img {
+        height: 36px;
+        max-width: 120px;
     }
 }

@@ -686,6 +686,68 @@ async function loadSponsors() {
 }
 
 // ============================================================
+// INTÉZMÉNYI PARTNEREK (footer, MINDEN publikus oldalon)
+// ============================================================
+// Az `institutional_partners` táblából jön, ami PONTOSAN KÉT sort tartalmaz
+// (a kar és az egyetem). Létrehozó script: migrations/institutional_partners.sql
+//
+// Ez a loader szándékosan NEM az `isIndexPage` ágban fut, hanem minden
+// publikus oldalon: a footer mind az ötben ott van.
+//
+// „Hiba esetén ne látszódjon félkész dolog": ha a tábla nem létezik, üres, vagy
+// a kérés elszáll, a `supabaseFetch` üres tömböt ad vissza, mi pedig érintetlenül
+// hagyjuk a konténert. Az üres `<div>` nem foglal helyet, tehát a footer
+// pontosan úgy néz ki, mint a funkció bevezetése előtt.
+
+// Attribútumba és szövegbe kerülő értékek ártalmatlanítása.
+// A tartalmat csak bejelentkezett admin írja, tehát ez nem támadás elleni
+// védelem, hanem hibatűrés: egy idézőjel a névben vagy az URL-ben enélkül
+// idő előtt lezárná az attribútumot, és szétesne a footer HTML-je.
+function escapeAttr(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+async function loadInstitutionalPartners() {
+    const container = document.getElementById('footer-partners');
+    if (!container) return;
+
+    const partners = await supabaseFetch('institutional_partners', { order: 'sort_order.asc' });
+    if (!partners.length) return;
+
+    container.innerHTML = partners.map(p => {
+        const name = escapeAttr(p.name);
+
+        // Ha még nincs feltöltött logó, a NÉV jelenik meg helyette. Ugyanaz az
+        // elv, mint a szponzoroknál: a partner sose tűnjön el csak azért, mert
+        // a képe hiányzik vagy nem tölthető be.
+        //
+        // Az `onerror` a betöltéskor elszálló képet kezeli: elrejti a képet, és
+        // megmutatja a mögötte lévő név-feliratot. (Ugyanaz az idióma, mint a
+        // script.js többi `onerror` ágában.)
+        const inner = p.logo_url
+            ? `<img src="${escapeAttr(p.logo_url)}" alt="${name}"
+                    onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+               <span class="footer-partner-name" style="display:none">${name}</span>`
+            : `<span class="footer-partner-name">${name}</span>`;
+
+        // Üres `href` az AKTUÁLIS oldalt töltené újra – ezért link nélkül
+        // jelenítjük meg, amíg nincs megadva weboldal.
+        const url = (p.website_url || '').trim();
+        return url
+            ? `<a class="footer-partner" href="${escapeAttr(url)}" target="_blank"
+                  rel="noopener noreferrer" title="${name}">${inner}</a>`
+            : `<span class="footer-partner" title="${name}">${inner}</span>`;
+    }).join('');
+
+    container.classList.add('loaded');
+}
+
+// ============================================================
 // NEM LÉTEZŐ HÍR (hir.html)
 // ============================================================
 function showArticleNotFound(container) {
@@ -959,6 +1021,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         .then(applyFeatureFlags)
         .catch(err => console.error('applyFeatureFlags hiba:', err));
 
+    // Az intézményi partner-logók is MINDEN publikus oldalon kellenek: a
+    // footer mind az ötben ott van. Ugyanúgy nincs await-elve, mint a
+    // kapcsolóknál – párhuzamosan fut a többi lekéréssel, és a végén várjuk be.
+    const partnersReady = loadInstitutionalPartners()
+        .catch(err => console.error('loadInstitutionalPartners hiba:', err));
+
     const isArticlePage = document.querySelector('.article-container') !== null;
     const isIndexPage = document.querySelector('#hero') !== null;
     const isNewsArchivePage = document.querySelector('#hirek-archivum') !== null;
@@ -976,7 +1044,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadNewsArchive().catch(err => console.error('loadNewsArchive hiba:', err));
     }
 
-    // A fenti loaderekkel párhuzamosan futott, itt már csak bevárjuk – így a
+    // A fenti loaderekkel párhuzamosan futottak, itt már csak bevárjuk – így a
     // DOMContentLoaded kezelő nem fejeződik be korábban, mint a kapcsolók.
     await flagsReady;
+    await partnersReady;
 });

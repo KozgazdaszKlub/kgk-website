@@ -1312,6 +1312,87 @@
             max-width: 640px;
         }
 
+        /* ── INTÉZMÉNYI PARTNEREK (Partnerek fül) ── */
+        /* Két egyforma szerkesztő doboz egymás mellett; keskeny kijelzőn
+           egymás alá törnek. Nem `.items-list`, mert itt nem listaelemek
+           vannak, hanem két teljes értékű űrlap. */
+        .partner-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        .partner-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 22px;
+            flex: 1 1 320px;
+            min-width: 280px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* A doboz fejléce: hányadik helyen áll a láblécben. Ettől egyértelmű,
+           melyik szerkesztő melyik logóhoz tartozik. */
+        .partner-card-head {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 14px;
+        }
+
+        /* A Mentés gomb mindig a doboz alján legyen, akkor is, ha az egyik
+           partner neve két sorba tördel – így a két gomb egy vonalban áll. */
+        .partner-card .btn-save {
+            margin-top: auto;
+        }
+
+        /* A logó előnézete FEHÉR lapon: az admin sötét témás, egy sötét
+           grafikájú intézményi logó enélkül láthatatlan lenne. Ugyanaz a
+           megoldás, mint a szponzorlogóknál az .item-card-img-en. */
+        .partner-preview {
+            width: 100%;
+            height: 84px;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            padding: 8px;
+            display: none;
+            margin: 0 auto 12px;
+        }
+
+        /* A sorrendcserélő gomb sávja a két doboz fölött */
+        .partner-order-bar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 14px;
+        }
+
+        .partner-order-btn {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 9px 16px;
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .partner-order-btn:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .partner-order-btn i { margin-right: 6px; }
+
         /* ── KARBANTARTÁS MÓD (a Szekciók fül különleges kapcsolója) ──
            Ez a kapcsoló egy szinttel feljebb dolgozik a többinél: nem egy
            szekciót rejt el, hanem az EGÉSZ publikus oldalt. Ezért kap saját,
@@ -1520,6 +1601,9 @@
         <button class="sidebar-btn" onclick="switchTabMobile('szponzorok', this)">
             <i class="fas fa-handshake"></i> Szponzorok
         </button>
+        <button class="sidebar-btn" onclick="switchTabMobile('partnerek', this)">
+            <i class="fas fa-university"></i> Partnerek
+        </button>
         <div class="sidebar-label">Beállítások</div>
         <button class="sidebar-btn" onclick="switchTabMobile('szekciok', this)">
             <i class="fas fa-toggle-on"></i> Szekciók
@@ -1552,6 +1636,9 @@
             </button>
             <button class="sidebar-btn" onclick="switchTab('szponzorok', this)">
                 <i class="fas fa-handshake"></i> Szponzorok
+            </button>
+            <button class="sidebar-btn" onclick="switchTab('partnerek', this)">
+                <i class="fas fa-university"></i> Partnerek
             </button>
             <div class="sidebar-label">Beállítások</div>
             <button class="sidebar-btn" onclick="switchTab('szekciok', this)">
@@ -1757,6 +1844,39 @@
                     </button>
                 </div>
                 <div class="items-list" id="list-szponzorok">
+                    <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Betöltés...</div>
+                </div>
+            </div>
+
+            <!-- INTÉZMÉNYI PARTNEREK -->
+            <!-- Miért SAJÁT fül, és nem a „Szekciók" fülön belül egy blokk:
+                 a Szekciók a Beállítások csoportba tartozik, és KIZÁRÓLAG
+                 be/ki kapcsolókat tartalmaz, teljesen dinamikusan a
+                 feature_flags táblából – pont attól nem kell hozzányúlni a
+                 kódhoz, ha új kapcsoló kell. Ide egy képfeltöltős, mezős
+                 szerkesztőt betenni elrontaná ezt a tulajdonságát, és két
+                 fogalmilag különböző dolgot keverne össze (beállítás vs.
+                 tartalom). A partner-logó viszont TARTALOM – kép, név, link –,
+                 pontosan úgy, mint a Szponzorok vagy a Rólunk. Ezért a
+                 „Tartalom" csoportba került, a Szponzorok mellé.
+
+                 A lista dinamikusan, a tábla két sorából rajzolódik ki (lásd
+                 loadPartnerek), mert a sorok id-jét itt még nem ismerjük. -->
+            <div class="tab-panel" id="tab-partnerek">
+                <div class="panel-header">
+                    <h2 class="panel-title">Intézményi partnerek</h2>
+                </div>
+                <p class="flag-intro">
+                    Ez a <strong>két logó</strong> jelenik meg minden oldal alján, a lábléc
+                    legalján, egymás mellett. Itt tudod cserélni a képet, a nevet és azt a
+                    weboldalt, ahova a logóra kattintva eljut a látogató.
+                    <br><br>
+                    Harmadik partnert szándékosan nem lehet hozzáadni, és egyiket sem lehet
+                    törölni – így a lábléc elrendezése nem tud véletlenül elromlani.
+                    <strong>Amíg nincs feltöltött logó, a partner neve jelenik meg</strong>
+                    a kép helyén, a weboldalon is.
+                </p>
+                <div id="list-partnerek">
                     <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Betöltés...</div>
                 </div>
             </div>
@@ -2983,7 +3103,11 @@ const sortableCache = {};
 const sortableReload = {
     team_members: () => loadElnokseg(),
     groups: () => loadMunkacsoportok(),
-    sponsors: () => loadSzponzorok()
+    sponsors: () => loadSzponzorok(),
+    // A partnereknél a moveItem() a „Sorrend cseréje" gombból hívódik. Új sor
+    // itt SOHA nem jön létre (nincs INSERT policy), tehát a nextSortOrder()
+    // ága – amit a SORTABLE_TABLES vezérel – erre a táblára sosem fut le.
+    institutional_partners: () => loadPartnerek()
 };
 
 // Ezekben a táblákban van sort_order oszlop – csak ezeknél állítjuk be új elemnél
@@ -4170,6 +4294,189 @@ async function saveSzponzor() {
     loadSzponzorok();
 }
 
+// ════════════════════════════════════════════
+// INTÉZMÉNYI PARTNEREK (Partnerek fül)
+// ════════════════════════════════════════════
+// Az `institutional_partners` tábla PONTOSAN KÉT sora: a kar és az egyetem
+// logója a lábléc alján. Létrehozó script: migrations/institutional_partners.sql
+//
+// A táblán SZÁNDÉKOSAN nincs INSERT és DELETE policy, csak UPDATE — ezért itt
+// sincs „Új partner" és „Törlés" gomb. Nem is lenne mit tenni velük: a kérést
+// az adatbázis utasítaná el. Így egy elkattintott gomb nem tudja elrontani a
+// „mindig pontosan két logó egymás mellett" elrendezést.
+
+// A mezők értéke `value="..."` attribútumba kerül. A tartalmat csak
+// bejelentkezett admin írja, tehát ez nem támadás elleni védelem, hanem
+// hibatűrés: egy idézőjel a névben enélkül idő előtt lezárná az attribútumot.
+function attrEscape(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+async function loadPartnerek() {
+    const wrap = document.getElementById('list-partnerek');
+    if (!wrap) return;
+
+    const data = await dbFetch('institutional_partners', { order: 'sort_order.asc' });
+    sortableCache.institutional_partners = data;
+
+    if (!data.length) {
+        // Ugyanez az ág fut le akkor is, ha a tábla MÉG NEM LÉTEZIK: a dbFetch
+        // hiba esetén is üres tömböt ad vissza. Ezért van itt a segítő mondat
+        // az SQL scriptről – enélkül ez egy néma, érthetetlen üres doboz lenne.
+        wrap.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-university"></i>
+                Még nincsenek partnerek.<br>
+                <span style="font-size:0.85rem;line-height:1.6;display:inline-block;margin-top:8px">
+                    Ha most vezettük be ezt a funkciót, előbb le kell futtatni a
+                    <code>migrations/institutional_partners.sql</code> scriptet
+                    a Supabase SQL Editorban.
+                </span>
+            </div>`;
+        return;
+    }
+
+    // A sorrendcsere gomb CSAK pontosan két partnernél jelenik meg: ennyinél
+    // a „csere" szó egyértelmű. A moveItem() minden ellenőrzést és a részleges
+    // hiba visszagörgetését is elvégzi – ezért hívjuk azt, nem írunk újat.
+    const orderBar = data.length === 2 ? `
+        <div class="partner-order-bar">
+            <button type="button" class="partner-order-btn"
+                    onclick="moveItem('institutional_partners', 0, 1)">
+                <i class="fas fa-right-left"></i> Sorrend cseréje
+            </button>
+        </div>` : '';
+
+    wrap.innerHTML = orderBar + '<div class="partner-grid">' + data.map((p, i) => {
+        const key = `partner-${p.id}`;
+        return `
+        <div class="partner-card">
+            <div class="partner-card-head">${i + 1}. logó a láblécben</div>
+
+            <div class="form-group">
+                <label>Logó</label>
+                <div class="upload-area" id="upload-${key}">
+                    <img class="partner-preview" id="preview-${key}" src="" alt="">
+                    <input type="file" id="file-${key}" accept="image/*"
+                           onchange="handleFileSelect('${key}')">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Kattints vagy húzd ide a képet</p>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Név</label>
+                <input type="text" id="name-${key}" value="${attrEscape(p.name)}"
+                       placeholder="Az intézmény neve">
+            </div>
+
+            <div class="form-group">
+                <label>Weboldal</label>
+                <input type="text" id="url-${key}" value="${attrEscape(p.website_url)}"
+                       placeholder="https://...">
+            </div>
+
+            <button class="btn-save" id="save-${key}" onclick="savePartner(${p.id})">Mentés</button>
+        </div>`;
+    }).join('') + '</div>';
+
+    // A meglévő logók előnézete. A showPreview() elrejti a felhő-ikont és a
+    // súgószöveget, tehát csak akkor hívjuk, ha tényleg van mit mutatni.
+    data.forEach(p => {
+        if (p.logo_url) showPreview(`partner-${p.id}`, p.logo_url, true);
+    });
+
+    // A dobozok most jöttek létre, tehát a húzd-ide vizuális visszajelzést
+    // most kell rájuk kötni. A függvény idempotens (dataset.dragInit őrzi),
+    // így a többi, már bekötött területet nem bántja.
+    initDragDropVisuals();
+}
+
+async function savePartner(id) {
+    const key = `partner-${id}`;
+    const btn = document.getElementById(`save-${key}`);
+    const nameInput = document.getElementById(`name-${key}`);
+    const urlInput = document.getElementById(`url-${key}`);
+    if (!btn || !nameInput || !urlInput) return;
+
+    const name = nameInput.value.trim();
+    // Név nélkül a partner a weboldalon láthatatlan lenne: logó hiányában a
+    // név a tartalék megjelenítés, és a kép `alt` szövege is ez.
+    if (!name) {
+        showToast('A név megadása kötelező!', 'error');
+        nameInput.focus();
+        return;
+    }
+
+    // A linknek kötelezőnek kell lennie: mindkét logónak kattinthatónak kell
+    // lennie a saját intézményi oldalára.
+    let url = urlInput.value.trim();
+    if (!url) {
+        showToast('A weboldal megadása kötelező – erre visz a logóra kattintva.', 'error');
+        urlInput.focus();
+        return;
+    }
+    // Protokoll nélkül („ubbcluj.ro") a böngésző RELATÍV útvonalnak venné, és
+    // a saját oldalunkon belül keresne egy nem létező fájlt. Ezért pótoljuk.
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Mentés...';
+
+    try {
+        const fileInput = document.getElementById(`file-${key}`);
+        let logoUrl = null;
+
+        if (fileInput?.files[0]) {
+            const file = fileInput.files[0];
+            const ext = file.name.split('.').pop();
+            logoUrl = await uploadImage('partner-logos', file, `${key}_${Date.now()}.${ext}`);
+            // Ha a feltöltés elhasalt (pl. a bucket még nincs létrehozva),
+            // NEM mentünk: különben a név/link elmentődne, a logó viszont nem,
+            // és a felhasználó azt hinné, minden rendben van.
+            if (!logoUrl) {
+                showSaveError('A logó feltöltése nem sikerült! A többi mező sem lett mentve.');
+                btn.disabled = false;
+                btn.innerHTML = 'Mentés';
+                return;
+            }
+        }
+
+        // A `sort_order`-hez itt nem nyúlunk: azt csak a „Sorrend cseréje" gomb
+        // állítja. Logó csak akkor kerül a payloadba, ha tényleg feltöltöttünk
+        // újat – enélkül egy név-módosítás kitörölné a meglévő képet.
+        const ok = await dbUpdate('institutional_partners', id, {
+            name,
+            website_url: url,
+            updated_at: new Date().toISOString(),
+            ...(logoUrl && { logo_url: logoUrl })
+        });
+
+        if (ok) {
+            showToast('Partner sikeresen mentve!', 'success');
+            await loadPartnerek();
+        } else {
+            showSaveError('Mentési hiba!');
+        }
+    } catch(e) {
+        showToast('Váratlan hiba!', 'error');
+        console.error(e);
+    }
+
+    // A gomb az újratöltés után már nem ugyanaz az elem, ezért frissen
+    // kérdezzük le – különben egy eldobott DOM-elemet állítanánk vissza.
+    const btnUtan = document.getElementById(`save-${key}`);
+    if (btnUtan) {
+        btnUtan.disabled = false;
+        btnUtan.innerHTML = 'Mentés';
+    }
+}
+
 // openModal kiegészítése szponzorra
 const _origOpenModal = openModal;
 openModal = function(type, data = null) {
@@ -4424,6 +4731,7 @@ loadAll = async function() {
     loadRolunk();
     loadGolyaPdf();
     loadSzponzorok();
+    loadPartnerek();
     loadSiteContentAdmin();
     loadFeatureFlagsAdmin();
 };
