@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- KARBANTARTÁS MÓD — szándékosan NEM defer, és szándékosan a legelső
+         script: a takarásnak minden más előtt fel kell kerülnie, különben
+         egy pillanatra felvillanna a valódi tartalom. Az admin.html-be EZ
+         SOHA nem kerülhet be — karbantartás alatt is elérhetőnek kell lennie. -->
+    <script src="maintenance.js"></script>
+    <title>Adatvédelmi tájékoztató | KGK</title>
+    <meta name="description" content="Milyen adatot gyűjt a Közgazdász Klub weboldala, mire használjuk, meddig tároljuk, és hogyan kérheted a törlését.">
+    <link rel="icon" type="image/x-icon" href="images/Copy of kgk_feher.ico">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+    <nav>
+        <div class="logo">
+            <a href="index.html">
+                <img src="images/Copy of kgk_feher.png" alt="KGK Logo">
+            </a>
+        </div>
+        <div class="hamburger" role="button" tabindex="0" aria-label="Menü megnyitása" aria-expanded="false" aria-controls="nav-links">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </div>
+        <ul class="nav-links" id="nav-links">
+            <li><a href="index.html#rolunk">Rólunk</a></li>
+            <li><a href="index.html#elnokseg">Elnökség</a></li>
+            <li><a href="index.html#munkacsoportok">Munkacsoportok</a></li>
+            <li><a href="index.html#rendezvenyek">Rendezvényeink</a></li>
+            <li data-flag="golya_visible"><a href="index.html#golyaknak" id="nav-golya-link">Gólyáknak</a></li>
+            <li><a href="index.html#hirek">Híreink</a></li>
+            <li data-flag="kapcsolat_visible"><a href="kapcsolat.html" id="nav-kapcsolat-link">Írj nekünk</a></li>
+            <li><a href="index.html#kapcsolat" class="btn-contact">Elérhetőségek</a></li>
+        </ul>
+    </nav>
+
+    <!-- Ez egy tisztán statikus szövegoldal: nem tölt semmit Supabase-ből.
+         A script.js-ből csak a hamburger menü, a scroll-animáció, a vissza-a-
+         tetejére gomb, a funkció-kapcsolók és a lábléc partner-logói futnak
+         rajta (nincs benne .article-container / #hero / #hirek-archivum
+         horgony) – pontosan úgy, mint a kapcsolat.html-en. -->
+    <section class="szoveg-oldal">
+        <div class="szoveg-box">
+
+            <h1>Adatvédelmi tájékoztató</h1>
+            <p class="szoveg-datum">Utoljára frissítve: 2026. augusztus 30.</p>
+
+            <p class="szoveg-bevezeto">
+                Ezt az oldalt a <strong>Közgazdász Klub (KGK)</strong> működteti, egy kolozsvári
+                romániai magyar egyetemista szervezet. Ebben a tájékoztatóban egyszerűen
+                leírjuk, milyen adatod kerülhet hozzánk, ha meglátogatod az oldalt vagy írsz
+                nekünk, mihez kezdünk vele, és hogyan kérheted, hogy töröljük.
+            </p>
+
+            <h2>Milyen adatot gyűjtünk</h2>
+            <p>
+                <strong>Ha kitöltöd a kapcsolatfelvételi űrlapot,</strong> megkapjuk azt, amit
+                magad írtál bele: a nevedet, az e-mail címedet, az üzenet tárgyát és magát
+                az üzenetet. Ennyit és nem többet — nincs rejtett mező, nem kérünk semmit,
+                ami az űrlapon nem látszik.
+            </p>
+            <p>
+                <strong>Ha csak nézelődsz az oldalon, nem gyűjtünk rólad semmit.</strong>
+                Nincs Google Analytics vagy más látogatottságmérő, nincs hirdetési
+                nyomkövető, és sütiket sem használunk. Nem tudjuk, ki jár az oldalon, és
+                nem is akarjuk tudni.
+            </p>
+            <p>
+                A böngésződ tárolójába egyetlen dolog kerülhet: egy technikai jelző, ha egy
+                belső, karbantartás alatti előnézeti linket nyitsz meg. Ez csak annyit
+                jegyez meg, hogy neked a rendes oldalt kell mutatni — semmilyen személyes
+                adatot nem tartalmaz, és a saját böngésződből ki is törölheted.
+            </p>
+
+            <h2>Miért gyűjtjük</h2>
+            <p>
+                Egyetlen okból: hogy <strong>tudjunk válaszolni</strong>. Ha kérdezel,
+                együttműködést ajánlasz, vagy jelentkeznél hozzánk, valahogy vissza kell
+                tudnunk írni — ehhez kell a neved és az e-mail címed. Hírlevelet nem
+                küldünk, és az adataidat semmilyen marketingcélra nem használjuk.
+            </p>
+
+            <h2>Hogyan tároljuk</h2>
+            <p>
+                Az űrlapon beküldött üzenet <strong>e-mailben érkezik meg</strong> a klub
+                postafiókjába (<a href="mailto:kozgazdaszklubkgk@gmail.com">kozgazdaszklubkgk@gmail.com</a>).
+                <strong>Adatbázisba nem mentjük el</strong> — az üzeneted ugyanúgy egy levél,
+                mintha közvetlenül írtál volna nekünk. Amíg a levél ott van a
+                postafiókban, addig létezik; ha törlöd kérjük, kitöröljük onnan.
+            </p>
+
+            <h2>Kivel osztjuk meg</h2>
+            <p>
+                <strong>Senkinek nem adjuk tovább és nem adjuk el az adataidat.</strong>
+                Az üzeneteket a klubon belül csak azok látják, akik a megkeresésekre
+                válaszolnak.
+            </p>
+            <p>
+                A teljesség kedvéért érdemes tudnod, hogy — mint minden weboldal — mi is
+                néhány külső szolgáltató technikai hátterén futunk, és ezek a szolgáltatók
+                a működésükből adódóan látják a kapcsolódásod adatait (például az
+                IP-címedet):
+            </p>
+            <ul>
+                <li><strong>Vercel</strong> — itt fut maga a weboldal.</li>
+                <li><strong>Supabase</strong> — innen töltődik be az oldal tartalma (hírek, képek).</li>
+                <li><strong>Google (Gmail)</strong> — ezen keresztül érkezik meg hozzánk az űrlapon írt üzenet.</li>
+                <li><strong>Google Fonts</strong> — innen töltődnek be az oldal betűtípusai.</li>
+            </ul>
+            <p>
+                Ezeknek a szolgáltatóknak nem adunk át adatot azért, hogy bármit kezdjenek
+                vele — egyszerűen ők üzemeltetik azt a hátteret, amin az oldal működik.
+            </p>
+
+            <h2>Milyen jogaid vannak</h2>
+            <p>
+                Bármikor kérheted, hogy
+            </p>
+            <ul>
+                <li>mondjuk meg, milyen adatod van nálunk,</li>
+                <li>javítsuk ki, ha valami hibás,</li>
+                <li>vagy töröljük mindet.</li>
+            </ul>
+            <p>
+                Ehhez nem kell semmilyen űrlap vagy indoklás: elég írnod egy levelet a
+                <a href="mailto:kozgazdaszklubkgk@gmail.com">kozgazdaszklubkgk@gmail.com</a>
+                címre, és igyekszünk minél hamarabb elintézni.
+            </p>
+
+            <h2>Ha kérdésed van</h2>
+            <p>
+                Írj nyugodtan a
+                <a href="mailto:kozgazdaszklubkgk@gmail.com">kozgazdaszklubkgk@gmail.com</a>
+                címre, vagy a <a href="kapcsolat.html">kapcsolatfelvételi űrlapon</a>
+                keresztül. Ha ez a tájékoztató valamit nem válaszol meg, szólj — javítjuk.
+            </p>
+
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-content">
+            <img src="images/Copy of kgk_feher.png" alt="KGK Logo Small" class="footer-logo">
+            <p>&copy; Közgazdász Klub - Kolozsvár</p>
+            <p>Email: <a href="mailto:kozgazdaszklubkgk@gmail.com">kozgazdaszklubkgk@gmail.com</a></p>
+            <div class="footer-socials">
+                <a href="https://www.facebook.com/kozgazdaszklub" target="_blank">Facebook</a>
+                <a href="https://www.instagram.com/kozgazdaszklub" target="_blank">Instagram</a>
+                <a href="https://www.instagram.com/_kgk_x_/" target="_blank">KGKx Instagram</a>
+                <a href="#" style="opacity: 0.5; cursor: default;" title="Hamarosan...">LinkedIn (Hamarosan)</a>
+            </div>
+
+            <!-- INTÉZMÉNYI PARTNEREK — a script.js loadInstitutionalPartners()
+                 tölti fel az `institutional_partners` táblából (pontosan 2 sor).
+                 Üresen marad, ha a tábla még nem létezik vagy a kérés elszáll —
+                 az üres div nem foglal helyet, a footer olyan, mint eddig. -->
+            <div class="footer-partners" id="footer-partners"></div>
+
+            <p class="footer-legal"><a href="adatvedelem.html" aria-current="page">Adatvédelem</a></p>
+        </div>
+        <a href="admin.html" class="admin-link">&#9679;</a>
+    </footer>
+
+</body>
+</html>

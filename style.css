@@ -463,6 +463,25 @@ a.footer-partner:hover {
     max-width: 190px;
 }
 
+/* --- ADATVÉDELEM LINK A FOOTERBEN ---
+   Diszkrét, de látszania KELL - ezért nem az .admin-link szinte láthatatlan
+   megoldását követi (az szándékosan rejtett), hanem halvány fehér, ami a
+   sötétkék háttéren olvasható marad. */
+.footer-legal {
+    margin-top: 22px;
+    font-size: 0.8rem;
+}
+.footer-legal a {
+    color: rgba(255, 255, 255, 0.55);
+    text-decoration: none;
+    transition: color 0.3s;
+}
+.footer-legal a:hover,
+.footer-legal a:focus-visible {
+    color: #F1C039;
+    text-decoration: underline;
+}
+
 /* --- RENDEZVÉNYEK --- */
 .events-grid {
     display: flex;
@@ -1771,5 +1790,111 @@ body:has(.nav-links.active) .back-to-top {
     .footer-partner img {
         height: 36px;
         max-width: 120px;
+    }
+}
+
+/* ════════════════════════════════════════════
+   EGYSZERŰ SZÖVEGOLDAL (adatvedelem.html)
+════════════════════════════════════════════ */
+/* A kapcsolat.html fehér kártyájának mintájára, de szélesebb és felülre
+   igazítva - hosszabb szöveghez a függőleges középre igazítás rossz lenne.
+   A globális `section` szabály paddingjét felülírjuk. */
+.szoveg-oldal {
+    display: flex;
+    justify-content: center;
+    padding: 90px 20px;
+}
+
+.szoveg-box {
+    background: #fff;
+    width: 100%;
+    max-width: 780px;
+    padding: 54px 52px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    box-sizing: border-box;
+    text-align: left;
+}
+
+.szoveg-box h1 {
+    font-size: 1.8rem;
+    color: #08122b;
+    margin: 0 0 8px;
+    line-height: 1.25;
+}
+
+/* A h1 alatti apró dátumsor - halvány, hogy ne vonja el a figyelmet */
+.szoveg-datum {
+    font-size: 0.82rem;
+    color: #999;
+    margin: 0 0 30px;
+}
+
+/* A bevezető bekezdés kicsit nagyobb, mint a többi: ez adja meg az oldal
+   hangnemét, és segít belekezdeni az olvasásba. */
+.szoveg-bevezeto {
+    font-size: 1.05rem;
+    color: #444;
+}
+
+/* A szekciócímek NEM nagybetűsek: a globális `h1, h2, h3` szabály
+   uppercase-t ad, ami egy hosszabb szövegoldalon kiabálósnak hatna és
+   rontaná az olvashatóságot. A h1 marad nagybetűs (az a cím). */
+.szoveg-box h2 {
+    font-size: 1.12rem;
+    color: #08122b;
+    text-transform: none;
+    letter-spacing: 0.3px;
+    margin: 38px 0 12px;
+}
+
+.szoveg-box p {
+    color: #555;
+    line-height: 1.75;
+    margin: 0 0 16px;
+}
+
+.szoveg-box ul {
+    color: #555;
+    line-height: 1.75;
+    margin: 0 0 16px;
+    padding-left: 22px;
+}
+
+.szoveg-box li {
+    margin-bottom: 7px;
+}
+
+.szoveg-box strong {
+    color: #08122b;
+}
+
+.szoveg-box a {
+    color: #08122b;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    transition: color 0.2s;
+}
+
+.szoveg-box a:hover {
+    color: #498CFF;
+}
+
+@media (max-width: 768px) {
+    .szoveg-oldal {
+        padding: 60px 16px;
+    }
+
+    .szoveg-box {
+        padding: 34px 22px;
+    }
+
+    .szoveg-box h1 {
+        font-size: 1.45rem;
+    }
+
+    .szoveg-bevezeto {
+        font-size: 1rem;
     }
 }
