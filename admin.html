@@ -256,6 +256,11 @@
             align-items: center;
             justify-content: space-between;
             margin-bottom: 28px;
+            /* A Hírek fülön a cím mellett a szűrő ÉS az "Új hír" gomb is elfér;
+               keskeny képernyőn tördelnek. A többi fülön nincs mit tördelni,
+               ezért ott ez a két sor nem változtat semmin. */
+            flex-wrap: wrap;
+            gap: 14px;
         }
 
         .panel-title {
@@ -784,6 +789,149 @@
         .badge-main { background: rgba(8,18,43,0.6); color: #7a8aaa; border: 1px solid var(--border); }
         .badge-small { background: rgba(178,24,224,0.15); color: #c96fef; border: 1px solid rgba(178,24,224,0.3); }
 
+        /* ── HÍR ÁLLAPOT JELZŐ (publikus / piszkozat) ──
+           Ugyanaz a zöld, mint a Szekciók fül bekapcsolt kapcsolójánál
+           (.flag-card.on .flag-state), hogy a "látszik a weboldalon" jelentés
+           az egész adminban ugyanazt a színt kapja. A piszkozat aranyszínű:
+           az arany a figyelemfelkeltő szín a felületen, a piros pedig a
+           karbantartás módé — egy piszkozat nem veszély, csak "még nem kész". */
+        .badge-publikus {
+            background: rgba(62, 207, 142, 0.14);
+            color: var(--success);
+            border: 1px solid rgba(62, 207, 142, 0.35);
+        }
+
+        .badge-piszkozat {
+            background: rgba(241, 192, 57, 0.14);
+            color: var(--gold);
+            border: 1px solid rgba(241, 192, 57, 0.35);
+        }
+
+        /* A jelző a meta sorban ül, a dátum előtt – a címsor így marad tiszta
+           és továbbra is "..."-tal vágódik, ha hosszú. */
+        .item-card-meta .badge { margin-right: 8px; vertical-align: 1px; }
+
+        /* A piszkozat kártya kerete erősebb aranyszínt kap. A --border amúgy is
+           halvány arany, ez csak a hangosabb változata – így a lista végig-
+           pásztázásakor a piszkozat akkor is kiugrik, ha a jelzőt nem olvassa el. */
+        .item-card.is-draft { border-color: rgba(241, 192, 57, 0.4); }
+
+        /* ── HÍREK SZŰRŐ (Mind / Publikusak / Piszkozatok) ── */
+        .filter-group {
+            display: flex;
+            gap: 6px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 4px;
+        }
+
+        .filter-btn {
+            background: transparent;
+            border: none;
+            border-radius: 7px;
+            padding: 7px 14px;
+            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .filter-btn:hover { color: var(--text); }
+
+        .filter-btn.active {
+            background: var(--surface2);
+            color: var(--gold);
+        }
+
+        .filter-btn:focus-visible {
+            outline: 2px solid var(--gold);
+            outline-offset: 2px;
+        }
+
+        /* A darabszám a gomb feliratában – halványabban, hogy a szó maradjon
+           a hangsúlyos. */
+        .filter-btn .filter-count { opacity: 0.65; font-weight: 500; }
+
+        /* A panel fejlécében a cím mellé így fér el a szűrő + az "Új hír" gomb.
+           A wrap az összes fülre vonatkozik, de csak akkor lép működésbe, ha
+           tényleg nem férne ki – a többi fül megjelenése változatlan. */
+        .panel-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        /* Figyelmeztetés, ha a migrations/news_publish_state.sql még nem futott le */
+        .migracio-info {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--gold);
+            border-radius: var(--radius);
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+        }
+
+        .migracio-info code {
+            background: var(--navy);
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-size: 0.8rem;
+            color: var(--gold);
+        }
+
+        /* ── PUBLIKÁLÁS KAPCSOLÓ A HÍR MODÁLBAN ──
+           SZÁNDÉKOSAN nem .form-group: annak a `label { display:block }` és
+           `input { width:100% }` szabálya szétverné a .switch felépítését. */
+        .publish-group {
+            margin-bottom: 18px;
+            text-align: left;
+        }
+
+        .publish-group-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .publish-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: var(--navy);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 16px;
+        }
+
+        .publish-text { min-width: 0; }
+
+        .publish-state {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--gold);
+            line-height: 1.3;
+        }
+
+        .publish-row.published .publish-state { color: var(--success); }
+
+        .publish-hint {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+            line-height: 1.5;
+        }
+
         /* ── MOBILE NAV ── */
         .mobile-menu-btn {
             display: none;
@@ -1289,6 +1437,9 @@
                egyértelműen mutatja az állapotot, a szöveges felirat mehet. */
             .flag-card { padding: 16px 14px; gap: 12px; }
             .flag-state { display: none; }
+            /* A három szűrőgomb egy sorban maradjon, ha kell, kisebb betűvel */
+            .filter-btn { padding: 7px 10px; font-size: 0.78rem; }
+            .panel-header-actions { gap: 10px; }
         }
     </style>
 </head>
@@ -1414,9 +1565,29 @@
             <div class="tab-panel active" id="tab-hirek">
                 <div class="panel-header">
                     <h2 class="panel-title">Hírek</h2>
-                    <button class="btn-add" onclick="openModal('hir')">
-                        <i class="fas fa-plus"></i> Új hír
-                    </button>
+                    <div class="panel-header-actions">
+                        <!-- A szűrő csak akkor jelenik meg, ha a news táblán már
+                             létezik az is_published oszlop – lásd applyPublishColumnUi() -->
+                        <div class="filter-group" id="hirek-filter" role="group" aria-label="Hírek szűrése állapot szerint" hidden>
+                            <button type="button" class="filter-btn active" id="hirek-filter-mind"
+                                    aria-pressed="true" onclick="setHirekFilter('mind')">Mind</button>
+                            <button type="button" class="filter-btn" id="hirek-filter-publikus"
+                                    aria-pressed="false" onclick="setHirekFilter('publikus')">Publikusak</button>
+                            <button type="button" class="filter-btn" id="hirek-filter-piszkozat"
+                                    aria-pressed="false" onclick="setHirekFilter('piszkozat')">Piszkozatok</button>
+                        </div>
+                        <button class="btn-add" onclick="openModal('hir')">
+                            <i class="fas fa-plus"></i> Új hír
+                        </button>
+                    </div>
+                </div>
+                <!-- Csak akkor látszik, ha a migráció még nem futott le -->
+                <div class="migracio-info" id="hirek-migracio-info" hidden>
+                    <strong>A piszkozat funkció még nincs bekapcsolva.</strong><br>
+                    A <code>news</code> táblán még nincs <code>is_published</code> oszlop, ezért
+                    minden hír azonnal publikus. Bekapcsoláshoz le kell futtatni a
+                    <code>migrations/news_publish_state.sql</code> scriptet a Supabase SQL Editorban.
+                    Addig minden ugyanúgy működik, mint eddig.
                 </div>
                 <div class="items-list" id="list-hirek">
                     <div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Betöltés...</div>
@@ -1676,6 +1847,25 @@
             <div class="gallery-preview-grid" id="gallery-preview-grid"></div>
             <p class="gallery-count" id="gallery-count"></p>
             <p class="gallery-hint" id="gallery-hint"><i class="fas fa-arrows-up-down-left-right"></i>Húzd a képeket a kívánt sorrendbe. Mobilon tartsd nyomva a képet, aztán húzd.</p>
+        </div>
+        <!-- ÁLLAPOT: publikus vagy piszkozat.
+             A mentés gomb FÖLÖTT van, mert ez az utolsó döntés a mentés előtt.
+             Új hírnél alapból BE van kapcsolva (publikus), hogy a megszokott
+             munkamenet – megírom, mentem, kint van – ne változzon.
+             A csoport rejtve marad, amíg a news táblán nincs is_published oszlop. -->
+        <div class="publish-group" id="hir-publish-group" hidden>
+            <div class="publish-group-label">Állapot</div>
+            <div class="publish-row" id="hir-publish-row">
+                <label class="switch">
+                    <input type="checkbox" id="hir-published" checked
+                           aria-describedby="hir-published-hint" onchange="syncPublishUi()">
+                    <span class="switch-slider"></span>
+                </label>
+                <div class="publish-text">
+                    <div class="publish-state" id="hir-published-state">Publikus</div>
+                    <div class="publish-hint" id="hir-published-hint">A hír megjelenik a weboldalon.</div>
+                </div>
+            </div>
         </div>
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeModal('hir')">Mégse</button>
@@ -2199,7 +2389,10 @@ function saveDraftSnapshot(overlayEl) {
         const fields = {};
         overlayEl.querySelectorAll('input, textarea, select').forEach(el => {
             if (!el.id || el.type === 'file') return;
-            fields[el.id] = el.value;
+            // Checkboxnál a `.value` a beküldött érték ("on"), nem a
+            // bepipáltság – a `.checked`-et kell menteni, különben a
+            // publikálás-kapcsoló állása elveszne a piszkozatból.
+            fields[el.id] = el.type === 'checkbox' ? el.checked : el.value;
         });
         const editor = overlayEl.querySelector('.editor-content');
         localStorage.setItem(DRAFT_KEY, JSON.stringify({
@@ -2276,8 +2469,14 @@ function restoreDraft() {
 
     Object.keys(draft.fields || {}).forEach(id => {
         const el = document.getElementById(id);
-        if (el && el.type !== 'file') el.value = draft.fields[id];
+        if (!el || el.type === 'file') return;
+        // A régi (a publikálás-kapcsoló előtti) piszkozatokban a checkbox
+        // értéke még a string "on" lehet – az `!== false` miatt az is
+        // bekapcsolt állapotot ad, vagyis publikusat. Ez a biztonságos irány.
+        if (el.type === 'checkbox') el.checked = draft.fields[id] !== false;
+        else el.value = draft.fields[id];
     });
+    syncPublishUi();
 
     const editor = overlay.querySelector('.editor-content');
     if (editor && draft.editorHtml !== null) editor.innerHTML = draft.editorHtml;
@@ -2585,6 +2784,11 @@ function openModal(type, data = null) {
     if (editor) editor.innerHTML = '';
     if (type === 'hir') resetGallery();
 
+    // A fenti reset-ciklus a checkboxot NEM állítja vissza: ott a `.value` a
+    // beküldött érték ("on"), nem a bepipáltság. Ezért kell külön sor.
+    // Alapérték: BE (publikus) – új hír azonnal kikerül az oldalra, ahogy eddig.
+    if (type === 'hir') setHirPublished(true);
+
     if (data) {
         title.textContent = type === 'hir' ? 'Hír szerkesztése' :
                             type === 'tag' ? 'Tag szerkesztése' :
@@ -2600,9 +2804,37 @@ function openModal(type, data = null) {
     overlay.classList.add('open');
 }
 
+// A publikálás-kapcsoló állapotának beállítása + a mellette lévő szöveg
+// frissítése. Mindig ezen keresztül állítsuk, hogy a kettő ne csússzon szét.
+function setHirPublished(publikus) {
+    const cb = document.getElementById('hir-published');
+    if (cb) cb.checked = publikus;
+    syncPublishUi();
+}
+
+// A kapcsoló melletti felirat a checkbox aktuális állásához igazítva.
+// A checkbox onchange-e is ezt hívja.
+function syncPublishUi() {
+    const cb = document.getElementById('hir-published');
+    const row = document.getElementById('hir-publish-row');
+    const state = document.getElementById('hir-published-state');
+    const hint = document.getElementById('hir-published-hint');
+    if (!cb || !state || !hint) return;
+
+    const on = cb.checked;
+    if (row) row.classList.toggle('published', on);
+    state.textContent = on ? 'Publikus' : 'Piszkozat';
+    hint.textContent = on
+        ? 'A hír megjelenik a weboldalon.'
+        : 'A hír CSAK itt, az admin felületen látszik. A weboldalon senki nem éri el, közvetlen linken sem.';
+}
+
 function fillForm(type, data) {
     document.getElementById(`${type}-id`).value = data.id;
     if (type === 'hir') {
+        // Csak az explicit `false` jelent piszkozatot – a migráció előtti,
+        // is_published nélküli sor így publikusként jön fel.
+        setHirPublished(data.is_published !== false);
         document.getElementById('hir-title').value = data.title || '';
         document.getElementById('hir-date').value = data.date || '';
         document.getElementById('hir-slug').value = data.slug || '';
@@ -2848,27 +3080,157 @@ async function loadAll() {
     loadMunkacsoportok();
 }
 
+// ════════════════════════════════════════════
+// HÍR ÁLLAPOT: PISZKOZAT vs PUBLIKUS
+// ════════════════════════════════════════════
+// A `news.is_published` oszlopot a migrations/news_publish_state.sql hozza
+// létre. Amíg AZ NEM FUTOTT LE, az oszlop nem létezik – és ha ilyenkor
+// beleírnánk a mentés payloadjába, a PostgREST 400-zal utasítaná el az EGÉSZ
+// mentést. Vagyis a kód élesbe kerülése eltörné a hírmentést addig, amíg
+// Zsolti le nem futtatja az SQL-t.
+//
+// Ezért egyszer, a Hírek fül betöltésekor megkérdezzük, létezik-e az oszlop,
+// és MINDENT ehhez igazítunk: a kapcsolót, a szűrőt, a jelzőket és a payloadot.
+//
+//   true  → van oszlop, teljes funkció
+//   false → nincs oszlop, minden pontosan úgy működik, mint a funkció előtt
+//   null  → még nem tudjuk / a lekérdezés elszállt → a `false`-szal azonos
+//           óvatos viselkedés (nem küldjük a mezőt). Fals negatívnál a mentés
+//           működik, csak az állapot nem íródik – fals pozitívnál viszont a
+//           mentés SZÁLLNA EL. A kettő közül ez a rosszabbik elkerülendő.
+let newsHasPublishedColumn = null;
+
+// A `news` sorok utolsó lekért állapota – a szűrő ebből dolgozik, hogy a
+// gombok közti váltás ne indítson újabb kérést.
+let hirekCache = [];
+let hirekFilter = 'mind';   // 'mind' | 'publikus' | 'piszkozat'
+
+// Csak az explicit `false` jelent piszkozatot. A hiányzó/undefined érték
+// publikusnak számít – ugyanaz az elv, mint a funkció-kapcsolóknál, és pont
+// ez teszi ártalmatlanná a migráció ELŐTTI adatot (ott nincs is ilyen mező).
+function hirPublikus(n) {
+    return n.is_published !== false;
+}
+
+// Létezik-e már az is_published oszlop? Egyetlen, minimális kérés.
+// Azért nem a hírsorokból következtetünk, mert 0 hírnél az nem döntené el –
+// márpedig épp olyankor a legfontosabb, hogy az ELSŐ mentés ne szálljon el.
+async function detectPublishColumn() {
+    try {
+        const res = await fetch(
+            `${SUPABASE_URL}/rest/v1/news?select=is_published&limit=1`,
+            { headers: authHeaders() }
+        );
+        if (handleAuthError(res)) return;
+        // 200 = van oszlop. 400 (42703 undefined_column) = nincs.
+        // Bármi más (500, hálózati hiba) → marad `null`, vagyis óvatos mód.
+        if (res.ok) newsHasPublishedColumn = true;
+        else if (res.status === 400) newsHasPublishedColumn = false;
+    } catch (e) {
+        console.error('is_published oszlop ellenőrzése sikertelen:', e);
+    }
+}
+
+// A felület hozzáigazítása ahhoz, amit az oszlopról tudunk.
+function applyPublishColumnUi() {
+    const van = newsHasPublishedColumn === true;
+    const filter = document.getElementById('hirek-filter');
+    const info = document.getElementById('hirek-migracio-info');
+    const group = document.getElementById('hir-publish-group');
+
+    if (filter) filter.hidden = !van;
+    if (group) group.hidden = !van;
+    // A segítő szöveg CSAK a biztos "nincs oszlop" esetben jelenik meg.
+    // Hálózati hibánál (null) nem: olyankor az egész lista is üres, egy
+    // migrációról szóló üzenet ott csak félrevezetne.
+    if (info) info.hidden = newsHasPublishedColumn !== false;
+    if (!van) hirekFilter = 'mind';
+}
+
+function setHirekFilter(mode) {
+    hirekFilter = mode;
+    ['mind', 'publikus', 'piszkozat'].forEach(m => {
+        const btn = document.getElementById(`hirek-filter-${m}`);
+        if (!btn) return;
+        btn.classList.toggle('active', m === mode);
+        btn.setAttribute('aria-pressed', String(m === mode));
+    });
+    renderHirek();
+}
+
+// A szűrőgombokra kiírt darabszám – így egy pillantásból látszik, ha
+// összegyűltek a piszkozatok.
+function updateHirekFilterCounts() {
+    if (newsHasPublishedColumn !== true) return;
+    const pub = hirekCache.filter(hirPublikus).length;
+    const counts = { mind: hirekCache.length, publikus: pub, piszkozat: hirekCache.length - pub };
+    Object.keys(counts).forEach(m => {
+        const btn = document.getElementById(`hirek-filter-${m}`);
+        if (btn) btn.querySelector('.filter-count')?.remove();
+        if (btn) btn.insertAdjacentHTML('beforeend', ` <span class="filter-count">(${counts[m]})</span>`);
+    });
+}
+
 // HÍREK
 async function loadHirek() {
     const list = document.getElementById('list-hirek');
-    const data = await dbFetch('news', { order: 'date.desc' });
-    if (!data.length) {
+    // Egyszer, az első betöltéskor derítjük ki; utána már tudjuk.
+    if (newsHasPublishedColumn === null) await detectPublishColumn();
+    applyPublishColumnUi();
+
+    hirekCache = await dbFetch('news', { order: 'date.desc' });
+    updateHirekFilterCounts();
+    renderHirek();
+}
+
+function renderHirek() {
+    const list = document.getElementById('list-hirek');
+    if (!list) return;
+
+    if (!hirekCache.length) {
         list.innerHTML = '<div class="empty-state"><i class="fas fa-newspaper"></i>Még nincs hír. Adj hozzá egyet!</div>';
         return;
     }
-    list.innerHTML = data.map(n => `
-        <div class="item-card">
+
+    const data = hirekCache.filter(n => {
+        if (hirekFilter === 'publikus') return hirPublikus(n);
+        if (hirekFilter === 'piszkozat') return !hirPublikus(n);
+        return true;
+    });
+
+    // Van hír, csak ilyen állapotú nincs – ezt külön mondjuk meg, különben
+    // úgy tűnne, mintha az összes hír eltűnt volna.
+    if (!data.length) {
+        list.innerHTML = hirekFilter === 'piszkozat'
+            ? '<div class="empty-state"><i class="fas fa-check-circle"></i>Nincs piszkozat – minden hír publikus.</div>'
+            : '<div class="empty-state"><i class="fas fa-newspaper"></i>Nincs publikus hír. Mindegyik piszkozat.</div>';
+        return;
+    }
+
+    list.innerHTML = data.map(n => {
+        const publikus = hirPublikus(n);
+        // A jelző csak akkor jelenik meg, ha az oszlop tényleg létezik –
+        // enélkül minden hír kapna egy "Publikus" címkét, ami azt sugallná,
+        // hogy a funkció már működik.
+        const badge = newsHasPublishedColumn === true
+            ? (publikus
+                ? '<span class="badge badge-publikus">Publikus</span>'
+                : '<span class="badge badge-piszkozat">Piszkozat</span>')
+            : '';
+        return `
+        <div class="item-card${!publikus && newsHasPublishedColumn === true ? ' is-draft' : ''}">
             ${n.image_url ? `<img class="item-card-img square" src="${n.image_url}" alt="${n.title}" onerror="this.style.display='none';">` : ''}
             <div class="item-card-info">
                 <div class="item-card-title">${n.title}</div>
-                <div class="item-card-meta">${n.date} &nbsp;·&nbsp; /${n.slug}</div>
+                <div class="item-card-meta">${badge}${n.date} &nbsp;·&nbsp; /${n.slug}</div>
             </div>
             <div class="item-card-actions">
                 <button class="btn-icon" onclick='openModal("hir", ${JSON.stringify(n).replace(/'/g,"&#39;")})' title="Szerkesztés"><i class="fas fa-pen"></i></button>
                 <button class="btn-icon delete" onclick='confirmDelete("news", ${n.id}, ${JSON.stringify(n.image_url || null).replace(/'/g,"&#39;")}, "news-images")' title="Törlés"><i class="fas fa-trash"></i></button>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 // ELNÖKSÉG
@@ -3381,13 +3743,21 @@ async function saveHir() {
 
         // 3. Hír mentése
         const id = document.getElementById('hir-id').value;
+        // Az is_published CSAK akkor kerül a payloadba, ha az oszlop biztosan
+        // létezik. Ha nem létezik és mégis elküldenénk, a PostgREST 400-zal
+        // dobná vissza az EGÉSZ mentést – a hír szövege is elveszne.
+        // Kihagyva: UPDATE-nél a DB-ben lévő érték marad, INSERT-nél a
+        // DEFAULT true lép életbe. Mindkettő biztonságos.
+        const publishedCb = document.getElementById('hir-published');
+        const kuldjukAzAllapotot = newsHasPublishedColumn === true && publishedCb;
         const payload = {
             title: document.getElementById('hir-title').value,
             date: document.getElementById('hir-date').value,
             slug: document.getElementById('hir-slug').value,
             excerpt: document.getElementById('hir-excerpt').value,
             content: contentHtml,
-            ...(imageUrl && { image_url: imageUrl })
+            ...(imageUrl && { image_url: imageUrl }),
+            ...(kuldjukAzAllapotot && { is_published: publishedCb.checked })
         };
 
         const ok = id ? await dbUpdate('news', id, payload) : await dbInsert('news', payload);
