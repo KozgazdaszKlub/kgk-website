@@ -4,8 +4,20 @@
 const SUPABASE_URL = 'https://agdstsliixwysbjedppu.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_LXqTP-dPmfwWvd0IZTzrMw_tjYERBe9';
 
+// Idokorlat egy Supabase kereshez (a valasz torzsenek letoltesevel egyutt).
+// Enelkul egy beragadt keres orokre a helyen hagyna a skeletont.
+const SUPABASE_FETCH_TIMEOUT_MS = 10000;
+
 // Ha a hivas `count: true`-t kap, a visszateresi ertek { data, total } objektum,
 // minden mas esetben - mint eddig - egy sima tomb.
+//
+// HIBA ESETEN HIBAT DOB, nem ures tombot: HTTP hibanal, halozati hibanal es
+// idotullepesnel is. Igy a hivo szet tudja valasztani a ket esetet:
+//   - ures tomb   = sikeres valasz, csak nincs adat (pl. nincs publikalt hir)
+//   - dobott hiba = nem sikerult betolteni
+// A halozati hiba (fetch) mar korabban is hibat dobott, tehat minden hivonak
+// eddig is kezelnie kellett - most a HTTP hiba es az idotullepes is ugyanigy
+// viselkedik. A hibauzenetet mutato loaderek: lasd createLoadError().
 async function supabaseFetch(table, options = {}) {
     const { select = '*', order = null, limit = null, eq = null, offset = null, count = false } = options;
     let url = `${SUPABASE_URL}/rest/v1/${table}?select=${select}`;
@@ -21,23 +33,37 @@ async function supabaseFetch(table, options = {}) {
     // A lapozashoz tudnunk kell, osszesen hany sor van - ezt a Prefer fejlec keri le
     if (count) headers['Prefer'] = 'count=exact';
 
-    const res = await fetch(url, { headers });
+    // Az abort a torzs olvasasat (res.json) is megszakitja, ezert az idozitot
+    // csak a legvegen, a finally-ben toroljuk - nem mar a fejlecek megerkezesekor.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SUPABASE_FETCH_TIMEOUT_MS);
 
-    // 416-ot csak lapozasnal kaphatunk: a kert oldal a lista vegen tul van.
-    // Ez nem hiba - a valos darabszam ilyenkor is megjon a Content-Range fejlecben.
-    const overRange = count && res.status === 416;
+    try {
+        const res = await fetch(url, { headers, signal: controller.signal });
 
-    if (!res.ok && !overRange) {
-        console.error(`Supabase hiba (${table}):`, res.status);
-        return count ? { data: [], total: 0 } : [];
+        // 416-ot csak lapozasnal kaphatunk: a kert oldal a lista vegen tul van.
+        // Ez nem hiba - a valos darabszam ilyenkor is megjon a Content-Range fejlecben.
+        const overRange = count && res.status === 416;
+
+        if (!res.ok && !overRange) throw new Error(`HTTP ${res.status}`);
+
+        const data = overRange ? [] : await res.json();
+        if (!count) return data;
+
+        // A teljes darabszam a Content-Range fejlecben erkezik, pl. "0-8/42" vagy "*/42"
+        const total = parseInt((res.headers.get('content-range') || '').split('/')[1], 10);
+        return { data, total: Number.isFinite(total) ? total : data.length };
+    } catch (err) {
+        // Mindharom hibafajta EGY helyen kerul a konzolra, a tabla nevevel.
+        // Az idotullepes a bongeszoben csak egy semmitmondo AbortError lenne.
+        const error = controller.signal.aborted
+            ? new Error(`idotullepes (${SUPABASE_FETCH_TIMEOUT_MS} ms)`)
+            : err;
+        console.error(`Supabase hiba (${table}):`, error.message);
+        throw error;
+    } finally {
+        clearTimeout(timer);
     }
-
-    const data = overRange ? [] : await res.json();
-    if (!count) return data;
-
-    // A teljes darabszam a Content-Range fejlecben erkezik, pl. "0-8/42" vagy "*/42"
-    const total = parseInt((res.headers.get('content-range') || '').split('/')[1], 10);
-    return { data, total: Number.isFinite(total) ? total : data.length };
 }
 
 // ============================================================
@@ -85,8 +111,9 @@ let featureFlags = { ...FEATURE_FLAG_FALLBACK };
 
 async function loadFeatureFlags() {
     try {
-        // A supabaseFetch hiba esetén magától üres tömböt ad vissza (és logol),
-        // tehát egy nem létező tábla itt nem dob kivételt – marad a fallback.
+        // A supabaseFetch hiba esetén (nem létező tábla, hálózati hiba, a saját
+        // 10 mp-es időkorlátja) hibát dob – ezt a lenti catch kapja el, és marad
+        // a fallback. Itt SZÁNDÉKOSAN nincs hibaüzenet: lásd a fenti alapelvet.
         const rows = await Promise.race([
             supabaseFetch('feature_flags', { select: 'flag_key,enabled' }),
             new Promise(resolve => setTimeout(() => resolve(null), FEATURE_FLAG_TIMEOUT_MS))
@@ -215,6 +242,76 @@ function emptyMessage(text) {
     return `<p class="loading-text">${text}</p>`;
 }
 
+// ============================================================
+// BETÖLTÉSI HIBA ÜZENET + ÚJRAPRÓBÁLÁS
+// ============================================================
+// A „nincs adat" és a „nem sikerült betölteni" két KÜLÖN eset:
+//   - üres eredménynél marad a megszokott „Hamarosan..." szöveg – ez a várt
+//     állapot, pl. amíg nincs egyetlen publikált hír sem;
+//   - hibánál (a supabaseFetch hibát dob) ez a doboz jelenik meg.
+//
+// A loaderekben a minta:
+//   const x = await supabaseFetch(...).catch(() => null);
+//   if (!x) { showLoadError(kontener, loadX); return; }   ← null = HIBA
+//   if (!x.length) { ...a régi üres ág, változatlanul... } ← [] = nincs adat
+//
+// SZÁNDÉKOSAN nincs hibaüzenet a kapcsolóknál (loadFeatureFlags), a
+// statisztikáknál (loadSiteContent) és a footer partnereinél
+// (loadInstitutionalPartners): ott a hiba esetére kitalált fallback a jó
+// viselkedés, lásd ott.
+//
+// A dobozt DOM-elemként rakjuk össze, nem HTML szövegként: így a gomb a saját
+// kattintás-figyelőjével együtt születik, nem kell utólag megkeresni.
+function createLoadError(loader) {
+    const box = document.createElement('div');
+    box.className = 'load-error';
+
+    const text = document.createElement('p');
+    text.className = 'load-error-text';
+    text.textContent = 'Nem sikerült betölteni a tartalmat.';
+
+    // <button>, nem <a> vagy <div>: így Enterrel és Space-szel is működik
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'load-error-retry';
+    btn.textContent = 'Újrapróbálom';
+    btn.addEventListener('click', () => retryLoader(loader, btn));
+
+    box.appendChild(text);
+    box.appendChild(btn);
+    return box;
+}
+
+// A konténer teljes tartalmát (a skeletont) a hibadobozra cseréli
+function showLoadError(container, loader) {
+    container.innerHTML = '';
+    container.appendChild(createLoadError(loader));
+}
+
+// Az éppen újrafutó loaderek. Egy loader egyszerre CSAK EGYSZER futhat újra:
+// dupla kattintás, billentyű-ismétlés vagy a loadGroups két gombja (a két
+// rácsban) sem indít párhuzamos lekéréseket. Automatikus újrapróbálás nincs –
+// csak kattintásra indul, tehát végtelen ciklus sem alakulhat ki, és egy
+// próbálkozás a supabaseFetch időkorlátja miatt legfeljebb ~10 mp.
+const retryingLoaders = new Set();
+
+async function retryLoader(loader, btn) {
+    if (retryingLoaders.has(loader)) return;
+    retryingLoaders.add(loader);
+    btn.disabled = true;
+    try {
+        await loader();
+    } catch (err) {
+        console.error(`${loader.name} hiba:`, err);
+    } finally {
+        retryingLoaders.delete(loader);
+        // A loader normál esetben lecseréli a dobozt (skeletonra, majd a
+        // tartalomra vagy egy ÚJ hibadobozra). Ha valamiért mégis itt maradt,
+        // a gomb ne ragadjon letiltva.
+        btn.disabled = false;
+    }
+}
+
 function skeletonArticle() {
     return `
         <div class="skeleton skeleton-article-date"></div>
@@ -240,7 +337,8 @@ async function loadAbout() {
     // Skeleton megjelenítése
     container.innerHTML = skeletonRolunk();
 
-    const data = await supabaseFetch('about', { limit: 1 });
+    const data = await supabaseFetch('about', { limit: 1 }).catch(() => null);
+    if (!data) { showLoadError(container, loadAbout); return; }
     if (!data.length) {
         container.innerHTML = emptyMessage('A Rólunk szöveg hamarosan elérhető...');
         return;
@@ -266,7 +364,23 @@ async function loadGolyaPdf() {
     const missing = document.getElementById('golya-pdf-missing');
     if (!btn) return;
 
-    const data = await supabaseFetch('documents', { limit: 1, order: 'created_at.desc' });
+    // Újrapróbáláskor a korábbi hibadoboz lekerül, és visszajön a „Hamarosan
+    // elérhető..." – innentől minden úgy fut, mint az első betöltéskor. (Első
+    // betöltéskor nincs hibadoboz, ilyenkor ez a blokk semmihez nem nyúl.)
+    const prevError = btn.parentElement.querySelector('.load-error');
+    if (prevError) {
+        prevError.remove();
+        if (missing) missing.hidden = false;
+    }
+
+    const data = await supabaseFetch('documents', { limit: 1, order: 'created_at.desc' }).catch(() => null);
+    if (!data) {
+        // Hibánál a „Hamarosan elérhető..." félrevezető lenne: lehet, hogy van
+        // PDF, csak most nem értük el. A helyén a hibadoboz látszik.
+        if (missing) missing.hidden = true;
+        (missing || btn).after(createLoadError(loadGolyaPdf));
+        return;
+    }
     if (!data.length) return;
 
     const doc = data[0];
@@ -344,7 +458,8 @@ async function loadTeam() {
     // Skeleton
     teamGrid.innerHTML = skeletonMemberCards(4);
 
-    const members = await supabaseFetch('team_members', { order: 'sort_order.asc' });
+    const members = await supabaseFetch('team_members', { order: 'sort_order.asc' }).catch(() => null);
+    if (!members) { showLoadError(teamGrid, loadTeam); return; }
     if (!members.length) { teamGrid.innerHTML = emptyMessage('Hamarosan bemutatjuk az elnökséget...'); return; }
     teamGrid.innerHTML = members.map((m, i) => `
         <div class="member-card hidden" style="transition-delay: ${i * 200}ms">
@@ -372,7 +487,10 @@ async function loadGroups() {
     // Skeleton mindkét gridbe
     grids.forEach(g => g.innerHTML = skeletonGroupCards(3));
 
-    const groups = await supabaseFetch('groups', { order: 'sort_order.asc' });
+    const groups = await supabaseFetch('groups', { order: 'sort_order.asc' }).catch(() => null);
+    // Egy lekérés tölti mindkét rácsot, ezért mindkettőbe kerül hibadoboz – a
+    // két gomb ugyanazt a loadert hívja (a retryLoader nem futtatja kétszer)
+    if (!groups) { grids.forEach(g => showLoadError(g, loadGroups)); return; }
     const mainGroups = groups.filter(g => g.type === 'main');
     const smallGroups = groups.filter(g => g.type === 'small');
     if (grids[0]) {
@@ -405,7 +523,8 @@ async function loadEvents() {
     // Skeleton
     eventsGrid.innerHTML = skeletonEventCards(3);
 
-    const events = await supabaseFetch('events', { order: 'date.asc' });
+    const events = await supabaseFetch('events', { order: 'date.asc' }).catch(() => null);
+    if (!events) { showLoadError(eventsGrid, loadEvents); return; }
 
     // Csak a mai naptól jövőbeli (vagy mai) rendezvényeket mutatjuk a főoldalon
     const todayStart = new Date();
@@ -488,7 +607,10 @@ async function loadNews() {
 
     newsGrid.innerHTML = skeletonNewsItems(3);
 
-    const news = await supabaseFetch('news', { order: 'date.desc', limit: 3 });
+    const news = await supabaseFetch('news', { order: 'date.desc', limit: 3 }).catch(() => null);
+    // null = hiba. Az üres lista NEM hiba: amíg nincs publikált hír, ez a várt
+    // állapot, és marad a „Hamarosan érkeznek a híreink..." szöveg.
+    if (!news) { showLoadError(newsGrid, loadNews); return; }
     if (!news.length) { newsGrid.innerHTML = emptyMessage('Hamarosan érkeznek a híreink...'); return; }
     newsGrid.innerHTML = news.map((n, i) => newsCardHtml(n, i * 200)).join('');
 
@@ -557,13 +679,15 @@ async function loadNewsArchive() {
     let page = parseInt(new URLSearchParams(window.location.search).get('page'), 10);
     if (!Number.isFinite(page) || page < 1) page = 1;
 
-    let result = await fetchNewsPage(page);
+    let result = await fetchNewsPage(page).catch(() => null);
+    if (!result) { showLoadError(grid, loadNewsArchive); return; }
     const totalPages = Math.max(1, Math.ceil(result.total / NEWS_PER_PAGE));
 
     // Ha az URL-ben nagyobb oldalszám szerepel, mint ahány oldal van, az utolsót mutatjuk
     if (page > totalPages) {
         page = totalPages;
-        result = await fetchNewsPage(page);
+        result = await fetchNewsPage(page).catch(() => null);
+        if (!result) { showLoadError(grid, loadNewsArchive); return; }
     }
 
     if (!result.data.length) {
@@ -597,7 +721,9 @@ async function loadSponsors() {
 
     track.innerHTML = skeletonSponsors(4);
 
-    const sponsors = await supabaseFetch('sponsors', { order: 'sort_order.asc' });
+    const sponsors = await supabaseFetch('sponsors', { order: 'sort_order.asc' }).catch(() => null);
+    // Hibánál a szekció NEM rejtőzik el – az csak azt jelenti, hogy nincs szponzor
+    if (!sponsors) { showLoadError(track, loadSponsors); return; }
     if (!sponsors.length) {
         const section = document.getElementById('szponzorok');
         if (section) section.style.display = 'none';
@@ -701,10 +827,12 @@ async function loadSponsors() {
 // Ez a loader szándékosan NEM az `isIndexPage` ágban fut, hanem minden
 // publikus oldalon: a footer mind az ötben ott van.
 //
-// „Hiba esetén ne látszódjon félkész dolog": ha a tábla nem létezik, üres, vagy
-// a kérés elszáll, a `supabaseFetch` üres tömböt ad vissza, mi pedig érintetlenül
-// hagyjuk a konténert. Az üres `<div>` nem foglal helyet, tehát a footer
-// pontosan úgy néz ki, mint a funkció bevezetése előtt.
+// „Hiba esetén ne látszódjon félkész dolog": ha a tábla üres, a `supabaseFetch`
+// üres tömböt ad vissza; ha nem létezik, vagy a kérés elszáll, hibát dob, amit
+// a DOMContentLoaded `.catch`-e nyel el. Mindkét esetben érintetlenül hagyjuk a
+// konténert – itt SZÁNDÉKOSAN nincs hibaüzenet és Újrapróbálom gomb. Az üres
+// `<div>` nem foglal helyet, tehát a footer pontosan úgy néz ki, mint a
+// funkció bevezetése előtt.
 
 // Attribútumba és szövegbe kerülő értékek ártalmatlanítása.
 // A tartalmat csak bejelentkezett admin írja, tehát ez nem támadás elleni
@@ -816,7 +944,10 @@ async function loadArticle() {
     const params = new URLSearchParams(window.location.search);
     const slug = params.get('slug');
     if (!slug) { showArticleNotFound(articleContainer); return; }
-    const results = await supabaseFetch('news', { eq: { column: 'slug', value: slug } });
+    const results = await supabaseFetch('news', { eq: { column: 'slug', value: slug } }).catch(() => null);
+    // Hibánál NEM a „nem található" képernyő jön: a hír lehet, hogy létezik,
+    // csak most nem értük el. (Piszkozatnál és rossz slugnál üres a lista.)
+    if (!results) { showLoadError(articleContainer, loadArticle); return; }
     const article = results[0];
     if (!article) { showArticleNotFound(articleContainer); return; }
     // A document.title sima szöveg, nem HTML: ide NEM kell escapeAttr (a
@@ -828,11 +959,13 @@ async function loadArticle() {
         select: 'image_url,sort_order',
         order: 'sort_order.asc',
         eq: { column: 'news_id', value: article.id }
-    });
+    }).catch(() => null);
 
     // Galéria HTML
+    // (null = a galériát nem sikerült betölteni: a hír ettől még megjelenik,
+    // a galéria helyére a render után kerül a hibadoboz – lásd lent)
     let galleryHtml = '';
-    if (galleryImages.length > 0) {
+    if (galleryImages && galleryImages.length > 0) {
         // A nem http(s) kép már itt kiesik, így a lightbox sem kapja meg.
         // Az onclick EGYSZERES idézőjeles attribútum: benne az aposztróf ÉS az
         // & jel is entitás lesz – enélkül egy "&quot;" az URL-ben a HTML
@@ -870,6 +1003,18 @@ async function loadArticle() {
         <br><br>
         <a href="index.html#hirek" class="btn">← Vissza a hírekhez</a>
     `;
+
+    // A galéria hibadoboza a cikk szövege után, ahol a galéria lenne. Az
+    // Újrapróbálom az egész hírt tölti újra: a loadArticle egyben kezeli a kettőt.
+    if (!galleryImages) {
+        const galleryBox = document.createElement('div');
+        galleryBox.className = 'article-gallery';
+        const heading = document.createElement('h3');
+        heading.textContent = 'Képgaléria';
+        galleryBox.appendChild(heading);
+        galleryBox.appendChild(createLoadError(loadArticle));
+        articleContainer.querySelector('.article-text').after(galleryBox);
+    }
 
     // Galéria nav gombok + lazy load inicializálása
     setTimeout(() => {

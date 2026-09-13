@@ -675,6 +675,68 @@ blockquote {
     padding: 20px 0;
 }
 
+/* --- BETÖLTÉSI HIBA + ÚJRAPRÓBÁLÁS ---
+   A script.js createLoadError() rakja a skeleton helyére, ha a Supabase
+   lekérés elszállt (HTTP hiba, hálózati hiba, időtúllépés). Az üres állapot
+   (.loading-text, „Hamarosan...") testvére: ugyanúgy középre igazított,
+   ugyanakkora térközzel – SZÁNDÉKOSAN nem piros figyelmeztető sáv. A hiba
+   átmeneti, a látogatónak nem kell megijednie, csak újrapróbálnia. */
+.load-error {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 20px 0;
+    text-align: center; /* a .news-grid balra igazítana */
+}
+
+/* Nem dőlt és sötétebb, mint a .loading-text: ez már közöl valamit. */
+.load-error-text {
+    margin: 0 0 14px;
+    color: #666;
+    font-size: 0.95rem;
+}
+
+/* Körvonalas sötétkék gomb, a lapozó (.page-btn) színeivel. A telt arany .btn
+   túl hangos lenne egy hibaüzenet mellett – a figyelmet a tartalomnak kell
+   visszakapnia, nem a hibának. */
+.load-error-retry {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #08122b;
+    background-color: transparent;
+    border: 2px solid #08122b;
+    border-radius: 6px;
+    padding: 9px 20px;
+    cursor: pointer;
+    transition: background-color 0.25s, color 0.25s, transform 0.2s;
+}
+
+.load-error-retry:hover {
+    background-color: #08122b;
+    color: #F1C039;
+    transform: translateY(-2px);
+}
+
+.load-error-retry:focus-visible {
+    outline: 3px solid #498CFF;
+    outline-offset: 3px;
+}
+
+/* Újrapróbálás közben (lásd retryLoader) */
+.load-error-retry:disabled {
+    opacity: 0.5;
+    cursor: default;
+    transform: none;
+}
+
+/* A cikkoldalon a hibaüzenet az EGÉSZ fehér kártyát adja – ott a
+   „nem található" képernyő (.article-missing) térközét kapja, hogy a kártya
+   ne zsugorodjon egy vékony csíkká. A galéria helyén (.article-gallery) a
+   sima térköz marad. */
+.article-container > .load-error {
+    padding: 50px 20px 60px;
+}
+
 /* --- ÁLTALÁNOS GOMB --- */
 .btn {
     display: inline-block;
