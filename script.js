@@ -249,10 +249,10 @@ async function loadAbout() {
     const about = data[0];
     container.innerHTML = `
         <div class="image-box hidden">
-            <img id="rolunk-img" src="${about.image_url || 'images/Csopkép elnökség 24-25.jpg'}" alt="KGK Elnökség Csoportkép" onerror="this.onerror=null;this.src='images/Csopkép elnökség 24-25.jpg';">
+            <img id="rolunk-img" src="${escapeAttr(safeUrl(about.image_url)) || 'images/Csopkép elnökség 24-25.jpg'}" alt="KGK Elnökség Csoportkép" onerror="this.onerror=null;this.src='images/Csopkép elnökség 24-25.jpg';">
         </div>
         <div class="text-box hidden">
-            <p id="rolunk-text">${about.text || ''}</p>
+            <p id="rolunk-text">${escapeAttr(about.text)}</p>
         </div>
     `;
     initObserver();
@@ -270,7 +270,8 @@ async function loadGolyaPdf() {
     if (!data.length) return;
 
     const doc = data[0];
-    btn.href = doc.file_url;
+    // Csak http(s) link kerülhet a gombra – lásd safeUrl()
+    btn.href = safeUrl(doc.file_url);
     btn.style.display = 'inline-block';
     if (missing) missing.style.display = 'none';
 }
@@ -347,14 +348,14 @@ async function loadTeam() {
     if (!members.length) { teamGrid.innerHTML = emptyMessage('Hamarosan bemutatjuk az elnökséget...'); return; }
     teamGrid.innerHTML = members.map((m, i) => `
         <div class="member-card hidden" style="transition-delay: ${i * 200}ms">
-            <img src="${m.image_url || 'images/placeholder.svg'}" alt="${m.name}" onerror="this.onerror=null;this.src='images/placeholder.svg';">
-            <h3>${m.name}</h3>
-            <p>${m.position}</p>
+            <img src="${escapeAttr(safeUrl(m.image_url)) || 'images/placeholder.svg'}" alt="${escapeAttr(m.name)}" onerror="this.onerror=null;this.src='images/placeholder.svg';">
+            <h3>${escapeAttr(m.name)}</h3>
+            <p>${escapeAttr(m.position)}</p>
             ${(m.facebook_url || m.instagram_url || m.linkedin_url) ? `
             <div class="socials">
-                ${m.facebook_url ? `<a href="${m.facebook_url}" target="_blank"><i class="fab fa-facebook"></i></a>` : ''}
-                ${m.instagram_url ? `<a href="${m.instagram_url}" target="_blank"><i class="fab fa-instagram"></i></a>` : ''}
-                ${m.linkedin_url ? `<a href="${m.linkedin_url}" target="_blank"><i class="fab fa-linkedin"></i></a>` : ''}
+                ${m.facebook_url ? `<a href="${escapeAttr(safeUrl(m.facebook_url))}" target="_blank"><i class="fab fa-facebook"></i></a>` : ''}
+                ${m.instagram_url ? `<a href="${escapeAttr(safeUrl(m.instagram_url))}" target="_blank"><i class="fab fa-instagram"></i></a>` : ''}
+                ${m.linkedin_url ? `<a href="${escapeAttr(safeUrl(m.linkedin_url))}" target="_blank"><i class="fab fa-linkedin"></i></a>` : ''}
             </div>` : ''}
         </div>
     `).join('');
@@ -376,18 +377,18 @@ async function loadGroups() {
     const smallGroups = groups.filter(g => g.type === 'small');
     if (grids[0]) {
         grids[0].innerHTML = mainGroups.length ? mainGroups.map((g, i) => `
-            <div class="group-card hidden" style="border-top: 5px solid ${g.color || '#08122b'}; transition-delay: ${i * 200}ms">
-                <h3 style="margin-top: 20px;">${g.title}</h3>
-                <p>${g.description || ''}</p>
+            <div class="group-card hidden" style="border-top: 5px solid ${escapeAttr(g.color) || '#08122b'}; transition-delay: ${i * 200}ms">
+                <h3 style="margin-top: 20px;">${escapeAttr(g.title)}</h3>
+                <p>${escapeAttr(g.description)}</p>
             </div>
         `).join('') : emptyMessage('Hamarosan bemutatjuk a munkacsoportokat...');
     }
     if (grids[1]) {
         grids[1].innerHTML = smallGroups.length ? smallGroups.map((g, i) => `
-            <div class="group-card hidden" style="border-top: 5px solid ${g.color || '#08122b'}; transition-delay: ${i * 200}ms">
-                ${g.image_url ? `<img src="${g.image_url}" alt="${g.title} Logo" class="group-logo" onerror="this.style.display='none';">` : ''}
-                <h3>${g.title}</h3>
-                <p>${g.description || ''}</p>
+            <div class="group-card hidden" style="border-top: 5px solid ${escapeAttr(g.color) || '#08122b'}; transition-delay: ${i * 200}ms">
+                ${g.image_url ? `<img src="${escapeAttr(safeUrl(g.image_url))}" alt="${escapeAttr(g.title)} Logo" class="group-logo" onerror="this.style.display='none';">` : ''}
+                <h3>${escapeAttr(g.title)}</h3>
+                <p>${escapeAttr(g.description)}</p>
             </div>
         `).join('') : emptyMessage('Hamarosan bemutatjuk a kiscsoportokat...');
     }
@@ -426,8 +427,8 @@ async function loadEvents() {
                     <span class="month">${month}</span>
                 </div>
                 <div class="event-info">
-                    <h3>${e.title}</h3>
-                    <p>${e.description || ''}</p>
+                    <h3>${escapeAttr(e.title)}</h3>
+                    <p>${escapeAttr(e.description)}</p>
                 </div>
             </div>
         `;
@@ -437,20 +438,25 @@ async function loadEvents() {
 // ============================================================
 // HÍR KÁRTYA (közös a főoldal és a hírarchívum között)
 // ============================================================
+// Az `excerpt` sima szöveg, ezért escape-eljük. Ha üres, a `content` elejéből
+// vágunk ki egy darabot – azt SZÁNDÉKOSAN nem: a content a rich text editorból
+// jövő HTML, a címkéket a regex leszedi, a benne maradt entitásokat (pl.
+// &nbsp;, &amp;) viszont a böngészőnek kell visszaalakítania. Ugyanez a
+// tartalom a hir.html-en amúgy is escape nélkül jelenik meg.
 function newsCardHtml(n, delay = 0) {
     return `
         <article class="news-item hidden" style="transition-delay: ${delay}ms">
             ${n.image_url ? `<img
                 class="news-card-img"
-                data-src="${n.image_url}"
+                data-src="${escapeAttr(safeUrl(n.image_url))}"
                 src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"
-                alt="${n.title}"
+                alt="${escapeAttr(n.title)}"
                 loading="lazy"
                 onerror="this.style.display='none';">` : ''}
-            <h3>${n.title}</h3>
+            <h3>${escapeAttr(n.title)}</h3>
             <p class="meta">${formatDateHu(n.date)}</p>
-            <p>${n.excerpt || (n.content || '').replace(/<[^>]+>/g, '').substring(0, 120)}...</p>
-            <a href="hir.html?slug=${n.slug}">Tovább olvasom &rarr;</a>
+            <p>${escapeAttr(n.excerpt) || (n.content || '').replace(/<[^>]+>/g, '').substring(0, 120)}...</p>
+            <a href="hir.html?slug=${escapeAttr(n.slug)}">Tovább olvasom &rarr;</a>
         </article>
     `;
 }
@@ -600,18 +606,19 @@ async function loadSponsors() {
 
     function renderItems(list) {
         return list.map(s => {
+            const name = escapeAttr(s.name);
             // A logó mellé kirakjuk a nevet is: alapból rejtve, csak akkor látszik,
             // ha a kép nem tölthető be (lásd initSponsorImages)
             const logo = `
-                <img src="${s.logo_url}" alt="${s.name}" title="${s.name}">
-                <span class="sponsor-name-fallback">${s.name}</span>`;
+                <img src="${escapeAttr(safeUrl(s.logo_url))}" alt="${name}" title="${name}">
+                <span class="sponsor-name-fallback">${name}</span>`;
             return `
             <div class="sponsor-item">
                 ${s.website_url
-                    ? `<a href="${s.website_url}" target="_blank" rel="noopener noreferrer" class="sponsor-link">${logo}</a>`
+                    ? `<a href="${escapeAttr(safeUrl(s.website_url))}" target="_blank" rel="noopener noreferrer" class="sponsor-link">${logo}</a>`
                     : logo
                 }
-                <span class="sponsor-tooltip">${s.name}</span>
+                <span class="sponsor-tooltip">${name}</span>
             </div>
         `;
         }).join('');
@@ -703,6 +710,12 @@ async function loadSponsors() {
 // A tartalmat csak bejelentkezett admin írja, tehát ez nem támadás elleni
 // védelem, hanem hibatűrés: egy idézőjel a névben vagy az URL-ben enélkül
 // idő előtt lezárná az attribútumot, és szétesne a footer HTML-je.
+//
+// Ez a fájl EGYETLEN escape függvénye: MINDEN render függvény ezt használja
+// az adatbázisból jövő szövegekre (cím, név, pozíció, leírás, alt, URL…),
+// attribútumban és szövegben egyaránt. Kivétel CSAK a hír `content` mezője,
+// ami szándékosan HTML – lásd newsCardHtml() és loadArticle().
+// A null/undefined értékből üres szöveg lesz.
 function escapeAttr(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -710,6 +723,29 @@ function escapeAttr(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+// URL ellenőrzés `src` és `href` attribútumhoz: CSAK http: és https: link
+// mehet át, minden más (`javascript:`, `data:`, `mailto:`…) üres szöveget ad.
+// Egy `javascript:` link kattintásra kódot futtatna – ezt az escape egymagában
+// nem akadályozza meg, hiszen abban nincs egyetlen veszélyes karakter sem.
+//
+// Szövegminta helyett a böngésző saját URL-értelmezőjét kérdezzük meg, mert az
+// pontosan úgy olvassa a trükkös alakokat (" JaVaScRiPt:", "java<TAB>script:"),
+// ahogy kattintáskor is tenné. A relatív cím (pl. "images/logo.png") az oldal
+// saját https címéhez oldódik fel, tehát átmegy.
+//
+// Az eredmény NINCS escape-elve – attribútumba így kerül:
+//   src="${escapeAttr(safeUrl(x.image_url))}"
+// Ez a sémát nézi, az escapeAttr a karaktereket.
+function safeUrl(value) {
+    const url = String(value ?? '');
+    try {
+        const { protocol } = new URL(url, window.location.href);
+        return protocol === 'http:' || protocol === 'https:' ? url : '';
+    } catch (err) {
+        return '';
+    }
 }
 
 async function loadInstitutionalPartners() {
@@ -730,14 +766,15 @@ async function loadInstitutionalPartners() {
         // megmutatja a mögötte lévő név-feliratot. (Ugyanaz az idióma, mint a
         // script.js többi `onerror` ágában.)
         const inner = p.logo_url
-            ? `<img src="${escapeAttr(p.logo_url)}" alt="${name}"
+            ? `<img src="${escapeAttr(safeUrl(p.logo_url))}" alt="${name}"
                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                <span class="footer-partner-name" style="display:none">${name}</span>`
             : `<span class="footer-partner-name">${name}</span>`;
 
         // Üres `href` az AKTUÁLIS oldalt töltené újra – ezért link nélkül
-        // jelenítjük meg, amíg nincs megadva weboldal.
-        const url = (p.website_url || '').trim();
+        // jelenítjük meg, amíg nincs megadva weboldal. A nem http(s) link
+        // (safeUrl) ugyanide, a link nélküli ágra fut.
+        const url = safeUrl((p.website_url || '').trim());
         return url
             ? `<a class="footer-partner" href="${escapeAttr(url)}" target="_blank"
                   rel="noopener noreferrer" title="${name}">${inner}</a>`
@@ -782,6 +819,8 @@ async function loadArticle() {
     const results = await supabaseFetch('news', { eq: { column: 'slug', value: slug } });
     const article = results[0];
     if (!article) { showArticleNotFound(articleContainer); return; }
+    // A document.title sima szöveg, nem HTML: ide NEM kell escapeAttr (a
+    // böngészőfülön különben &quot; jelenne meg idézőjel helyett).
     document.title = `${article.title} | KGK`;
 
     // Galéria képek betöltése
@@ -794,9 +833,13 @@ async function loadArticle() {
     // Galéria HTML
     let galleryHtml = '';
     if (galleryImages.length > 0) {
-        const urls = galleryImages.map(img => img.image_url);
+        // A nem http(s) kép már itt kiesik, így a lightbox sem kapja meg.
+        // Az onclick EGYSZERES idézőjeles attribútum: benne az aposztróf ÉS az
+        // & jel is entitás lesz – enélkül egy "&quot;" az URL-ben a HTML
+        // értelmezéskor valódi " jellé válna, és eltörné a JSON sztringet.
+        const urls = galleryImages.map(img => safeUrl(img.image_url));
         const imgTags = urls.map((url, i) => `
-            <img src="${url}" alt="Galéria kép ${i+1}" onclick='openLightbox(${JSON.stringify(urls).replace(/'/g,"&#39;")}, ${i})' onerror="this.style.display='none';">
+            <img src="${escapeAttr(url)}" alt="Galéria kép ${i+1}" onclick='openLightbox(${JSON.stringify(urls).replace(/&/g,"&amp;").replace(/'/g,"&#39;")}, ${i})' onerror="this.style.display='none';">
         `).join('');
 
         galleryHtml = `
@@ -816,10 +859,12 @@ async function loadArticle() {
         `;
     }
 
+    // A `content` SZÁNDÉKOSAN escape nélkül megy be: a rich text editorból
+    // jövő HTML (bekezdések, linkek, formázás). Minden más mező escape-elt.
     articleContainer.innerHTML = `
         <p class="article-date">${formatDateHu(article.date)}</p>
-        <h1>${article.title}</h1>
-        ${article.image_url ? `<img src="${article.image_url}" alt="${article.title}" class="article-image" onerror="this.style.display='none';">` : ''}
+        <h1>${escapeAttr(article.title)}</h1>
+        ${article.image_url ? `<img src="${escapeAttr(safeUrl(article.image_url))}" alt="${escapeAttr(article.title)}" class="article-image" onerror="this.style.display='none';">` : ''}
         <div class="article-text">${article.content}</div>
         ${galleryHtml}
         <br><br>

@@ -3431,10 +3431,10 @@ function renderHirek() {
             : '';
         return `
         <div class="item-card${!publikus && newsHasPublishedColumn === true ? ' is-draft' : ''}">
-            ${n.image_url ? `<img class="item-card-img square" src="${n.image_url}" alt="${n.title}" onerror="this.style.display='none';">` : ''}
+            ${n.image_url ? `<img class="item-card-img square" src="${attrEscape(safeUrl(n.image_url))}" alt="${attrEscape(n.title)}" onerror="this.style.display='none';">` : ''}
             <div class="item-card-info">
-                <div class="item-card-title">${n.title}</div>
-                <div class="item-card-meta">${badge}${n.date} &nbsp;·&nbsp; /${n.slug}</div>
+                <div class="item-card-title">${attrEscape(n.title)}</div>
+                <div class="item-card-meta">${badge}${attrEscape(n.date)} &nbsp;·&nbsp; /${attrEscape(n.slug)}</div>
             </div>
             <div class="item-card-actions">
                 ${itemActionButtons(n.id)}
@@ -3456,10 +3456,10 @@ async function loadElnokseg() {
     }
     list.innerHTML = data.map((m, i) => `
         <div class="item-card">
-            <img class="item-card-img" src="${m.image_url || 'images/placeholder.svg'}" alt="${m.name}" onerror="this.onerror=null;this.src='images/placeholder.svg';">
+            <img class="item-card-img" src="${attrEscape(safeUrl(m.image_url)) || 'images/placeholder.svg'}" alt="${attrEscape(m.name)}" onerror="this.onerror=null;this.src='images/placeholder.svg';">
             <div class="item-card-info">
-                <div class="item-card-title">${m.name}</div>
-                <div class="item-card-meta">${m.position}</div>
+                <div class="item-card-title">${attrEscape(m.name)}</div>
+                <div class="item-card-meta">${attrEscape(m.position)}</div>
             </div>
             <div class="item-card-actions">
                 ${sortButtons('team_members', i, data.length)}
@@ -3481,8 +3481,8 @@ async function loadRendezvenyek() {
     list.innerHTML = data.map(e => `
         <div class="item-card">
             <div class="item-card-info">
-                <div class="item-card-title">${e.title}</div>
-                <div class="item-card-meta">${e.date}</div>
+                <div class="item-card-title">${attrEscape(e.title)}</div>
+                <div class="item-card-meta">${attrEscape(e.date)}</div>
             </div>
             <div class="item-card-actions">
                 ${itemActionButtons(e.id)}
@@ -3503,13 +3503,13 @@ async function loadMunkacsoportok() {
     }
     list.innerHTML = data.map((g, i) => `
         <div class="item-card">
-            ${g.image_url ? `<img class="item-card-img square" src="${g.image_url}" alt="${g.title}" onerror="this.style.display='none';">` : ''}
+            ${g.image_url ? `<img class="item-card-img square" src="${attrEscape(safeUrl(g.image_url))}" alt="${attrEscape(g.title)}" onerror="this.style.display='none';">` : ''}
             <div class="item-card-info">
                 <div class="item-card-title" style="display:flex;align-items:center;gap:8px">
-                    ${g.title}
-                    <span class="badge badge-${g.type}">${g.type === 'main' ? 'Főcsoport' : 'Kiscsoport'}</span>
+                    ${attrEscape(g.title)}
+                    <span class="badge badge-${attrEscape(g.type)}">${g.type === 'main' ? 'Főcsoport' : 'Kiscsoport'}</span>
                 </div>
-                <div class="item-card-meta">${g.description || ''}</div>
+                <div class="item-card-meta">${attrEscape(g.description)}</div>
             </div>
             <div class="item-card-actions">
                 ${sortButtons('groups', i, data.length)}
@@ -3688,11 +3688,14 @@ function renderGalleryPreviews() {
     // A data-index a jelenlegi megjelenítési pozíció – húzás után ebből áll
     // össze az új galleryOrder (lásd applyGalleryDomOrder)
     grid.innerHTML = galleryOrder.map((item, i) => {
-        const src = item.type === 'existing' ? item.url : item.objUrl;
+        // A meglévő kép URL-je az adatbázisból jön → safeUrl. Az új fájlé a
+        // böngésző saját blob: címe (createObjectURL) – azt NEM szabad szűrni,
+        // különben az új képek előnézete eltűnne.
+        const src = item.type === 'existing' ? safeUrl(item.url) : item.objUrl;
         const alt = item.type === 'existing' ? 'Galéria kép' : 'Új kép';
         return `
         <div class="gallery-preview-item" data-index="${i}" title="Húzd az átrendezéshez">
-            <img src="${src}" alt="${alt}" draggable="false">
+            <img src="${attrEscape(src)}" alt="${alt}" draggable="false">
             <button class="remove-img" type="button" title="Kép eltávolítása" onclick="removeGalleryItem(${i})"><i class="fas fa-times"></i></button>
         </div>`;
     }).join('');
@@ -4279,7 +4282,8 @@ async function loadGolyaPdf() {
     const currentDiv = document.getElementById('golya-current');
     const currentLink = document.getElementById('golya-current-link');
     currentDiv.style.display = 'block';
-    currentLink.href = doc.file_url;
+    // Csak http(s) link kerülhet ki – lásd safeUrl()
+    currentLink.href = safeUrl(doc.file_url);
     currentLink.textContent = doc.title || 'Gólya Kisokos';
 }
 
@@ -4350,10 +4354,10 @@ async function loadSzponzorok() {
     }
     list.innerHTML = data.map((s, i) => `
         <div class="item-card">
-            <img class="item-card-img square" src="${s.logo_url}" alt="${s.name}" style="background:#fff;padding:4px;" onerror="this.style.visibility='hidden';">
+            <img class="item-card-img square" src="${attrEscape(safeUrl(s.logo_url))}" alt="${attrEscape(s.name)}" style="background:#fff;padding:4px;" onerror="this.style.visibility='hidden';">
             <div class="item-card-info">
-                <div class="item-card-title">${s.name}</div>
-                <div class="item-card-meta">${s.website_url ? `<a href="${s.website_url}" target="_blank" style="color:var(--gold);text-decoration:none;">${s.website_url}</a>` : 'Nincs weboldal'}</div>
+                <div class="item-card-title">${attrEscape(s.name)}</div>
+                <div class="item-card-meta">${s.website_url ? `<a href="${attrEscape(safeUrl(s.website_url))}" target="_blank" style="color:var(--gold);text-decoration:none;">${attrEscape(s.website_url)}</a>` : 'Nincs weboldal'}</div>
             </div>
             <div class="item-card-actions">
                 ${sortButtons('sponsors', i, data.length)}
@@ -4395,6 +4399,12 @@ async function saveSzponzor() {
 // A mezők értéke `value="..."` attribútumba kerül. A tartalmat csak
 // bejelentkezett admin írja, tehát ez nem támadás elleni védelem, hanem
 // hibatűrés: egy idézőjel a névben enélkül idő előtt lezárná az attribútumot.
+//
+// Ez az admin EGYETLEN escape függvénye: a listák (Hírek, Elnökség,
+// Rendezvények, Munkacsoportok, Szponzorok, Szekciók) is ezt használják az
+// adatbázisból jövő szövegekre, attribútumban és szövegben egyaránt.
+// (A publikus oldal script.js-ében ugyanez escapeAttr néven él – az admin nem
+// tölti be a script.js-t, ezért van két példány.)
 function attrEscape(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -4402,6 +4412,23 @@ function attrEscape(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+// URL ellenőrzés `src` és `href` attribútumhoz – ugyanaz, mint a script.js
+// safeUrl()-je (ott a részletes magyarázat): CSAK http: és https: link mehet
+// át, minden más (`javascript:`, `data:`…) üres szöveget ad. Az eredmény NINCS
+// escape-elve, attribútumba így kerül: src="${attrEscape(safeUrl(x))}".
+//
+// Szándékosan NEM hívjuk a modál képelőnézetében (showPreview): oda új fájlnál
+// a FileReader data: címe kerül, amit ez kiszűrne.
+function safeUrl(value) {
+    const url = String(value ?? '');
+    try {
+        const { protocol } = new URL(url, window.location.href);
+        return protocol === 'http:' || protocol === 'https:' ? url : '';
+    } catch (err) {
+        return '';
+    }
 }
 
 async function loadPartnerek() {
@@ -4680,14 +4707,14 @@ async function loadFeatureFlagsAdmin() {
         return `
         <div class="flag-card ${karb ? 'flag-karbantartas' : ''} ${on ? 'on' : ''}" id="flag-card-${f.id}">
             <div class="flag-card-info">
-                <div class="flag-card-label" id="flag-label-${f.id}">${f.label || f.flag_key}</div>
-                <div class="flag-card-key">${f.flag_key}</div>
+                <div class="flag-card-label" id="flag-label-${f.id}">${attrEscape(f.label || f.flag_key)}</div>
+                <div class="flag-card-key">${attrEscape(f.flag_key)}</div>
             </div>
             <span class="flag-state" id="flag-state-${f.id}">${felirat}</span>
             <label class="switch">
                 <input type="checkbox" ${on ? 'checked' : ''}
                        aria-labelledby="flag-label-${f.id}"
-                       data-flag-key="${f.flag_key}"
+                       data-flag-key="${attrEscape(f.flag_key)}"
                        onchange="toggleFeatureFlag(${f.id}, this)">
                 <span class="switch-slider"></span>
             </label>
