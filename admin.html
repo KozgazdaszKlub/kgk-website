@@ -1197,6 +1197,59 @@
 
         .gallery-hint i { color: var(--gold); margin-right: 5px; }
 
+        /* ── GALÉRIA BETÖLTÉSI ÁLLAPOT (hír modál) ──
+           Különálló blokk, a fenti galéria-szabályokhoz nem nyúl. Az elem CSAK
+           akkor létezik a DOM-ban, ha a meglévő galéria betöltése elhúzódik
+           vagy elszáll – a hibátlan úton nincs mire hatnia. */
+        .gallery-load-status {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: 10px 12px;
+            margin-top: 14px;
+            padding: 12px 14px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--text-muted);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: var(--text-muted);
+        }
+
+        .gallery-load-status.is-error { border-left-color: var(--danger); }
+
+        .gallery-load-status > i { margin-top: 3px; }
+        .gallery-load-status.is-error > i { color: var(--danger); }
+
+        /* A 200px alap miatt keskeny modálban a gomb a szöveg alá tördel,
+           ahelyett hogy a szöveget pár karakteres oszlopba nyomná */
+        .gallery-load-status-body { flex: 1 1 200px; min-width: 0; }
+
+        .gallery-load-status-body strong {
+            display: block;
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .gallery-load-retry {
+            flex-shrink: 0;
+            align-self: center;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 14px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .gallery-load-retry:hover { border-color: var(--gold); color: var(--gold); }
+        .gallery-load-retry:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+        .gallery-load-retry[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
+
         /* ── FUNKCIÓ-KAPCSOLÓK (Szekciók fül) ── */
         .flag-card {
             background: var(--surface);
@@ -3272,11 +3325,58 @@ document.addEventListener('DOMContentLoaded', initListDelegation);
 // ════════════════════════════════════════════
 // ADATOK BETÖLTÉSE + RENDERELÉS
 // ════════════════════════════════════════════
+// A szerkesztett hír meglévő galériájának betöltése a modálba.
+//
+// A betöltés sikere EXPLICIT állapot (galleryLoadState), nem a galleryOrder
+// ürességéből következik. Régen egy elszállt kérés után a tömb üres maradt:
+// a modál úgy nézett ki, mintha a hírnek nem lenne galériája, a mentés pedig
+// minden meglévő képet kivettnek hitt, és letörölt (DB sor + Storage fájl).
+// Most a mentés csak 'loaded' állapotban nyúl a galériához (saveHir →
+// galleryTrusted), hibánál pedig doboz + Újrapróbálom gomb jelenik meg.
 async function loadExistingGallery(newsId) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&order=sort_order.asc`, { headers: authHeaders() });
-    if (handleAuthError(res)) return;
-    if (!res.ok) return;
-    const images = await res.json();
+    // Minden betöltés saját sorszámot kap. Ha közben másik hír nyílt meg, vagy a
+    // galéria alaphelyzetbe állt (resetGallery), a késve érkező válasz már nem
+    // írhat a modálba – különben egy MÁSIK hír képei jelennének meg, és a mentés
+    // az éppen szerkesztett hír valódi képeit törölné.
+    const seq = ++galleryLoadSeq;
+    galleryLoadState = 'loading';
+    galleryLoadNewsId = newsId;
+    scheduleGalleryLoadingHint(seq);
+
+    // Időkorlát: egy beragadt kérés se hagyhassa örökre töltés állapotban a
+    // galériát. Az abort a res.json() törzsolvasást is megszakítja.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), GALLERY_LOAD_TIMEOUT_MS);
+    let images = null;
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&order=sort_order.asc`, { headers: authHeaders(), signal: controller.signal });
+        // Lejárt session: a sáv szól, a galéria hibaállapotba kerül, és a
+        // meghosszabbítás után az Újrapróbálom gombbal betölthető
+        if (!handleAuthError(res)) {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (!Array.isArray(data)) throw new Error('váratlan válasz');
+            images = data;
+        }
+    } catch (e) {
+        if (seq === galleryLoadSeq) console.error('Galéria betöltése sikertelen:', e);
+    } finally {
+        clearTimeout(timer);
+    }
+
+    // Közben másik betöltés indult, vagy a modál alaphelyzetbe állt
+    if (seq !== galleryLoadSeq) return;
+    clearGalleryLoadingHint();
+
+    if (!images) {
+        galleryLoadState = 'error';
+        galleryLoadFailures++;
+        showGalleryLoadStatus(galleryLoadFailures > 1 ? 'error-again' : 'error');
+        return;
+    }
+
+    galleryLoadState = 'loaded';
+    removeGalleryLoadStatus();
     // A DB sorrendje (sort_order.asc) adja a kiinduló megjelenítési sorrendet
     galleryOrder = images.map(img => ({ type: 'existing', url: img.image_url }));
     syncGalleryArrays();
@@ -3651,8 +3751,130 @@ function syncGalleryArrays() {
     galleryFiles = galleryOrder.filter(it => it.type === 'new').map(it => it.file);
 }
 
+// ── A MEGLÉVŐ GALÉRIA BETÖLTÉSI ÁLLAPOTA ──
+//   'idle'    – nincs mit betölteni (új hír, vagy alaphelyzet)
+//   'loading' – a szerkesztett hír galériája épp töltődik
+//   'loaded'  – betöltve; az üres galleryOrder itt azt jelenti: tényleg nincs galéria
+//   'error'   – nem sikerült betölteni; az üres galleryOrder itt SEMMIT nem jelent
+const GALLERY_LOAD_TIMEOUT_MS = 10000;
+// Ennyi idő után jelenik meg a „Galéria betöltése…” felirat. Normál sebességnél
+// addigra kész a betöltés, így a hibátlan úton a modál pontosan ugyanúgy néz ki.
+const GALLERY_LOADING_HINT_MS = 700;
+let galleryLoadState = 'idle';
+let galleryLoadNewsId = null;   // melyik hír galériáját töltjük / töltöttük be
+let galleryLoadSeq = 0;         // az elavult válaszok kiszűréséhez
+let galleryLoadFailures = 0;    // a „Most sem sikerült” felirathoz
+let galleryLoadingHintTimer = null;
+
+const GALLERY_LOAD_STATUS_TEXTS = {
+    loading: {
+        title: 'Galéria betöltése…',
+        text: 'Egy pillanat – képet hozzáadni vagy törölni a betöltés után lehet.'
+    },
+    error: {
+        title: 'Nem sikerült betölteni a galériát.',
+        text: 'A meglévő képek nem vesztek el, csak most nem látszanak. A hír szövegét így is elmentheted – a galériához a mentés nem nyúl. Képet hozzáadni vagy törölni csak sikeres betöltés után lehet.'
+    },
+    'error-again': {
+        title: 'Most sem sikerült betölteni a galériát.',
+        text: 'Ellenőrizd az internetkapcsolatot, és próbáld újra. A hír szövegét így is elmentheted – a meglévő képekhez a mentés nem nyúl.'
+    }
+};
+
+// A betöltési állapot doboza az előnézet-rács fölött. CSAK akkor jön létre, ha
+// a betöltés elhúzódik vagy elszáll – a hibátlan úton nincs a DOM-ban, így a
+// modál markupja pontosan ugyanaz marad, mint korábban.
+// Állapotváltáskor a MEGLÉVŐ elemet frissítjük (nem cseréljük le), hogy az
+// Újrapróbálom gombon lévő fókusz ne vesszen el.
+//   kind: 'loading' | 'retrying' | 'error' | 'error-again'
+function showGalleryLoadStatus(kind) {
+    const grid = document.getElementById('gallery-preview-grid');
+    if (!grid || !grid.parentNode) return;
+
+    let box = document.getElementById('gallery-load-status');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'gallery-load-status';
+        box.className = 'gallery-load-status';
+        // role="alert": a képernyőolvasó megjelenéskor és szövegváltáskor is felolvassa
+        box.setAttribute('role', 'alert');
+        box.innerHTML = `
+            <i aria-hidden="true"></i>
+            <div class="gallery-load-status-body">
+                <strong></strong>
+                <span></span>
+            </div>
+            <button type="button" class="gallery-load-retry"></button>`;
+        box.querySelector('button').addEventListener('click', retryExistingGallery);
+        grid.parentNode.insertBefore(box, grid);
+    }
+
+    const retrying = kind === 'retrying';
+    // Újrapróbálás közben a hibaszöveg marad, csak a gomb és az ikon jelzi a töltést
+    const texts = GALLERY_LOAD_STATUS_TEXTS[retrying ? (galleryLoadFailures > 1 ? 'error-again' : 'error') : kind];
+    const btn = box.querySelector('button');
+
+    box.classList.toggle('is-error', kind !== 'loading');
+    box.querySelector('i').className = (kind === 'loading' || retrying) ? 'fas fa-spinner fa-spin' : 'fas fa-exclamation-triangle';
+    box.querySelector('strong').textContent = texts.title;
+    box.querySelector('span').textContent = texts.text;
+
+    btn.hidden = kind === 'loading';
+    btn.textContent = retrying ? 'Betöltés…' : 'Újrapróbálom';
+    // aria-disabled és NEM disabled: a letiltott gombról a böngésző leveszi a
+    // fókuszt, és a billentyűzetes felhasználó elveszítené a helyét
+    if (retrying) btn.setAttribute('aria-disabled', 'true');
+    else btn.removeAttribute('aria-disabled');
+}
+
+function removeGalleryLoadStatus() {
+    const box = document.getElementById('gallery-load-status');
+    if (!box) return;
+    // Ha a fókusz a dobozban volt (Újrapróbálom), ne essen ki a semmibe: a
+    // galéria fájlválasztójára kerül – a Tab-sorrendben ez áll a doboz helyén
+    const hadFocus = box.contains(document.activeElement);
+    box.remove();
+    if (hadFocus) document.getElementById('file-gallery')?.focus();
+}
+
+function scheduleGalleryLoadingHint(seq) {
+    clearGalleryLoadingHint();
+    galleryLoadingHintTimer = setTimeout(() => {
+        galleryLoadingHintTimer = null;
+        // Csak ha még mindig ez a betöltés fut, és nincs kint doboz – újrapróbálásnál
+        // a doboz már látszik, ott a gomb jelzi a töltést
+        if (seq === galleryLoadSeq && galleryLoadState === 'loading' && !document.getElementById('gallery-load-status')) {
+            showGalleryLoadStatus('loading');
+        }
+    }, GALLERY_LOADING_HINT_MS);
+}
+
+function clearGalleryLoadingHint() {
+    if (galleryLoadingHintTimer) clearTimeout(galleryLoadingHintTimer);
+    galleryLoadingHintTimer = null;
+}
+
+// Újrapróbálom gomb: ugyanannak a hírnek a galériáját tölti be újra, a modál
+// bezárása nélkül. Futó betöltés közben a további kattintás nem indít új
+// kérést – a loadExistingGallery az első await ELŐTT 'loading'-ra állít.
+function retryExistingGallery() {
+    if (galleryLoadState !== 'error' || !galleryLoadNewsId) return;
+    showGalleryLoadStatus('retrying');
+    loadExistingGallery(galleryLoadNewsId);
+}
+
 function handleGallerySelect() {
     const input = document.getElementById('file-gallery');
+    // Amíg a meglévő galéria nincs biztosan betöltve, új képet nem veszünk fel:
+    // a mentés ilyenkor a galériához nem nyúl, tehát a kép némán elveszne, egy
+    // később sikeres betöltés pedig amúgy is felülírná a listát.
+    if (galleryLoadState === 'loading' || galleryLoadState === 'error') {
+        showToast(galleryLoadState === 'error'
+            ? 'Előbb töltsd be a galériát (Újrapróbálom gomb), utána adhatsz hozzá képet.'
+            : 'A galéria még töltődik – várd meg, utána adhatsz hozzá képet.', 'error');
+        input.value = '';
+        return;
+    }
     const newFiles = Array.from(input.files);
     const total = galleryOrder.length + newFiles.length;
 
@@ -3719,6 +3941,14 @@ function resetGallery() {
     });
     galleryOrder = [];
     syncGalleryArrays();
+    // Betöltési állapot alaphelyzetbe. A sorszám léptetése miatt egy még futó
+    // betöltés válasza (pl. egy korábban megnyitott hírtől) már nem ír ide.
+    galleryLoadSeq++;
+    galleryLoadState = 'idle';
+    galleryLoadNewsId = null;
+    galleryLoadFailures = 0;
+    clearGalleryLoadingHint();
+    removeGalleryLoadStatus();
     const grid = document.getElementById('gallery-preview-grid');
     const count = document.getElementById('gallery-count');
     const hint = document.getElementById('gallery-hint');
@@ -3994,7 +4224,18 @@ async function saveHir() {
         // Igaz lesz, ha a galéria valamelyik része nem került a helyére (lásd a végén)
         let galleryIncomplete = false;
 
-        if (newsId) {
+        // A galéria-szinkron (4a–4e) TÖRÖL is: ami a DB-ben van, de a modálban
+        // nincs, azt kivettnek tekinti. Ezért csak akkor futhat, ha a modálban
+        // látható galéria biztosan ennek a hírnek a teljes, betöltött galériája:
+        //   - meglévő hír: sikeres betöltés, ugyanahhoz a hírhez
+        //   - új hír: nem volt mit betölteni
+        // Elszállt vagy még futó betöltésnél a galériához nem nyúlunk – a hír
+        // szövege ettől még elmentődik (lásd a figyelmeztetést a végén).
+        const galleryTrusted = id
+            ? galleryLoadState === 'loaded' && String(galleryLoadNewsId) === String(id)
+            : galleryLoadState === 'idle';
+
+        if (newsId && galleryTrusted) {
             // 4a. Meglévő DB sorok lekérése (a sort_order is kell: ebből tudjuk,
             // melyik sorszám foglalt az új képek beszúrásakor)
             const existingRes = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url,sort_order`, { headers: authHeaders() });
@@ -4066,7 +4307,12 @@ async function saveHir() {
         // Ha a galéria nem került teljesen a helyére, nem írunk „Sikeresen
         // mentve!"-t: a hír szövege elmentődött, de egy kép vagy a sorrend nem.
         // (A showSaveError lejárt sessionnél hallgat – ott a sáv beszél.)
-        if (galleryIncomplete) {
+        if (!galleryTrusted) {
+            // Közvetlen showToast, nem showSaveError: ide csak sikeres hír-mentés
+            // után jutunk, és galéria-kérés sem ment ki, tehát egy nemrég lejárt,
+            // de azóta meghosszabbított session nem nyelheti el az üzenetet
+            showToast('A hír elmentve. A galéria nem töltődött be, ezért a képekhez nem nyúltunk – a meglévő képek megmaradtak.', 'error');
+        } else if (galleryIncomplete) {
             showSaveError('A hír elmentve, de a galériát nem sikerült teljesen menteni. Nyisd meg újra, ellenőrizd a képeket, és mentsd el még egyszer!');
         } else {
             showToast('Sikeresen mentve!', 'success');
