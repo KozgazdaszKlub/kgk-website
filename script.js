@@ -934,6 +934,10 @@ function showArticleNotFound(container) {
 // ============================================================
 // HÍR OLDAL BETÖLTÉSE (hir.html)
 // ============================================================
+// A hír-galériából ennyi kép töltődik be azonnal; a többi csak akkor, amikor a
+// csúszkában a látómező közelébe ér (hir.html initGalleryLazyLoad).
+const GALLERY_EAGER_COUNT = 3;
+
 async function loadArticle() {
     const articleContainer = document.querySelector('.article-container');
     if (!articleContainer) return;
@@ -965,14 +969,19 @@ async function loadArticle() {
     // (null = a galériát nem sikerült betölteni: a hír ettől még megjelenik,
     // a galéria helyére a render után kerül a hibadoboz – lásd lent)
     let galleryHtml = '';
+    // A lightbox URL-listája. Csak itt, a memóriában él: a képekre NEM kerül
+    // inline onclick (az korábban a teljes listát képenként beleírta a DOM-ba),
+    // a kattintást a render után a csúszka egyetlen figyelője kezeli – lásd lent.
+    let galleryUrls = [];
     if (galleryImages && galleryImages.length > 0) {
         // A nem http(s) kép már itt kiesik, így a lightbox sem kapja meg.
-        // Az onclick EGYSZERES idézőjeles attribútum: benne az aposztróf ÉS az
-        // & jel is entitás lesz – enélkül egy "&quot;" az URL-ben a HTML
-        // értelmezéskor valódi " jellé válna, és eltörné a JSON sztringet.
-        const urls = galleryImages.map(img => safeUrl(img.image_url));
-        const imgTags = urls.map((url, i) => `
-            <img src="${escapeAttr(url)}" alt="Galéria kép ${i+1}" onclick='openLightbox(${JSON.stringify(urls).replace(/&/g,"&amp;").replace(/'/g,"&#39;")}, ${i})' onerror="this.style.display='none';">
+        galleryUrls = galleryImages.map(img => safeUrl(img.image_url));
+        // Az első GALLERY_EAGER_COUNT kép src-vel, a többi data-src-vel kerül be:
+        // azt a hir.html initGalleryLazyLoad() teszi át src-be, amikor a kép a
+        // látómező közelébe ér – addig a böngésző le sem tölti. A kiszűrt (üres)
+        // URL src-ben marad, hogy az onerror ugyanúgy elrejtse, mint eddig.
+        const imgTags = galleryUrls.map((url, i) => `
+            <img ${i >= GALLERY_EAGER_COUNT && url ? 'data-src' : 'src'}="${escapeAttr(url)}" alt="Galéria kép ${i+1}" onerror="this.style.display='none';">
         `).join('');
 
         galleryHtml = `
@@ -983,7 +992,7 @@ async function loadArticle() {
                         ${imgTags}
                     </div>
                 </div>
-                ${urls.length > 1 ? `
+                ${galleryUrls.length > 1 ? `
                 <div class="gallery-nav">
                     <button class="gallery-nav-btn" id="gallery-prev" onclick="scrollGallery(-1)" disabled>&#8249;</button>
                     <button class="gallery-nav-btn" id="gallery-next" onclick="scrollGallery(1)">&#8250;</button>
@@ -1003,6 +1012,23 @@ async function loadArticle() {
         <br><br>
         <a href="index.html#hirek" class="btn">← Vissza a hírekhez</a>
     `;
+
+    // Lightbox: egyetlen kattintás-figyelő a csúszkán (event delegation). A kép
+    // sorszáma a csúszkán belüli helye – ez megegyezik a galleryUrls indexével,
+    // a rejtett (onerror) képekkel együtt, ahogy korábban az onclick-ben is.
+    // A `:scope >` miatt a hír szövegében lévő, azonos osztályú elem nem zavar
+    // be. A csúszka minden rendereléskor új elem, így újrapróbáláskor sem lesz
+    // rajta dupla figyelő.
+    const gallerySlider = articleContainer.querySelector(':scope > .article-gallery .gallery-slider');
+    if (gallerySlider) {
+        gallerySlider.addEventListener('click', (e) => {
+            const img = e.target.closest('img');
+            if (!img || !gallerySlider.contains(img)) return;
+            const index = [...gallerySlider.querySelectorAll('img')].indexOf(img);
+            if (index === -1 || typeof openLightbox !== 'function') return;
+            openLightbox(galleryUrls, index);
+        });
+    }
 
     // A galéria hibadoboza a cikk szövege után, ahol a galéria lenne. Az
     // Újrapróbálom az egész hírt tölti újra: a loadArticle egyben kezeli a kettőt.

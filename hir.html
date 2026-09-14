@@ -296,10 +296,17 @@
     }
 
     // Képek fokozatos betöltése (lazy load)
+    // Az első képek már src-vel érkeznek (script.js, GALLERY_EAGER_COUNT), a
+    // többinek csak data-src-je van: azt itt tesszük át src-be, amikor a kép a
+    // látómező közelébe ér. A src-t SOHA ne ürítsd ki (img.src = ''): az üres
+    // src error eseményt vált ki, a kép onerror-ja erre display:none-t tesz, és
+    // egy rejtett kép már soha nem kerül a látómezőbe – vagyis végleg eltűnne.
     function initGalleryLazyLoad() {
         const imgs = document.querySelectorAll('.gallery-slider img');
         imgs.forEach(img => {
-            if (img.complete) {
+            // A még src nélküli (data-src-es) kép `complete` értéke is true –
+            // ő csak a valódi betöltés után kapja meg a 'loaded' osztályt
+            if (img.complete && !img.dataset.src) {
                 img.classList.add('loaded');
             } else {
                 img.addEventListener('load', () => img.classList.add('loaded'));
@@ -307,7 +314,7 @@
             }
         });
 
-        // Csak az első 3 képet töltjük be azonnal, a többit scroll-ra
+        // A data-src-es képek csak akkor töltődnek be, amikor a közelbe érnek
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
@@ -321,12 +328,8 @@
             });
         }, { rootMargin: '200px' });
 
-        imgs.forEach((img, i) => {
-            if (i >= 3 && img.src) {
-                img.dataset.src = img.src;
-                img.src = '';
-                observer.observe(img);
-            }
+        imgs.forEach(img => {
+            if (img.dataset.src) observer.observe(img);
         });
     }
 

@@ -3991,9 +3991,12 @@ async function saveHir() {
             newsId = newData[0]?.id;
         }
 
+        // Igaz lesz, ha a galéria valamelyik része nem került a helyére (lásd a végén)
+        let galleryIncomplete = false;
+
         if (newsId) {
-            // 4a. Meglévő DB sorok lekérése (a sort_order is kell, hogy csak a
-            // ténylegesen elmozdult sorokat írjuk felül)
+            // 4a. Meglévő DB sorok lekérése (a sort_order is kell: ebből tudjuk,
+            // melyik sorszám foglalt az új képek beszúrásakor)
             const existingRes = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url,sort_order`, { headers: authHeaders() });
             if (handleAuthError(existingRes)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
             const existingRows = existingRes.ok ? await existingRes.json() : [];
@@ -4010,26 +4013,23 @@ async function saveHir() {
                 deleteStorageFile('news-images', row.image_url)
             ]));
 
-            // 4c. A sort_order a modálban kialakított VÉGLEGES sorrendet követi.
-            // A galleryOrder egy listában tartja a meglévő és az új képeket, így
-            // ha a user egy régi képet előre húzott egy új elé, az itt is látszik.
-            const orderIndex = new Map();
-            galleryOrder.forEach((item, idx) => {
-                if (item.type === 'existing') orderIndex.set(item.url, idx);
-            });
+            // 4c. A megmaradó régi sorok átszámozása NEM itt történik, hanem a
+            // 4e lépésben, az új képekkel együtt. Korábban itt párhuzamos PATCH-ek
+            // írták át a sorszámokat: ha egy elszállt, duplikált sorszám maradt,
+            // egy (news_id, sort_order) unique index mellett pedig már egy sima
+            // csere is ütközött volna.
 
-            // A megmaradó régi sorok sorrendjének igazítása
-            const reorders = existingRows
-                .filter(row => orderIndex.has(row.image_url))
-                .filter(row => row.sort_order !== orderIndex.get(row.image_url))
-                .map(row => dbUpdate('news_images', row.id, { sort_order: orderIndex.get(row.image_url) }));
-            if (reorders.length) await Promise.all(reorders);
-
-            // 4d. Új fájlok feltöltése – mindegyik a saját megjelenítési
-            // pozícióját kapja sort_order-nek (nem a lista végét)
+            // 4d. Új fájlok feltöltése. Az új sor egyből a megjelenítési
+            // pozíciójára kerül, ha az a sorszám még szabad; ha egy meglévő sor
+            // foglalja, ideiglenes, biztosan szabad sorszámot kap (minden meglévő
+            // fölött). A végleges számot mindkét esetben a 4e adja.
             const newItems = galleryOrder
                 .map((item, idx) => ({ item, idx }))
                 .filter(entry => entry.item.type === 'new');
+            const takenOrders = new Set(existingRows.map(row => row.sort_order));
+            const tempOrderBase = Math.max(galleryOrder.length, ...existingRows.map(row => row.sort_order ?? -1)) + 1;
+            // galleryOrder elem → feltöltött URL (csak ha a DB sor is létrejött)
+            const uploadedUrls = new Map();
 
             if (newItems.length > 0) {
                 const compressions = newItems.map(entry => compressGalleryImage(entry.item.file));
@@ -4043,16 +4043,34 @@ async function saveHir() {
                         return uploadImage('news-images', file, path);
                     });
                     const urls = await Promise.all(uploads);
-                    const inserts = urls
-                        .map((url, j) => ({ url, sortOrder: newItems[i + j].idx }))
-                        .filter(entry => entry.url)
-                        .map(entry => dbInsert('news_images', { news_id: newsId, image_url: entry.url, sort_order: entry.sortOrder }));
+                    const inserts = urls.map(async (url, j) => {
+                        const { item, idx } = newItems[i + j];
+                        if (!url) { galleryIncomplete = true; return; }
+                        const sortOrder = takenOrders.has(idx) ? tempOrderBase + idx : idx;
+                        const ok = await dbInsert('news_images', { news_id: newsId, image_url: url, sort_order: sortOrder });
+                        if (ok) uploadedUrls.set(item, url);
+                        else galleryIncomplete = true;
+                    });
                     await Promise.all(inserts);
                 }
             }
+
+            // 4e. Végső sorszámozás: 0-tól folytonos, a modálban LÁTHATÓ sorrend
+            // szerint. Az elszállt feltöltés kimarad a listából, így nem hagy lyukat.
+            const visibleUrls = galleryOrder
+                .map(item => item.type === 'existing' ? item.url : uploadedUrls.get(item))
+                .filter(Boolean);
+            if (!await normalizeGallerySortOrder(newsId, visibleUrls)) galleryIncomplete = true;
         }
 
-        showToast('Sikeresen mentve!', 'success');
+        // Ha a galéria nem került teljesen a helyére, nem írunk „Sikeresen
+        // mentve!"-t: a hír szövege elmentődött, de egy kép vagy a sorrend nem.
+        // (A showSaveError lejárt sessionnél hallgat – ott a sáv beszél.)
+        if (galleryIncomplete) {
+            showSaveError('A hír elmentve, de a galériát nem sikerült teljesen menteni. Nyisd meg újra, ellenőrizd a képeket, és mentsd el még egyszer!');
+        } else {
+            showToast('Sikeresen mentve!', 'success');
+        }
         closeModal('hir');
         resetGallery();
         loadAll();
@@ -4064,6 +4082,58 @@ async function saveHir() {
 
     btn.disabled = false;
     btn.innerHTML = 'Mentés';
+}
+
+// A hír galériájának sort_order értékeit 0-tól folytonosra számozza a
+// `visibleUrls` (a modálban látható sorrend) szerint – a DB TÉNYLEGES
+// állapotából, így egy korábbi, félbeszakadt mentés lyukait és duplikált
+// sorszámait is rendbe teszi.
+//
+// Két lépésben ír, hogy egy (news_id, sort_order) unique index mellett se
+// ütközzön. (2026-09-13-án mérve élesben nincs ilyen index, de ne ezen múljon.)
+//   1. Minden elmozduló sor egy ideiglenes, biztosan szabad sorszámra kerül
+//      (a jelenlegi legnagyobb fölé).
+//   2. Onnan a végleges helyére.
+// Az 1. lépés után egyik cél sem foglalt, így a kérések egy lépésen belül
+// párhuzamosan futhatnak. A már a helyén lévő sorhoz nem nyúlunk.
+//
+// A DB-ben lévő, de a listában nem szereplő sor (pl. elszállt törlés) nem
+// vész el: a lista végére kerül, a régi sorrendjében.
+// Visszatérési érték: true, ha minden sor a helyére került.
+async function normalizeGallerySortOrder(newsId, visibleUrls) {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url,sort_order&order=sort_order.asc.nullslast,id.asc`, { headers: authHeaders() });
+        if (handleAuthError(res, true)) return false;
+        if (!res.ok) return false;
+        const rows = await res.json();
+
+        // A látható sorrend szerint vesszük sorra a sorokat. Ha ugyanaz az URL
+        // kétszer szerepel, mindig a következő, még fel nem használt sor jön.
+        const rest = rows.slice();
+        const ordered = [];
+        visibleUrls.forEach(url => {
+            const pos = rest.findIndex(row => row.image_url === url);
+            if (pos !== -1) ordered.push(rest.splice(pos, 1)[0]);
+        });
+        ordered.push(...rest);
+
+        const moves = ordered
+            .map((row, index) => ({ row, index }))
+            .filter(move => move.row.sort_order !== move.index);
+        if (!moves.length) return true;
+
+        const tempBase = Math.max(rows.length, ...rows.map(row => row.sort_order ?? -1)) + 1;
+        const parked = await Promise.all(moves.map(move =>
+            dbUpdate('news_images', move.row.id, { sort_order: tempBase + move.index })));
+        // Csak az mehet a végleges helyére, ami az 1. lépésben elmozdult: a
+        // többi a régi sorszámán áll, és foglalhatja valamelyik célt
+        const placed = await Promise.all(moves.map((move, k) =>
+            parked[k] ? dbUpdate('news_images', move.row.id, { sort_order: move.index }) : false));
+        return placed.every(Boolean);
+    } catch (e) {
+        console.error('Galéria sorrend mentése sikertelen:', e);
+        return false;
+    }
 }
 
 async function saveTag() {
