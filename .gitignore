@@ -11,6 +11,16 @@ desktop.ini
 .vscode/
 .idea/
 
+# Biztonsági audit jelentések – védelmi térkép, nem való publikus repóba
+AUDIT_RLS.md
+AUDIT_STORAGE.md
+
+# Storage árva-fájl audit – a riport a bucketek teljes tartalmát sorolja fel
+# (a sehonnan nem linkelt, mégis letölthető fájlokat is), a script pedig azt,
+# hol hagy az admin árva fájlt. Helyi eszköz, nem való publikus repóba.
+AUDIT_STORAGE_ORPHANS.md
+scripts/audit-storage-orphans.js
+
 # npm – a nodemailer az api/ függvényekhez kell, de a Vercel deploy-kor
 # maga telepíti a package.json alapján; a node_modules nem való a repóba.
 node_modules/
