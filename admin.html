@@ -2275,6 +2275,9 @@ async function doLogin() {
 
         currentSession = data;
         localStorage.setItem('kgk_session', JSON.stringify(data));
+        // Friss bejelentkezés: az automatikus frissítés újra engedélyezett
+        autoRefreshFailed = false;
+        proactiveSkipToken = null;
         scheduleSessionWarning();
         showDashboard(email);
 
@@ -2323,7 +2326,7 @@ document.addEventListener('keydown', e => {
 });
 
 // Meglévő session ellenőrzése
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
     const saved = localStorage.getItem('kgk_session');
     if (saved) {
         try {
@@ -2336,17 +2339,174 @@ window.addEventListener('load', () => {
                 showDashboard(session.user?.email || 'Admin');
                 return;
             }
+            // Lejárt a token, de van refresh_token: előbb megpróbáljuk frissíteni,
+            // és csak ha ez nem sikerül, marad a bejelentkező képernyő.
+            if (session.refresh_token) {
+                currentSession = session;
+                if (await refreshSession()) {
+                    scheduleSessionWarning();
+                    showDashboard(currentSession.user?.email || 'Admin');
+                    return;
+                }
+                // Ha közben kézzel bejelentkezett, az ő munkamenetéhez nem nyúlunk
+                if (dashboardVisible()) return;
+                currentSession = null;
+            }
         } catch(e) {}
         localStorage.removeItem('kgk_session');
     }
 });
 
 // ════════════════════════════════════════════
+// AUTOMATIKUS TOKEN FRISSÍTÉS
+// ════════════════════════════════════════════
+// Az access token 1 óráig él, a refresh_token ennél jóval tovább. A token
+// magától frissül, a felhasználónak nem kell tennie semmit:
+//   - oldalbetöltéskor, ha a mentett token már lejárt (lásd a load figyelőt);
+//   - minden bejelentkezett kérés ELŐTT, ha a token 60 mp-en belül lejár
+//     (authFetch) – ez a proaktív frissítés;
+//   - ha egy kérés mégis 401-et kap: egyszer frissít, és újraküldi (authFetch).
+//
+// Miért a kérés előtti ellenőrzés, és miért nem időzítő:
+//   - A Storage lejárt tokenre NEM 401-et ad, hanem HTTP 400-at (élesben mérve
+//     2026-09-15). Egy képfeltöltést tehát csak az ment meg, ha a kérés már
+//     friss tokennel indul – a 401 utáni újraküldés ott nem segít.
+//   - Háttérben lévő fülön a böngésző visszafogja az időzítőket (akár egy
+//     percet is késhetnek – épp a ráhagyásnyit), altatott laptopon pedig csak
+//     ébredés után futnak le, amikor a token már lejárt. A kérés előtti
+//     ellenőrzés ettől független: minden kérés érvényes tokennel indul.
+//   - Tétlen fülön nem vált be feleslegesen refresh_tokent: az első kérés
+//     úgyis frissít.
+//
+// Egyszerre csak EGY frissítés futhat (refreshInFlight). A Supabase minden
+// beváltáskor új refresh_tokent ad és a régit érvényteleníti, ezért két
+// párhuzamos beváltás a munkamenet elvesztéséhez vezethet. A többi kérés
+// ugyanarra az ígéretre vár.
+//
+// Egy sikertelen automatikus frissítés után NEM próbálkozunk újra magától
+// (autoRefreshFailed) – így nem lehet végtelen ciklus. Ilyenkor a lenti
+// kétrétegű védelem lép életbe (figyelmeztető sáv, mentés közbeni 401), és a
+// sáv „Munkamenet meghosszabbítása" gombjával kézzel újra lehet próbálni.
+//
+// A refresh_token értékét SOHA ne írd konzolra.
+const REFRESH_BEFORE_MS = 60 * 1000;   // ennyivel a lejárat előtt frissítünk
+const REFRESH_TIMEOUT_MS = 10000;      // egy beragadt frissítés se tartson örökké
+
+let refreshInFlight = null;     // a futó frissítés ígérete (true/false-ra oldódik fel)
+let autoRefreshFailed = false;  // volt sikertelen frissítés – utána csak kézzel próbálunk
+// Ha a gép órája nagyon siet, egy frissen kapott token is „mindjárt lejárónak"
+// látszhat. Erre a tokenre nem frissítünk előre (különben minden kérés előtt
+// frissítenénk); a 401 utáni frissítés ettől még működik.
+let proactiveSkipToken = null;
+
+function canAutoRefresh() {
+    return !!currentSession?.refresh_token && !autoRefreshFailed;
+}
+
+// Igaz, ha a token 60 mp-en belül lejár (vagy már lejárt)
+function tokenExpiresSoon() {
+    const expiry = sessionExpiryMs();
+    return !!expiry && expiry - Date.now() <= REFRESH_BEFORE_MS;
+}
+
+function dashboardVisible() {
+    return document.getElementById('dashboard').style.display === 'block';
+}
+
+// A localStorage-ban lévő session (egy másik admin fül is írhatta)
+function readStoredSession() {
+    try {
+        const s = JSON.parse(localStorage.getItem('kgk_session'));
+        return s && s.access_token && s.refresh_token ? s : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// Token frissítése. Egyszerre csak egy fut – ha már fut, a hívó arra vár.
+// Visszatérési érték: true, ha a currentSession friss tokent kapott.
+// { manual: true } – a sáv gombja: egy korábbi sikertelen frissítés után is próbál.
+function refreshSession({ manual = false } = {}) {
+    if (refreshInFlight) return refreshInFlight;
+    if (!currentSession?.refresh_token || (autoRefreshFailed && !manual)) return Promise.resolve(false);
+    refreshInFlight = runRefresh(manual).finally(() => { refreshInFlight = null; });
+    return refreshInFlight;
+}
+
+async function runRefresh(manual) {
+    // Egy másik admin fül már frissített? A régi refresh_token beváltása a
+    // Supabase-nél az egész munkamenetet érvénytelenítheti – ezért inkább a
+    // localStorage-ban lévő, újabb sessiont vesszük át.
+    const stored = readStoredSession();
+    if (stored && stored.refresh_token !== currentSession.refresh_token &&
+        (stored.expires_at || 0) > (currentSession.expires_at || 0) &&
+        (!stored.user?.id || !currentSession.user?.id || stored.user.id === currentSession.user.id)) {
+        currentSession = { ...currentSession, ...stored };
+        if (!tokenExpiresSoon()) {
+            sessionRefreshed();
+            return true;
+        }
+    }
+
+    const refreshToken = currentSession.refresh_token;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS);
+    try {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY
+            },
+            body: JSON.stringify({ refresh_token: refreshToken }),
+            signal: controller.signal
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.access_token) throw new Error('HTTP ' + res.status);
+
+        // Közben kiléptek, vagy más munkamenettel léptek be – az eredmény már nem ide tartozik
+        if (currentSession?.refresh_token !== refreshToken) return false;
+
+        // A user objektum nem minden válaszban jön vissza – a régit megtartjuk,
+        // hogy a topbar e-mail címe ne tűnjön el.
+        currentSession = { ...currentSession, ...data };
+        if (!data.expires_at && data.expires_in) {
+            currentSession.expires_at = Math.floor(Date.now() / 1000) + data.expires_in;
+        }
+        localStorage.setItem('kgk_session', JSON.stringify(currentSession));
+        sessionRefreshed();
+        return true;
+    } catch (e) {
+        // Csak a hiba jellege kerülhet a konzolra – a token és a válasz törzse soha
+        console.error('Munkamenet frissítése sikertelen:', e.name === 'AbortError' ? 'időtúllépés' : e.message);
+        if (currentSession?.refresh_token === refreshToken) {
+            autoRefreshFailed = true;
+            // Automatikus frissítésnél a figyelmeztető sáv veszi át (mentsd a
+            // munkádat / hosszabbíts kézzel). A kézi gomb a saját üzenetét írja
+            // ki, oldalbetöltéskor pedig a load figyelő dönt.
+            if (!manual && dashboardVisible()) scheduleSessionWarning();
+        }
+        return false;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// Sikeres frissítés (vagy egy másik fül sessionjének átvétele) után
+function sessionRefreshed() {
+    autoRefreshFailed = false;
+    proactiveSkipToken = tokenExpiresSoon() ? currentSession.access_token : null;
+    // A figyelmeztetés időzítője az új lejárathoz igazodik
+    if (dashboardVisible()) scheduleSessionWarning();
+}
+
+// ════════════════════════════════════════════
 // SESSION LEJÁRAT – KÉT RÉTEGŰ VÉDELEM
 // ════════════════════════════════════════════
 // 1. réteg (megelőzés): a lejárat előtt 5 perccel figyelmeztető sáv jelenik
 //    meg, rajta egy "Munkamenet meghosszabbítása" gombbal, ami a
-//    refresh_token-nel új access_token-t kér.
+//    refresh_token-nel új access_token-t kér. Amíg az automatikus frissítés
+//    működik (lásd fent), ez a sáv nem jelenik meg – csak ha az már nem sikerült.
 // 2. réteg (mentés): ha mégis lejár mentés közben, a modál NEM záródik be és
 //    a mezők tartalma megmarad – a felhasználó dönti el, mikor lép ki.
 
@@ -2422,6 +2582,10 @@ function setBannerButtons({ extend, relogin, restore, discard, dismiss }) {
 function showSessionWarning() {
     const banner = document.getElementById('session-banner');
     if (!banner) return;
+    // Amíg az automatikus frissítés működik, nincs miért szólni: a következő
+    // kérés előtt magától megújul a token. A sáv csak akkor jelenik meg, ha
+    // frissíteni nem lehet, vagy egy frissítés már nem sikerült (runRefresh).
+    if (canAutoRefresh()) return;
 
     banner.classList.remove('expired');
     document.getElementById('session-banner-icon').className = 'fas fa-clock';
@@ -2477,33 +2641,14 @@ async function extendSession() {
     btn.textContent = 'Meghosszabbítás...';
     if (sessionTickTimer) { clearInterval(sessionTickTimer); sessionTickTimer = null; }
 
-    try {
-        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'apikey': SUPABASE_ANON_KEY
-            },
-            body: JSON.stringify({ refresh_token: refreshToken })
-        });
-        const data = await res.json();
-
-        if (!res.ok || !data.access_token) throw new Error('HTTP ' + res.status);
-
-        // A user objektum nem minden válaszban jön vissza – a régit megtartjuk,
-        // hogy a topbar e-mail címe ne tűnjön el.
-        currentSession = { ...currentSession, ...data };
-        if (!data.expires_at && data.expires_in) {
-            currentSession.expires_at = Math.floor(Date.now() / 1000) + data.expires_in;
-        }
-        localStorage.setItem('kgk_session', JSON.stringify(currentSession));
-
+    // Ugyanaz a frissítés, mint az automatikus (refreshSession): ha épp fut
+    // egy, arra vár – így a kattintás sem indíthat második, párhuzamos beváltást
+    if (await refreshSession({ manual: true })) {
         document.getElementById('session-banner').classList.remove('expired');
         hideSessionBanner();
         scheduleSessionWarning();
         showToast('Munkamenet meghosszabbítva.', 'success');
-    } catch (e) {
-        console.error('Session meghosszabbítás hiba:', e);
+    } else {
         // A visszaszámlálót szándékosan nem indítjuk újra, hogy ne írja felül ezt
         msg.textContent = 'Nem sikerült meghosszabbítani – mentsd el a munkádat, és jelentkezz be újra.';
     }
@@ -2687,12 +2832,73 @@ function authHeaders() {
     };
 }
 
+// ── Bejelentkezett kérések automatikus token-frissítéssel ──
+// Minden tokennel küldött Supabase kérés ezen megy át – új ilyen kérést is
+// mindig authFetch-csel indíts. Ugyanúgy hívható, mint a fetch, és ugyanúgy a
+// választ adja vissza:
+//   1. ha a token 60 mp-en belül lejár (vagy épp frissül), előbb megvárja a
+//      frissítést, és a kérés már az új tokennel indul;
+//   2. ha a válasz mégis 401, egyszer frissít, és a kérést újraküldi.
+// Ha a frissítés nem sikerül, a hívó az eredeti 401-es választ kapja, és a
+// megszokott handleAuthError kezelés fut le.
+// Érvényes, nem lejáró tokennél semmit nem tesz hozzá: pontosan ugyanaz a
+// kérés megy ki, mint korábban a sima fetch-csel.
+async function authFetch(url, init = {}) {
+    if (refreshInFlight || (canAutoRefresh() && tokenExpiresSoon() && currentSession.access_token !== proactiveSkipToken)) {
+        await waitForRefresh(init.signal);
+    }
+
+    const sentToken = currentSession?.access_token;
+    const res = await fetch(url, withSessionToken(init));
+    if (res.status !== 401 || !currentSession) return res;
+
+    // Ha a kérés elküldése óta már frissült a token (pl. egy párhuzamos kérés
+    // frissített), nem frissítünk újra – csak újraküldjük az új tokennel.
+    // Enélkül a frissítés UTÁN beérkező 401-ek egy második beváltást indítanának.
+    if (currentSession.access_token === sentToken) {
+        if (!canAutoRefresh()) return res;
+        const refreshed = await waitForRefresh(init.signal);
+        if (!refreshed || !currentSession || currentSession.access_token === sentToken) return res;
+    }
+
+    const retry = await fetch(url, withSessionToken(init));
+    // A friss token is 401-et kapott: nem a lejárat a gond – automatikusan nem próbálkozunk tovább
+    if (retry.status === 401) autoRefreshFailed = true;
+    return retry;
+}
+
+// A kérés Bearer tokenjét a MOSTANI tokenre cseréli (frissítés után ezzel megy
+// ki a kérés). Ha nincs mit cserélni, az eredeti beállításokat adja vissza,
+// változatlanul – így a hibátlan úton a kérés bájtra ugyanaz, mint eddig.
+function withSessionToken(init) {
+    const token = currentSession?.access_token;
+    const headers = init.headers;
+    if (!token || !headers || !('Authorization' in headers) || headers.Authorization === `Bearer ${token}`) return init;
+    return { ...init, headers: { ...headers, Authorization: `Bearer ${token}` } };
+}
+
+// A futó (vagy most induló) frissítésre vár. Ha a kérésnek saját időkorlátja
+// van (AbortSignal – pl. a galéria betöltésénél), a várakozást is az szakítja meg.
+function waitForRefresh(signal) {
+    const refreshing = refreshSession();
+    if (!signal) return refreshing;
+    if (signal.aborted) return Promise.reject(signal.reason);
+    return new Promise((resolve, reject) => {
+        const onAbort = () => reject(signal.reason);
+        signal.addEventListener('abort', onAbort, { once: true });
+        refreshing.then(result => {
+            signal.removeEventListener('abort', onAbort);
+            resolve(result);
+        });
+    });
+}
+
 async function dbFetch(table, options = {}) {
     const { select = '*', order = 'id.asc', eq = null, limit = null } = options;
     let url = `${SUPABASE_URL}/rest/v1/${table}?select=${select}&order=${order}`;
     if (eq) url += `&${eq.column}=eq.${eq.value}`;
     if (limit) url += `&limit=${limit}`;
-    const res = await fetch(url, { headers: authHeaders() });
+    const res = await authFetch(url, { headers: authHeaders() });
     if (handleAuthError(res)) return [];
     if (!res.ok) return [];
     return res.json();
@@ -2731,7 +2937,7 @@ function handleAuthError(res, isWrite = false) {
 //   error – hibánál a PostgREST hibatörzse ({ code, message, details, hint }),
 //           ha kiolvasható; lejárt sessionnél null.
 async function dbInsert(table, data, options = {}) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    const res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify(data)
@@ -2742,7 +2948,7 @@ async function dbInsert(table, data, options = {}) {
 }
 
 async function dbUpdate(table, id, data, options = {}) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    const res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify(data)
@@ -2764,7 +2970,7 @@ async function readWriteResult(res) {
 }
 
 async function dbDelete(table, id) {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+    const res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
         method: 'DELETE',
         headers: { ...authHeaders(), 'Prefer': 'return=minimal' }
     });
@@ -2852,7 +3058,7 @@ async function uploadImage(bucket, file, path) {
         finalPath = path.replace(/\.(png|webp|heic|bmp)$/i, '.jpg');
     }
 
-    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${finalPath}`, {
+    const res = await authFetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${finalPath}`, {
         method: 'POST',
         headers: {
             'apikey': SUPABASE_ANON_KEY,
@@ -2891,7 +3097,7 @@ async function deleteStorageFile(bucket, url) {
     if (!path) return;
 
     try {
-        const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
+        const res = await authFetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
             method: 'DELETE',
             headers: {
                 'apikey': SUPABASE_ANON_KEY,
@@ -2912,7 +3118,7 @@ async function deleteStorageFile(bucket, url) {
 // Visszatérési érték: false, ha lejárt a session – ilyenkor a hívó álljon le.
 async function deleteNewsGalleryFiles(newsId) {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url`, { headers: authHeaders() });
+        const res = await authFetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url`, { headers: authHeaders() });
         if (handleAuthError(res)) return false;
         if (!res.ok) {
             console.error('Galéria képek lekérése sikertelen: HTTP', res.status);
@@ -2926,7 +3132,7 @@ async function deleteNewsGalleryFiles(newsId) {
         await Promise.all(rows.map(row => deleteStorageFile('news-images', row.image_url)));
 
         // Utána a DB sorok
-        const delRes = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}`, {
+        const delRes = await authFetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}`, {
             method: 'DELETE',
             headers: { ...authHeaders(), 'Prefer': 'return=minimal' }
         });
@@ -3429,7 +3635,7 @@ async function loadExistingGallery(newsId) {
     const timer = setTimeout(() => controller.abort(), GALLERY_LOAD_TIMEOUT_MS);
     let images = null;
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&order=sort_order.asc`, { headers: authHeaders(), signal: controller.signal });
+        const res = await authFetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&order=sort_order.asc`, { headers: authHeaders(), signal: controller.signal });
         // Lejárt session: a sáv szól, a galéria hibaállapotba kerül, és a
         // meghosszabbítás után az Újrapróbálom gombbal betölthető
         if (!handleAuthError(res)) {
@@ -3507,7 +3713,7 @@ function hirPublikus(n) {
 // márpedig épp olyankor a legfontosabb, hogy az ELSŐ mentés ne szálljon el.
 async function detectPublishColumn() {
     try {
-        const res = await fetch(
+        const res = await authFetch(
             `${SUPABASE_URL}/rest/v1/news?select=is_published&limit=1`,
             { headers: authHeaders() }
         );
@@ -4334,7 +4540,7 @@ async function saveHir() {
         if (newsId && galleryTrusted) {
             // 4a. Meglévő DB sorok lekérése (a sort_order is kell: ebből tudjuk,
             // melyik sorszám foglalt az új képek beszúrásakor)
-            const existingRes = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url,sort_order`, { headers: authHeaders() });
+            const existingRes = await authFetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url,sort_order`, { headers: authHeaders() });
             if (handleAuthError(existingRes)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
             const existingRows = existingRes.ok ? await existingRes.json() : [];
 
@@ -4343,7 +4549,7 @@ async function saveHir() {
             // Mindkettő ugyanabban a Promise.all-ban, hogy ne lassítsa a mentést.
             const toDelete = existingRows.filter(row => !galleryExisting.includes(row.image_url));
             await Promise.all(toDelete.flatMap(row => [
-                fetch(`${SUPABASE_URL}/rest/v1/news_images?id=eq.${row.id}`, {
+                authFetch(`${SUPABASE_URL}/rest/v1/news_images?id=eq.${row.id}`, {
                     method: 'DELETE',
                     headers: { ...authHeaders(), 'Prefer': 'return=minimal' }
                 }),
@@ -4444,7 +4650,7 @@ async function saveHir() {
 // Visszatérési érték: true, ha minden sor a helyére került.
 async function normalizeGallerySortOrder(newsId, visibleUrls) {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url,sort_order&order=sort_order.asc.nullslast,id.asc`, { headers: authHeaders() });
+        const res = await authFetch(`${SUPABASE_URL}/rest/v1/news_images?news_id=eq.${newsId}&select=id,image_url,sort_order&order=sort_order.asc.nullslast,id.asc`, { headers: authHeaders() });
         if (handleAuthError(res, true)) return false;
         if (!res.ok) return false;
         const rows = await res.json();
@@ -4535,7 +4741,7 @@ async function saveMunkacsoport() {
 // RÓLUNK BETÖLTÉSE + MENTÉSE
 // ════════════════════════════════════════════
 async function loadRolunk() {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/about?limit=1`, { headers: authHeaders() });
+    const res = await authFetch(`${SUPABASE_URL}/rest/v1/about?limit=1`, { headers: authHeaders() });
     if (!res.ok) return;
     const data = await res.json();
     if (!data.length) return;
@@ -4566,7 +4772,7 @@ async function saveRolunk() {
         };
 
         // Upsert: ha van már sor, frissíti, ha nincs, létrehozza
-        const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/about?limit=1`, { headers: authHeaders() });
+        const checkRes = await authFetch(`${SUPABASE_URL}/rest/v1/about?limit=1`, { headers: authHeaders() });
         const existing = await checkRes.json();
 
         let ok;
@@ -4596,7 +4802,7 @@ async function saveRolunk() {
 // A site_content táblában mindig egyetlen sor van (id=1) – ugyanaz a minta,
 // mint a Rólunk (about) szekciónál.
 async function loadSiteContentAdmin() {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/site_content?limit=1`, { headers: authHeaders() });
+    const res = await authFetch(`${SUPABASE_URL}/rest/v1/site_content?limit=1`, { headers: authHeaders() });
     if (handleAuthError(res)) return;
     if (!res.ok) {
         console.error('site_content betöltése sikertelen: HTTP', res.status);
@@ -4655,7 +4861,7 @@ async function saveSiteContent() {
         }
 
         // Upsert: ha van már sor, frissíti, ha nincs, létrehozza
-        const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/site_content?limit=1`, { headers: authHeaders() });
+        const checkRes = await authFetch(`${SUPABASE_URL}/rest/v1/site_content?limit=1`, { headers: authHeaders() });
         // Ez olvasás, de egy MENTÉS közben fut: ha itt jár le a session, a
         // beírt statisztikák és a Gólyáknak szöveg nem veszhet el
         if (handleAuthError(checkRes, true)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
@@ -4686,7 +4892,7 @@ async function saveSiteContent() {
 // GÓLYA PDF BETÖLTÉSE + MENTÉSE
 // ════════════════════════════════════════════
 async function loadGolyaPdf() {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/documents?order=created_at.desc&limit=1`, { headers: authHeaders() });
+    const res = await authFetch(`${SUPABASE_URL}/rest/v1/documents?order=created_at.desc&limit=1`, { headers: authHeaders() });
     if (!res.ok) return;
     const data = await res.json();
     if (!data.length) return;
