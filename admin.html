@@ -2721,24 +2721,46 @@ function handleAuthError(res, isWrite = false) {
     return true;
 }
 
-async function dbInsert(table, data) {
+// A dbInsert és a dbUpdate alapból csak azt adja vissza, sikerült-e
+// (true/false) – a meglévő hívások ezt használják, és pontosan így maradnak.
+// `{ withResult: true }` esetén egy objektumot ad (lásd readWriteResult):
+//   { ok, rows, error }
+//   rows  – sikernél a mentett sor(ok) a válaszból. Az authHeaders()
+//           `Prefer: return=representation` fejléce miatt jön vissza, így egy
+//           új rekord id-ját nem kell utólag visszakeresni.
+//   error – hibánál a PostgREST hibatörzse ({ code, message, details, hint }),
+//           ha kiolvasható; lejárt sessionnél null.
+async function dbInsert(table, data, options = {}) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify(data)
     });
+    if (options.withResult) return readWriteResult(res);
     if (handleAuthError(res, true)) return false;
     return res.ok;
 }
 
-async function dbUpdate(table, id, data) {
+async function dbUpdate(table, id, data, options = {}) {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify(data)
     });
+    if (options.withResult) return readWriteResult(res);
     if (handleAuthError(res, true)) return false;
     return res.ok;
+}
+
+// A `{ withResult: true }` ág válaszolvasója. A lejárt session kezelése
+// ugyanaz, mint a sima ágon (isWrite: a modál nyitva marad).
+async function readWriteResult(res) {
+    if (handleAuthError(res, true)) return { ok: false, rows: null, error: null };
+    // A törzs olvasása nem dönthet a sikerről: egy sikeres mentés akkor is
+    // sikeres, ha a válasz törzse valamiért nem olvasható JSON
+    const body = await res.json().catch(() => null);
+    if (!res.ok) return { ok: false, rows: null, error: body && typeof body === 'object' ? body : null };
+    return { ok: true, rows: Array.isArray(body) ? body : null, error: null };
 }
 
 async function dbDelete(table, id) {
@@ -3065,6 +3087,30 @@ function showPreview(key, src, isUrl) {
     area.querySelector('p').style.display = 'none';
 }
 
+// ════════════════════════════════════════════
+// SLUG – generálás és ellenőrzés
+// ════════════════════════════════════════════
+// A slug formátuma: csak ékezet nélküli kisbetű, szám és kötőjel; nem
+// kezdődhet és nem végződhet kötőjellel, és nincs benne két kötőjel egymás
+// után. Pl. „evnyito-2026-27".
+// Azért ilyen szigorú, mert a főoldali hírkártya URL-kódolás nélkül rakja
+// össze a linket (hir.html?slug=...): egy `#`, `&`, `?` vagy szóköz élesben
+// törött linket adna. A publikus oldalhoz nem nyúlunk – itt zárjuk ki.
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+// Slug a címből. Az ékezeteket leveszi (á → a, ő → o, ű → u), és MINDEN más
+// jelsorozatot (szóköz, írásjel, /, _, –) egyetlen kötőjellé alakít, hogy a
+// szavak ne ragadjanak össze; a végekről a kötőjelet leveszi.
+// Csak írásjelből álló címnél üres szöveget ad – azt a mentés előtti
+// ellenőrzés (validateHirForm) nem engedi tovább.
+function slugify(text) {
+    return String(text)
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
 // Slug auto-generálás a cím alapján
 document.addEventListener('DOMContentLoaded', () => {
     const titleInput = document.getElementById('hir-title');
@@ -3072,16 +3118,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if (titleInput && slugInput) {
         titleInput.addEventListener('input', () => {
             if (!editingId) {
-                slugInput.value = titleInput.value
-                    .toLowerCase()
-                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-                    .replace(/[^a-z0-9\s-]/g, '')
-                    .trim()
-                    .replace(/\s+/g, '-');
+                slugInput.value = slugify(titleInput.value);
             }
         });
     }
 });
+
+// Mentés előtti ellenőrzés a hír modálban: cím, dátum és érvényes slug
+// kötelező. Hibánál üzenetet ad, a hibás mezőre teszi a fókuszt, és false-t
+// ad vissza. A saveHir legelején fut, tehát ilyenkor EGYETLEN kérés sem megy
+// ki – a borítókép sem töltődik fel, árva fájl sem keletkezik.
+function validateHirForm() {
+    const titleEl = document.getElementById('hir-title');
+    const dateEl = document.getElementById('hir-date');
+    const slugEl = document.getElementById('hir-slug');
+    const fail = (el, msg) => {
+        showToast(msg, 'error');
+        el.focus();
+        return false;
+    };
+
+    if (!titleEl.value.trim()) return fail(titleEl, 'Add meg a hír címét!');
+    // A dátummező értéke üres, ha nincs (vagy csak félig van) kitöltve
+    if (!dateEl.value) return fail(dateEl, 'Add meg a hír dátumát!');
+
+    // Egy véletlen szóköz (pl. beillesztésnél) ne akassza meg a mentést
+    slugEl.value = slugEl.value.trim();
+    if (!slugEl.value) {
+        return fail(slugEl, slugify(titleEl.value)
+            ? 'Add meg a slugot (ez azonosítja a hírt az URL-ben), pl. evnyito-2026!'
+            : 'Ebből a címből nem készíthető slug – írd be kézzel, pl. evnyito-2026!');
+    }
+    if (!SLUG_PATTERN.test(slugEl.value)) {
+        return fail(slugEl, 'A slugban csak ékezet nélküli kisbetű, szám és kötőjel lehet – két kötőjel nem állhat egymás után, és az elején, végén sem lehet kötőjel. Pl. evnyito-2026-27');
+    }
+    return true;
+}
+
+// Igaz, ha a mentést az adatbázis azért utasította el, mert a slug már egy
+// másik hírnél szerepel. Az index nevét (news_slug_key) szándékosan nem
+// nézzük: a 23505 az egyediség megsértésének kódja, a részletek szövege pedig
+// a Postgrestől jön: „Key (slug)=(evnyito-2026) already exists."
+function isSlugConflict(error) {
+    return !!error && error.code === '23505' && /\(slug\)=/.test(String(error.details || ''));
+}
 
 // ════════════════════════════════════════════
 // TÖRLÉS MEGERŐSÍTŐ
@@ -4161,6 +4241,9 @@ document.addEventListener('DOMContentLoaded', initGalleryReorder);
 // HÍREK MENTÉSE (FRISSÍTETT)
 // ════════════════════════════════════════════
 async function saveHir() {
+    // Hiányzó vagy hibás mezőnél el sem indulunk – egyetlen kérés sem megy ki
+    if (!validateHirForm()) return;
+
     const btn = document.getElementById('save-hir');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Mentés...';
@@ -4204,25 +4287,38 @@ async function saveHir() {
             ...(kuldjukAzAllapotot && { is_published: publishedCb.checked })
         };
 
-        const ok = id ? await dbUpdate('news', id, payload) : await dbInsert('news', payload);
-        if (!ok) {
-            showSaveError('Mentési hiba! Ellenőrizd a mezőket.');
+        // A mentett sort (új hírnél benne az új id-val) közvetlenül a válaszból
+        // kapjuk vissza – lásd a 4. lépést
+        const saved = id
+            ? await dbUpdate('news', id, payload, { withResult: true })
+            : await dbInsert('news', payload, { withResult: true });
+        if (!saved.ok) {
+            if (isSlugConflict(saved.error)) {
+                // Az adatbázis egyedi szabálya utasította el: a slug egy másik
+                // hírnél már szerepel. A modál nyitva marad, a slug javítható.
+                showSaveError(`Ez a slug már foglalt: „${payload.slug}". Adj meg egy másikat, pl. tegyél a végére egy számot!`);
+                document.getElementById('hir-slug').focus();
+            } else {
+                showSaveError('Mentési hiba! Ellenőrizd a mezőket.');
+            }
             btn.disabled = false;
             btn.innerHTML = 'Mentés';
             return;
         }
 
         // 4. Galéria szinkronizálás
-        let newsId = id;
-        if (!newsId) {
-            const fetchNew = await fetch(`${SUPABASE_URL}/rest/v1/news?slug=eq.${payload.slug}&select=id`, { headers: authHeaders() });
-            if (handleAuthError(fetchNew)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
-            const newData = await fetchNew.json();
-            newsId = newData[0]?.id;
-        }
+        // Új hírnél az id a beszúrás VÁLASZÁBÓL jön, nem slug alapú
+        // visszakeresésből. A régi `news?slug=eq.<slug>` lekérdezés egy MÁSIK
+        // hír id-ját is visszaadhatta – pl. egy `#`-es slugnál, amit a böngésző
+        // az URL-ben levág –, és a galéria-szinkron annak a képeit törölte.
+        const newsId = id || saved.rows?.[0]?.id;
 
         // Igaz lesz, ha a galéria valamelyik része nem került a helyére (lásd a végén)
         let galleryIncomplete = false;
+        // Sikeres mentés, de a válaszból nem derült ki az új hír id-ja: a
+        // kiválasztott képeket nem tudjuk a hírhez kötni, ezért ne írjunk
+        // „Sikeresen mentve!"-t
+        if (!newsId && galleryOrder.length) galleryIncomplete = true;
 
         // A galéria-szinkron (4a–4e) TÖRÖL is: ami a DB-ben van, de a modálban
         // nincs, azt kivettnek tekinti. Ezért csak akkor futhat, ha a modálban
