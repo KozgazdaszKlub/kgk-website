@@ -7,7 +7,8 @@
       "status": 308,
       "headers": { "Location": "https://kozgazdaszklub.com/$1" }
     },
-    { "src": "/hir\\.html", "dest": "/api/og-hir" }
+    { "src": "/hir\\.html", "dest": "/api/og-hir" },
+    { "src": "/sitemap\\.xml", "dest": "/api/sitemap" }
   ],
   "functions": {
     "api/og-hir.js": {
