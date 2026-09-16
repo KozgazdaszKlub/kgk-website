@@ -3159,50 +3159,104 @@ function switchTab(name, btn) {
 // ════════════════════════════════════════════
 let editingId = null;
 
+// Ez a függvény HÁROM dolgot csinál, mert korábban három réteg volt egymásra
+// építve (egy szponzor-kiegészítés és egy akadálymentesítési becsomagolás is
+// felülírta futásidőben). A rétegek meg lettek szüntetve, a sorrendjük viszont
+// PONTOSAN ugyanez maradt:
+//   1. a fókusz elmentése (ide tér vissza záráskor),
+//   2. a modál alaphelyzetbe hozása és kitöltése (típusonként),
+//   3. a modál kivétele az `inert` állapotból + a fókusz beleugratása.
 function openModal(type, data = null) {
-    editingId = data?.id || null;
-    const overlay = document.getElementById(`modal-${type}`);
-    const title = document.getElementById(`modal-${type}-title`);
+    // 1. Ide tér vissza a fókusz a modál bezárásakor. A mezők beállítása ELŐTT
+    //    kell elmenteni, amíg még a megnyitó gomb az aktív elem.
+    lastFocusedElement = document.activeElement;
 
-    // Reset form
-    overlay.querySelectorAll('input, textarea, select').forEach(el => {
-        if (el.type === 'color') el.value = '#08122b';
-        else if (el.type === 'file') el.value = '';
-        else el.value = '';
-    });
-    ['hir','tag','munkacsoport'].forEach(k => {
-        const prev = document.getElementById(`preview-${k}`);
+    // 2. A szponzor-modál mezői eltérnek a többitől (nincs rich editor, nincs
+    //    galéria, nincs publikálás-kapcsoló), ezért saját reset-ága van.
+    //    SZÁNDÉKOSAN nem esik bele az általános ág reset-ciklusaiba: azok a
+    //    hír-szerkesztőt és a többi modál előnézetét is nulláznák.
+    if (type === 'szponzor') {
+        editingId = data?.id || null;
+        const overlay = document.getElementById('modal-szponzor');
+        const title = document.getElementById('modal-szponzor-title');
+        // Reset
+        ['szponzor-name', 'szponzor-url', 'szponzor-id'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        const prev = document.getElementById('preview-szponzor');
         if (prev) { prev.style.display = 'none'; prev.src = ''; }
-        const area = document.getElementById(`upload-${k}`);
-        if (area) {
-            const icon = area.querySelector('i');
-            if (icon) icon.style.display = '';
-            area.querySelectorAll('p').forEach(el => el.style.display = '');
+        const fileInput = document.getElementById('file-szponzor');
+        if (fileInput) fileInput.value = '';
+        const icon = document.querySelector('#upload-szponzor i');
+        if (icon) icon.style.display = '';
+        document.querySelectorAll('#upload-szponzor p').forEach(el => el.style.display = '');
+
+        if (data) {
+            title.textContent = 'Szponzor szerkesztése';
+            document.getElementById('szponzor-id').value = data.id;
+            document.getElementById('szponzor-name').value = data.name || '';
+            document.getElementById('szponzor-url').value = data.website_url || '';
+            if (data.logo_url) showPreview('szponzor', data.logo_url, true);
+        } else {
+            title.textContent = 'Új szponzor';
         }
-    });
-    // Reset rich editor and gallery
-    const editor = document.getElementById('hir-content-editor');
-    if (editor) editor.innerHTML = '';
-    if (type === 'hir') resetGallery();
-
-    // A fenti reset-ciklus a checkboxot NEM állítja vissza: ott a `.value` a
-    // beküldött érték ("on"), nem a bepipáltság. Ezért kell külön sor.
-    // Alapérték: BE (publikus) – új hír azonnal kikerül az oldalra, ahogy eddig.
-    if (type === 'hir') setHirPublished(true);
-
-    if (data) {
-        title.textContent = type === 'hir' ? 'Hír szerkesztése' :
-                            type === 'tag' ? 'Tag szerkesztése' :
-                            type === 'esemeny' ? 'Rendezvény szerkesztése' : 'Csoport szerkesztése';
-        fillForm(type, data);
+        overlay.classList.add('open');
     } else {
-        title.textContent = type === 'hir' ? 'Új hír' :
-                            type === 'tag' ? 'Új elnökségi tag' :
-                            type === 'esemeny' ? 'Új rendezvény' : 'Új munkacsoport';
-        document.getElementById(`${type}-id`).value = '';
+        editingId = data?.id || null;
+        const overlay = document.getElementById(`modal-${type}`);
+        const title = document.getElementById(`modal-${type}-title`);
+
+        // Reset form
+        overlay.querySelectorAll('input, textarea, select').forEach(el => {
+            if (el.type === 'color') el.value = '#08122b';
+            else if (el.type === 'file') el.value = '';
+            else el.value = '';
+        });
+        ['hir','tag','munkacsoport'].forEach(k => {
+            const prev = document.getElementById(`preview-${k}`);
+            if (prev) { prev.style.display = 'none'; prev.src = ''; }
+            const area = document.getElementById(`upload-${k}`);
+            if (area) {
+                const icon = area.querySelector('i');
+                if (icon) icon.style.display = '';
+                area.querySelectorAll('p').forEach(el => el.style.display = '');
+            }
+        });
+        // Reset rich editor and gallery
+        const editor = document.getElementById('hir-content-editor');
+        if (editor) editor.innerHTML = '';
+        if (type === 'hir') resetGallery();
+
+        // A fenti reset-ciklus a checkboxot NEM állítja vissza: ott a `.value` a
+        // beküldött érték ("on"), nem a bepipáltság. Ezért kell külön sor.
+        // Alapérték: BE (publikus) – új hír azonnal kikerül az oldalra, ahogy eddig.
+        if (type === 'hir') setHirPublished(true);
+
+        if (data) {
+            title.textContent = type === 'hir' ? 'Hír szerkesztése' :
+                                type === 'tag' ? 'Tag szerkesztése' :
+                                type === 'esemeny' ? 'Rendezvény szerkesztése' : 'Csoport szerkesztése';
+            fillForm(type, data);
+        } else {
+            title.textContent = type === 'hir' ? 'Új hír' :
+                                type === 'tag' ? 'Új elnökségi tag' :
+                                type === 'esemeny' ? 'Új rendezvény' : 'Új munkacsoport';
+            document.getElementById(`${type}-id`).value = '';
+        }
+
+        overlay.classList.add('open');
     }
 
-    overlay.classList.add('open');
+    // 3. A nyitott modál kikerül az `inert` állapotból, és a fókusz az első
+    //    mezőjébe ugrik. MINDKÉT ág után le kell futnia, ezért van az
+    //    elágazáson kívül, és ezért kérdezzük le újra az overlay-t (a fenti
+    //    `overlay` blokk-hatókörű).
+    const nyitottOverlay = document.getElementById(`modal-${type}`);
+    if (nyitottOverlay) {
+        nyitottOverlay.removeAttribute('inert');
+        trapFocus(nyitottOverlay);
+    }
 }
 
 // A publikálás-kapcsoló állapotának beállítása + a mellette lévő szöveg
@@ -3268,9 +3322,16 @@ function fillForm(type, data) {
     }
 }
 
+// A szponzor-modál záráskor SEMMIBEN nem tér el a többitől (a korábbi külön
+// ága bájtra ugyanezt csinálta), ezért itt nincs elágazás. Az `inert` + fókusz
+// visszaadás korábban egy külön becsomagolásban volt – most ugyanabban a
+// sorrendben itt.
 function closeModal(type) {
-    document.getElementById(`modal-${type}`).classList.remove('open');
+    const overlay = document.getElementById(`modal-${type}`);
+    overlay.classList.remove('open');
     editingId = null;
+    overlay.setAttribute('inert', '');
+    restoreFocus();
 }
 
 // ════════════════════════════════════════════
@@ -3374,15 +3435,24 @@ function isSlugConflict(error) {
 // ════════════════════════════════════════════
 let pendingDelete = null;
 
-// imageUrl + bucket opcionális: ahol nincs kép (pl. rendezvény), ott elmarad
+// imageUrl + bucket opcionális: ahol nincs kép (pl. rendezvény), ott elmarad.
+// A fókuszkezelés (mentés → `inert` le → fókusz a dobozba) korábban egy külön
+// becsomagolásban volt; a sorrend változatlan.
 function confirmDelete(table, id, imageUrl = null, bucket = null) {
+    lastFocusedElement = document.activeElement;
     pendingDelete = { table, id, imageUrl, bucket };
-    document.getElementById('confirm-overlay').classList.add('open');
+    const overlay = document.getElementById('confirm-overlay');
+    overlay.classList.add('open');
+    overlay.removeAttribute('inert');
+    trapFocus(overlay);
 }
 
 function closeConfirm() {
     pendingDelete = null;
-    document.getElementById('confirm-overlay').classList.remove('open');
+    const overlay = document.getElementById('confirm-overlay');
+    overlay.classList.remove('open');
+    overlay.setAttribute('inert', '');
+    restoreFocus();
 }
 
 document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
@@ -3595,8 +3665,8 @@ function initListDelegation() {
             }
 
             if (btn.dataset.action === 'edit') {
-                // Futásidőben oldódik fel, tehát a szponzorra kiegészített
-                // (monkey-patchelt) openModal fut le – ugyanúgy, mint eddig.
+                // Az openModal maga ismeri mind az öt modáltípust (a
+                // szponzort is), külön ág nem kell ide.
                 openModal(cfg.modal, rec);
             } else if (btn.dataset.action === 'delete') {
                 const imageUrl = cfg.imageField ? (rec[cfg.imageField] || null) : null;
@@ -3669,11 +3739,23 @@ async function loadExistingGallery(newsId) {
     renderGalleryPreviews();
 }
 
+// Minden fül betöltése. Az alsó hat loadert korábban egy külön
+// `loadAll = async function() { await _origLoadAll(); ... }` becsomagolás fűzte
+// hozzá – a hívási sorrend itt betűre ugyanaz, csak a mikrotaszk-határ tűnt el
+// a negyedik és az ötödik hívás közül. Ez nem figyelhető meg: a `loadAll()`-t
+// egyetlen hívóhely sem `await`-eli, és a 4. hívás úgysem indít kérést a
+// mikrotaszk-határ előtt.
 async function loadAll() {
     loadHirek();
     loadElnokseg();
     loadRendezvenyek();
     loadMunkacsoportok();
+    loadRolunk();
+    loadGolyaPdf();
+    loadSzponzorok();
+    loadPartnerek();
+    loadSiteContentAdmin();
+    loadFeatureFlagsAdmin();
 }
 
 // ════════════════════════════════════════════
@@ -5228,51 +5310,9 @@ async function savePartner(id) {
     }
 }
 
-// openModal kiegészítése szponzorra
-const _origOpenModal = openModal;
-openModal = function(type, data = null) {
-    if (type === 'szponzor') {
-        editingId = data?.id || null;
-        const overlay = document.getElementById('modal-szponzor');
-        const title = document.getElementById('modal-szponzor-title');
-        // Reset
-        ['szponzor-name', 'szponzor-url', 'szponzor-id'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
-        });
-        const prev = document.getElementById('preview-szponzor');
-        if (prev) { prev.style.display = 'none'; prev.src = ''; }
-        const fileInput = document.getElementById('file-szponzor');
-        if (fileInput) fileInput.value = '';
-        const icon = document.querySelector('#upload-szponzor i');
-        if (icon) icon.style.display = '';
-        document.querySelectorAll('#upload-szponzor p').forEach(el => el.style.display = '');
-
-        if (data) {
-            title.textContent = 'Szponzor szerkesztése';
-            document.getElementById('szponzor-id').value = data.id;
-            document.getElementById('szponzor-name').value = data.name || '';
-            document.getElementById('szponzor-url').value = data.website_url || '';
-            if (data.logo_url) showPreview('szponzor', data.logo_url, true);
-        } else {
-            title.textContent = 'Új szponzor';
-        }
-        overlay.classList.add('open');
-        return;
-    }
-    _origOpenModal(type, data);
-};
-
-// closeModal kiegészítése szponzorra
-const _origCloseModal = closeModal;
-closeModal = function(type) {
-    if (type === 'szponzor') {
-        document.getElementById('modal-szponzor').classList.remove('open');
-        editingId = null;
-        return;
-    }
-    _origCloseModal(type);
-};
+// A szponzor-modál nyitása/zárása az `openModal` / `closeModal` saját
+// törzsében van (lásd „UI – MODAL" szekció) – itt korábban két futásidejű
+// felülírás állt.
 
 // ════════════════════════════════════════════
 // FUNKCIÓ-KAPCSOLÓK (Szekciók fül)
@@ -5475,17 +5515,9 @@ async function toggleFeatureFlag(id, input) {
     }
 }
 
-// loadAll kiegészítése
-const _origLoadAll = loadAll;
-loadAll = async function() {
-    await _origLoadAll();
-    loadRolunk();
-    loadGolyaPdf();
-    loadSzponzorok();
-    loadPartnerek();
-    loadSiteContentAdmin();
-    loadFeatureFlagsAdmin();
-};
+// A Rólunk / Gólya PDF / Szponzorok / Partnerek / Statisztikák / Szekciók
+// betöltése a `loadAll()` törzsében van – itt korábban egy futásidejű
+// felülírás fűzte hozzá őket.
 
 // ════════════════════════════════════════════
 // DRAG & DROP VIZUÁLIS VISSZAJELZÉS
@@ -5520,14 +5552,20 @@ document.addEventListener('DOMContentLoaded', initDragDropVisuals);
 // ════════════════════════════════════════════
 // MOBIL NAVIGÁCIÓ
 // ════════════════════════════════════════════
+// Az `aria-expanded` szinkronban tartása korábban külön becsomagolásban volt;
+// a sorrend változatlan: előbb a sidebar nyílik/zárul, utána a gomb állapota.
 function openMobileNav() {
     document.getElementById('mobile-sidebar').classList.add('open');
     document.getElementById('mobile-overlay').classList.add('open');
+    const btn = document.querySelector('.mobile-menu-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
 }
 
 function closeMobileNav() {
     document.getElementById('mobile-sidebar').classList.remove('open');
     document.getElementById('mobile-overlay').classList.remove('open');
+    const btn = document.querySelector('.mobile-menu-btn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
 }
 
 function switchTabMobile(name, btn) {
@@ -5626,42 +5664,10 @@ document.addEventListener('keydown', e => {
     }
 });
 
-// A meglévő nyitó/záró függvényeket nem írjuk át, csak becsomagoljuk őket –
-// így a szponzor-modál külön ága is automatikusan megkapja a fókuszkezelést.
-const _a11yOpenModal = openModal;
-openModal = function(type, data = null) {
-    lastFocusedElement = document.activeElement;
-    _a11yOpenModal(type, data);
-    const overlay = document.getElementById(`modal-${type}`);
-    if (overlay) {
-        overlay.removeAttribute('inert');
-        trapFocus(overlay);
-    }
-};
-
-const _a11yCloseModal = closeModal;
-closeModal = function(type) {
-    _a11yCloseModal(type);
-    const overlay = document.getElementById(`modal-${type}`);
-    if (overlay) overlay.setAttribute('inert', '');
-    restoreFocus();
-};
-
-const _a11yConfirmDelete = confirmDelete;
-confirmDelete = function(table, id, imageUrl = null, bucket = null) {
-    lastFocusedElement = document.activeElement;
-    _a11yConfirmDelete(table, id, imageUrl, bucket);
-    const overlay = document.getElementById('confirm-overlay');
-    overlay.removeAttribute('inert');
-    trapFocus(overlay);
-};
-
-const _a11yCloseConfirm = closeConfirm;
-closeConfirm = function() {
-    _a11yCloseConfirm();
-    document.getElementById('confirm-overlay').setAttribute('inert', '');
-    restoreFocus();
-};
+// A fókuszkezelést maguk a nyitó/záró függvények végzik (`openModal`,
+// `closeModal`, `confirmDelete`, `closeConfirm`) – itt korábban négy
+// futásidejű felülírás csomagolta be őket. A fenti segédfüggvényeket
+// (`trapFocus`, `restoreFocus`, `lastFocusedElement`) onnan hívjuk.
 
 // Induláskor minden zárt modál kikerül a Tab-sorrendből
 document.addEventListener('DOMContentLoaded', () => {
@@ -5670,20 +5676,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// A mobil menü gomb aria-expanded állapotát szinkronban tartjuk a sidebarral
-const _a11yOpenMobileNav = openMobileNav;
-openMobileNav = function() {
-    _a11yOpenMobileNav();
-    const btn = document.querySelector('.mobile-menu-btn');
-    if (btn) btn.setAttribute('aria-expanded', 'true');
-};
-
-const _a11yCloseMobileNav = closeMobileNav;
-closeMobileNav = function() {
-    _a11yCloseMobileNav();
-    const btn = document.querySelector('.mobile-menu-btn');
-    if (btn) btn.setAttribute('aria-expanded', 'false');
-};
+// A mobil menü gomb `aria-expanded` állapotát az `openMobileNav` /
+// `closeMobileNav` tartja szinkronban (lásd „MOBIL NAVIGÁCIÓ" szekció).
 </script>
 </body>
 </html>
