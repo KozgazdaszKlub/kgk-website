@@ -4901,7 +4901,14 @@ async function loadGolyaPdf() {
     const currentLink = document.getElementById('golya-current-link');
     currentDiv.style.display = 'block';
     // Csak http(s) link kerülhet ki – lásd safeUrl()
-    currentLink.href = safeUrl(doc.file_url);
+    const url = safeUrl((doc.file_url || '').trim());
+    // Üres `href` magát az admint töltené újra. Használhatatlan címnél ezért a
+    // dokumentum címe látszik, de nem kattintható: href nélkül az <a> sima szöveg.
+    if (url) {
+        currentLink.href = url;
+    } else {
+        currentLink.removeAttribute('href');
+    }
     currentLink.textContent = doc.title || 'Gólya Kisokos';
 }
 
@@ -4970,19 +4977,31 @@ async function loadSzponzorok() {
         list.innerHTML = '<div class="empty-state"><i class="fas fa-handshake"></i>Még nincs szponzor. Adj hozzá egyet!</div>';
         return;
     }
-    list.innerHTML = data.map((s, i) => `
+    list.innerHTML = data.map((s, i) => {
+        // Üres `href` magát az admint töltené újra. Nem http(s) címnél (safeUrl)
+        // ezért a beírt érték sima szövegként látszik – így látható marad, mi van
+        // elmentve, és javítható, de nem kattintható.
+        const rawWebsite = (s.website_url || '').trim();
+        const website = safeUrl(rawWebsite);
+        const websiteCell = !rawWebsite
+            ? 'Nincs weboldal'
+            : (website
+                ? `<a href="${attrEscape(website)}" target="_blank" style="color:var(--gold);text-decoration:none;">${attrEscape(s.website_url)}</a>`
+                : attrEscape(s.website_url));
+        return `
         <div class="item-card">
             <img class="item-card-img square" src="${attrEscape(safeUrl(s.logo_url))}" alt="${attrEscape(s.name)}" style="background:#fff;padding:4px;" onerror="this.style.visibility='hidden';">
             <div class="item-card-info">
                 <div class="item-card-title">${attrEscape(s.name)}</div>
-                <div class="item-card-meta">${s.website_url ? `<a href="${attrEscape(safeUrl(s.website_url))}" target="_blank" style="color:var(--gold);text-decoration:none;">${attrEscape(s.website_url)}</a>` : 'Nincs weboldal'}</div>
+                <div class="item-card-meta">${websiteCell}</div>
             </div>
             <div class="item-card-actions">
                 ${sortButtons('sponsors', i, data.length)}
                 ${itemActionButtons(s.id)}
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 async function saveSzponzor() {

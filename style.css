@@ -317,7 +317,13 @@ section {
     gap: 15px; /* Távolság az ikonok között */
 }
 
-.socials a {
+/* Ugyanaz a szabály állja meg a helyét linkként (<a>, ha van http(s) cím) és
+   sima <span>-ként is (ha a cím hiányzik vagy nem http(s)) – az ikon mindkét
+   esetben pontosan ugyanúgy néz ki. Lásd script.js → socialIcon().
+   A hover viszont CSAK a linkre vonatkozik (lentebb): link nélkül félrevezető
+   lenne kattinthatóságot sugallni. Ugyanaz az idióma, mint a .footer-partner-nél. */
+.socials a,
+.socials span {
     text-decoration: none; /* Aláhúzás levétele */
     color: #08122b;        /* Alapból sötétkék */
     font-size: 1.5rem;     /* Ikon mérete (kb 24px) */

@@ -385,7 +385,13 @@ async function loadGolyaPdf() {
 
     const doc = data[0];
     // Csak http(s) link kerülhet a gombra – lásd safeUrl()
-    btn.href = safeUrl(doc.file_url);
+    const url = safeUrl((doc.file_url || '').trim());
+    // Használhatatlan linknél a gomb NEM jelenik meg. Üres `href` az AKTUÁLIS
+    // oldalt töltené újra (a target="_blank" miatt új lapon), letöltés helyett –
+    // ezért marad a „Hamarosan elérhető...", vagyis ugyanaz az állapot, mint
+    // amikor egyáltalán nincs feltöltött PDF.
+    if (!url) return;
+    btn.href = url;
     btn.style.display = 'inline-block';
     if (missing) missing.style.display = 'none';
 }
@@ -451,6 +457,24 @@ async function loadSiteContent() {
 // ============================================================
 // ELNÖKSÉG BETÖLTÉSE
 // ============================================================
+// Egy közösségi ikon a tag kártyáján. Üres `href` az AKTUÁLIS oldalt töltené
+// újra (a target="_blank" miatt új lapon), ezért a nem http(s) címnél (safeUrl)
+// az ikon <span>-ként marad a helyén: látszik, de nem kattintható. Ugyanaz a
+// minta, mint a lábléc partnereinél – lásd loadInstitutionalPartners().
+// A stílust a `.socials a, .socials span` szabály adja mindkét alakra, a hover
+// viszont csak a linkre (style.css, „SOCIAL IKONOK STÍLUSA").
+function socialIcon(rawUrl, iconClass) {
+    if (!rawUrl) return '';
+    const icon = `<i class="${iconClass}"></i>`;
+    // A trim a safeUrl ELŐTT kell: a csupa szóközből álló cím átmenne a
+    // safeUrl-en (az URL-értelmező az oldal saját címére oldja fel), és megint
+    // csak az aktuális oldal töltődne újra. A lábléc partnerei is így csinálják.
+    const url = safeUrl(String(rawUrl).trim());
+    return url
+        ? `<a href="${escapeAttr(url)}" target="_blank">${icon}</a>`
+        : `<span>${icon}</span>`;
+}
+
 async function loadTeam() {
     const teamGrid = document.querySelector('.team-grid');
     if (!teamGrid) return;
@@ -468,9 +492,9 @@ async function loadTeam() {
             <p>${escapeAttr(m.position)}</p>
             ${(m.facebook_url || m.instagram_url || m.linkedin_url) ? `
             <div class="socials">
-                ${m.facebook_url ? `<a href="${escapeAttr(safeUrl(m.facebook_url))}" target="_blank"><i class="fab fa-facebook"></i></a>` : ''}
-                ${m.instagram_url ? `<a href="${escapeAttr(safeUrl(m.instagram_url))}" target="_blank"><i class="fab fa-instagram"></i></a>` : ''}
-                ${m.linkedin_url ? `<a href="${escapeAttr(safeUrl(m.linkedin_url))}" target="_blank"><i class="fab fa-linkedin"></i></a>` : ''}
+                ${socialIcon(m.facebook_url, 'fab fa-facebook')}
+                ${socialIcon(m.instagram_url, 'fab fa-instagram')}
+                ${socialIcon(m.linkedin_url, 'fab fa-linkedin')}
             </div>` : ''}
         </div>
     `).join('');
@@ -495,7 +519,7 @@ async function loadGroups() {
     const smallGroups = groups.filter(g => g.type === 'small');
     if (grids[0]) {
         grids[0].innerHTML = mainGroups.length ? mainGroups.map((g, i) => `
-            <div class="group-card hidden" style="border-top: 5px solid ${escapeAttr(g.color) || '#08122b'}; transition-delay: ${i * 200}ms">
+            <div class="group-card hidden" style="border-top: 5px solid ${safeHexColor(g.color)}; transition-delay: ${i * 200}ms">
                 <h3 style="margin-top: 20px;">${escapeAttr(g.title)}</h3>
                 <p>${escapeAttr(g.description)}</p>
             </div>
@@ -503,7 +527,7 @@ async function loadGroups() {
     }
     if (grids[1]) {
         grids[1].innerHTML = smallGroups.length ? smallGroups.map((g, i) => `
-            <div class="group-card hidden" style="border-top: 5px solid ${escapeAttr(g.color) || '#08122b'}; transition-delay: ${i * 200}ms">
+            <div class="group-card hidden" style="border-top: 5px solid ${safeHexColor(g.color)}; transition-delay: ${i * 200}ms">
                 ${g.image_url ? `<img src="${escapeAttr(safeUrl(g.image_url))}" alt="${escapeAttr(g.title)} Logo" class="group-logo" onerror="this.style.display='none';">` : ''}
                 <h3>${escapeAttr(g.title)}</h3>
                 <p>${escapeAttr(g.description)}</p>
@@ -738,10 +762,14 @@ async function loadSponsors() {
             const logo = `
                 <img src="${escapeAttr(safeUrl(s.logo_url))}" alt="${name}" title="${name}">
                 <span class="sponsor-name-fallback">${name}</span>`;
+            // Üres `href` az AKTUÁLIS oldalt töltené újra (a target="_blank" miatt
+            // új lapon), ezért a nem http(s) cím (safeUrl) ugyanarra az ágra fut,
+            // mint a weboldal nélküli szponzor: a logó látszik, csak nem link.
+            const website = safeUrl((s.website_url || '').trim());
             return `
             <div class="sponsor-item">
-                ${s.website_url
-                    ? `<a href="${escapeAttr(safeUrl(s.website_url))}" target="_blank" rel="noopener noreferrer" class="sponsor-link">${logo}</a>`
+                ${website
+                    ? `<a href="${escapeAttr(website)}" target="_blank" rel="noopener noreferrer" class="sponsor-link">${logo}</a>`
                     : logo
                 }
                 <span class="sponsor-tooltip">${name}</span>
@@ -874,6 +902,23 @@ function safeUrl(value) {
     } catch (err) {
         return '';
     }
+}
+
+// SZÍN ellenőrzés `style` attribútumhoz: CSAK valódi hex szín (#rgb vagy
+// #rrggbb) mehet át, minden más az alapértelmezett navy-t kapja.
+// Az escapeAttr megakadályozza, hogy az érték KITÖRJÖN az attribútumból, de a
+// `style`-on BELÜL maradva még mindig lehetne belőle CSS-injektálás
+// (pl. "red; background-image: url(…)"). Admin jogosultság kell hozzá, tehát
+// alacsony súlyú – de így le van zárva.
+//
+// Az eredmény NEM kap escape-et, és nem is kell: a minta csak `#`-et és hexa
+// számjegyeket enged át, tehát idézőjel, pontosvessző és szóköz nem lehet benne.
+const DEFAULT_GROUP_COLOR = '#08122b';
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+function safeHexColor(value, fallback = DEFAULT_GROUP_COLOR) {
+    const color = String(value ?? '').trim();
+    return HEX_COLOR_PATTERN.test(color) ? color : fallback;
 }
 
 async function loadInstitutionalPartners() {
