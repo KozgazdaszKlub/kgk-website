@@ -34,6 +34,9 @@ const SUPABASE_ANON_KEY = 'sb_publishable_LXqTP-dPmfwWvd0IZTzrMw_tjYERBe9';
 // A végleges domain. Ez CSAK vésztartalék: alapesetben mindig az aktuális
 // címet írjuk az og:url-be (amit a kérésből olvasunk ki), így a
 // kozgazdaszklub.com rákötésekor sem kell hozzányúlni ehhez a fájlhoz.
+// A canonical link és a JSON-LD viszont SZÁNDÉKOSAN mindig ezt a címet
+// használja (lásd buildSeoTags): ugyanez az oldal a www.-s és a vercel.app-os
+// címen is elérhető, a keresőnek pedig egyetlen kanonikus címet kell mutatni.
 const SITE_URL = 'https://kozgazdaszklub.com';
 
 // Ez jelenik meg az előnézet tetején, az oldal neveként.
@@ -45,6 +48,11 @@ const SITE_NAME = 'Közgazdász Klub';
 // 1200x630-as, NEM átlátszó hátterű képet, és írd ide az elérési útját,
 // például: 'images/og-default.jpg'
 const DEFAULT_OG_IMAGE = '';
+
+// A kiadó (a klub) logója a NewsArticle JSON-LD-ben. Négyzetes, sötétkék
+// hátterű kép: a fehér, átlátszó hátterű PNG a Google fehér hátterén
+// láthatatlan lenne.
+const PUBLISHER_LOGO = 'images/kgk-logo-negyzet.png';
 
 // Meddig őrizze a Vercel a kész HTML-t (másodpercben). Ennyi ideig látszhat
 // egy admin-oldali szerkesztés után még a régi cím/kép a megosztásokban.
@@ -230,10 +238,55 @@ function buildMetaTags(article, pageUrl, origin) {
     return tags.map(tag => '    ' + tag).join('\n');
 }
 
+// Canonical link és strukturált adat (NewsArticle JSON-LD). A buildMetaTags()
+// tagjei UTÁN kerülnek a <head>-be. Szándékosan külön függvény: így a meglévő
+// megosztási tagek egyetlen bájtja sem változik.
+//
+// JSON egy <script> tag belsejébe: a böngésző ennek a tartalmát nem HTML-ként
+// olvassa, ezért itt nem az escapeHtml() kell. A < jelet unicode-escape
+// alakban írjuk, különben egy "</script>" a hír címében idő előtt lezárná a
+// tag-et (és XSS felület lenne). A JSON jelentésén ez nem változtat.
+function jsonForScript(data) {
+    return JSON.stringify(data).replace(/</g, '\\u003c');
+}
+
+function buildSeoTags(article, canonicalUrl) {
+    // Ugyanaz a képválasztás, mint a buildMetaTags()-ben, csak a relatív utat
+    // itt a kanonikus domainhez egészítjük ki.
+    let image = String(article.image_url || '').trim();
+    if (!image && DEFAULT_OG_IMAGE) image = DEFAULT_OG_IMAGE;
+    if (image && !/^https?:\/\//i.test(image)) image = `${SITE_URL}/${image.replace(/^\//, '')}`;
+
+    const description = buildDescription(article);
+    const club = { '@type': 'Organization', name: SITE_NAME, url: `${SITE_URL}/` };
+
+    const data = {
+        '@context': 'https://schema.org',
+        '@type': 'NewsArticle',
+        headline: String(article.title || 'Hír'),
+        ...(description ? { description } : {}),
+        ...(article.date ? { datePublished: String(article.date) } : {}),
+        ...(image ? { image: [image] } : {}),
+        url: canonicalUrl,
+        mainEntityOfPage: canonicalUrl,
+        inLanguage: 'hu',
+        author: club,
+        publisher: { ...club, logo: { '@type': 'ImageObject', url: `${SITE_URL}/${PUBLISHER_LOGO}` } },
+    };
+
+    return [
+        `<link rel="canonical" href="${escapeHtml(canonicalUrl)}">`,
+        `<script type="application/ld+json">${jsonForScript(data)}</script>`,
+    ].map(tag => '    ' + tag).join('\n');
+}
+
 // A meta tag-ek befűzése a <head>-be, a <title> lecserélésével együtt.
 function injectMeta(html, article, origin, slug) {
     const pageUrl = `${origin}/hir.html?slug=${encodeURIComponent(slug)}`;
-    const metaBlock = buildMetaTags(article, pageUrl, origin);
+    // A canonical a kérés címétől függetlenül mindig a kanonikus domainre mutat.
+    const canonicalUrl = `${SITE_URL}/hir.html?slug=${encodeURIComponent(slug)}`;
+    const metaBlock = buildMetaTags(article, pageUrl, origin)
+        + '\n' + buildSeoTags(article, canonicalUrl);
     const pageTitle = escapeHtml(`${article.title || 'Hír'} | KGK`);
 
     // Függvényes csere kell: string-cserében a $ jelnek különleges jelentése

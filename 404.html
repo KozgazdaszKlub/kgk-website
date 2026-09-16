@@ -11,6 +11,25 @@
     <title>Az oldal nem található | KGK</title>
     <!-- FONTOS: ezen az oldalon minden hivatkozás "/"-rel kezdődik (gyökérhez képest),
          mert a 404 bármilyen mély URL-en megjelenhet (pl. /valami/masik/oldal). -->
+    <!-- KERESŐK ÉS MEGOSZTÁS – csak metaadat, a látható oldalon nem változtat.
+         Itt SZÁNDÉKOSAN nincs canonical és og:url: a Vercel minden nem létező
+         címre ezt az oldalt adja (404-es kóddal), egy fix cím ezeket mind
+         ugyanarra az URL-re vonná össze. A megosztási kép címe abszolút. -->
+    <meta name="description" content="A keresett oldal nem található a Közgazdász Klub weboldalán. A főoldalról minden tartalmunk elérhető.">
+    <meta name="theme-color" content="#08122b">
+    <meta property="og:title" content="Az oldal nem található | Közgazdász Klub">
+    <meta property="og:description" content="A keresett oldal nem található a Közgazdász Klub weboldalán. A főoldalról minden tartalmunk elérhető.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Közgazdász Klub">
+    <meta property="og:locale" content="hu_HU">
+    <meta property="og:image" content="https://kozgazdaszklub.com/images/og-default.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="A Közgazdász Klub logója">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Az oldal nem található | Közgazdász Klub">
+    <meta name="twitter:description" content="A keresett oldal nem található a Közgazdász Klub weboldalán. A főoldalról minden tartalmunk elérhető.">
+    <meta name="twitter:image" content="https://kozgazdaszklub.com/images/og-default.jpg">
     <link rel="icon" type="image/x-icon" href="/images/Copy of kgk_feher.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style.css">

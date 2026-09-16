@@ -9,6 +9,54 @@
          SOHA nem kerülhet be — karbantartás alatt is elérhetőnek kell lennie. -->
     <script src="maintenance.js"></script>
     <title>Home | KGK</title>
+    <!-- KERESŐK ÉS MEGOSZTÁS – csak metaadat, a látható oldalon nem változtat.
+         A címek abszolútak, és mind a kanonikus, www nélküli
+         https://kozgazdaszklub.com domainre mutatnak: ugyanez az oldal a www.-s
+         és a vercel.app-os címen is elérhető, a canonical ezeket vonja össze.
+         A canonical és az og:url egyezzen a sitemap.xml megfelelő sorával.
+         Az images/og-default.jpg 1200×630-as, nem átlátszó kép – ha lecseréled,
+         a width/height értékét is igazítsd hozzá. -->
+    <meta name="description" content="A Közgazdász Klub (KGK) kolozsvári romániai magyar egyetemista szervezet. Ismerd meg csapatunkat, munkacsoportjainkat, rendezvényeinket és híreinket.">
+    <link rel="canonical" href="https://kozgazdaszklub.com/">
+    <meta name="theme-color" content="#08122b">
+    <meta property="og:title" content="Közgazdász Klub – A közösség, ami összehoz.">
+    <meta property="og:description" content="A Közgazdász Klub (KGK) kolozsvári romániai magyar egyetemista szervezet. Ismerd meg csapatunkat, munkacsoportjainkat, rendezvényeinket és híreinket.">
+    <meta property="og:url" content="https://kozgazdaszklub.com/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Közgazdász Klub">
+    <meta property="og:locale" content="hu_HU">
+    <meta property="og:image" content="https://kozgazdaszklub.com/images/og-default.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="A Közgazdász Klub logója">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Közgazdász Klub – A közösség, ami összehoz.">
+    <meta name="twitter:description" content="A Közgazdász Klub (KGK) kolozsvári romániai magyar egyetemista szervezet. Ismerd meg csapatunkat, munkacsoportjainkat, rendezvényeinket és híreinket.">
+    <meta name="twitter:image" content="https://kozgazdaszklub.com/images/og-default.jpg">
+    <!-- STRUKTURÁLT ADAT (JSON-LD) – ebből ismeri fel a Google a szervezetet.
+         Csak olyan adat kerülhet ide, ami az oldalon is szerepel. A logó a
+         négyzetes, sötétkék hátterű változat: a fehér, átlátszó PNG a Google
+         fehér hátterén láthatatlan lenne. -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Közgazdász Klub",
+        "alternateName": "KGK",
+        "url": "https://kozgazdaszklub.com/",
+        "logo": "https://kozgazdaszklub.com/images/kgk-logo-negyzet.png",
+        "email": "kozgazdaszklubkgk@gmail.com",
+        "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Kolozsvár",
+            "addressCountry": "RO"
+        },
+        "sameAs": [
+            "https://www.facebook.com/kozgazdaszklub",
+            "https://www.instagram.com/kozgazdaszklub"
+        ]
+    }
+    </script>
     <link rel="icon" type="image/x-icon" href="images/Copy of kgk_feher.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

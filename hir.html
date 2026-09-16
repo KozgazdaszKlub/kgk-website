@@ -9,6 +9,16 @@
          SOHA nem kerülhet be — karbantartás alatt is elérhetőnek kell lennie. -->
     <script src="maintenance.js"></script>
     <title>Hír | KGK</title>
+    <!-- KERESŐK ÉS MEGOSZTÁS – EZ AZ OLDAL KIVÉTEL, figyelj rá!
+         A leírást, a megosztási (og:* / twitter:*) tageket, a canonicalt és a
+         NewsArticle JSON-LD-t az api/og-hir.js szúrja be futásidőben, a cím
+         UTÁN – hírenként más adattal. A függvény a sablonból semmit nem töröl,
+         csak a címet cseréli le, ezért ide NE írj statikus description, og:*,
+         twitter:*, canonical vagy JSON-LD taget: minden hír oldalán duplikátum
+         lenne, a statikus canonical pedig az összes hírt erre az üres oldalra
+         vonná össze. A cím tag nevét csúcsos zárójellel se írd a valódi cím
+         elé (kommentbe sem): a függvény az első előfordulást cseréli. -->
+    <meta name="theme-color" content="#08122b">
     <link rel="icon" type="image/x-icon" href="images/Copy of kgk_feher.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
