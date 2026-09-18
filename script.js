@@ -359,6 +359,33 @@ async function loadAbout() {
 // ============================================================
 // GÓLYA PDF BETÖLTÉSE
 // ============================================================
+// A letöltött fájl neve a látogató gépén. Ékezet nélkül, hogy minden böngésző
+// és fájlrendszer ugyanígy mentse.
+const GOLYA_PDF_FILENAME = 'Golya_Kisokos.pdf';
+
+// A Supabase Storage public URL-je magában NEM küld Content-Disposition
+// fejlécet, ezért a böngésző a beépített PDF-nézőben nyitná meg a fájlt. A
+// `download` query paraméterre viszont `Content-Disposition: attachment` jön
+// (élesben mérve 2026-09-18), és a böngésző letölti – új fül nélkül, a
+// weboldal a helyén marad. Egy `download` attribútum az <a>-n itt nem segítene:
+// a PDF más originről jön, ott a böngészők figyelmen kívül hagyják.
+//
+// CSAK a saját projektünk `documents` bucketjének public címére tesszük rá. Egy
+// idegen címnél (pl. SQL-ből beírt link) a paraméter jelentése ismeretlen, és
+// el is ronthatná a linket – ilyenkor null jön, és marad a régi viselkedés.
+function golyaDownloadUrl(url) {
+    let parsed;
+    try {
+        parsed = new URL(url);
+    } catch (err) {
+        return null;
+    }
+    if (parsed.origin !== SUPABASE_URL) return null;
+    if (!parsed.pathname.startsWith('/storage/v1/object/public/documents/')) return null;
+    parsed.searchParams.set('download', GOLYA_PDF_FILENAME);
+    return parsed.href;
+}
+
 async function loadGolyaPdf() {
     const btn = document.getElementById('golya-pdf-btn');
     const missing = document.getElementById('golya-pdf-missing');
@@ -387,11 +414,19 @@ async function loadGolyaPdf() {
     // Csak http(s) link kerülhet a gombra – lásd safeUrl()
     const url = safeUrl((doc.file_url || '').trim());
     // Használhatatlan linknél a gomb NEM jelenik meg. Üres `href` az AKTUÁLIS
-    // oldalt töltené újra (a target="_blank" miatt új lapon), letöltés helyett –
-    // ezért marad a „Hamarosan elérhető...", vagyis ugyanaz az állapot, mint
-    // amikor egyáltalán nincs feltöltött PDF.
+    // oldalt töltené újra, letöltés helyett – ezért marad a „Hamarosan
+    // elérhető...", vagyis ugyanaz az állapot, mint amikor egyáltalán nincs
+    // feltöltött PDF.
     if (!url) return;
-    btn.href = url;
+    const downloadUrl = golyaDownloadUrl(url);
+    if (downloadUrl) {
+        btn.href = downloadUrl;
+    } else {
+        // Idegen címnél a letöltést nem tudjuk kikényszeríteni. Ilyenkor a
+        // régi viselkedés marad: új lapon nyílik meg, a weboldal a helyén marad.
+        btn.href = url;
+        btn.target = '_blank';
+    }
     btn.style.display = 'inline-block';
     if (missing) missing.style.display = 'none';
 }
