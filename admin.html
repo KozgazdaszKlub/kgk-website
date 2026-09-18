@@ -1250,6 +1250,38 @@
         .gallery-load-retry:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
         .gallery-load-retry[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 
+        /* ── MENTETT KÉP / PDF ELTÁVOLÍTÁSA ── */
+        /* A gomb a feltöltő doboz ALATT áll, nem benne: a dobozt a láthatatlan
+           fájlválasztó teljesen lefedi, így egy benne lévő gombra kattintva a
+           fájlválasztó nyílna meg. */
+        .btn-remove-file {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 7px 12px;
+            color: var(--text-muted);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .btn-remove-file:hover { border-color: var(--danger); color: var(--danger); }
+        .btn-remove-file:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+        .btn-remove-file:disabled { opacity: 0.6; cursor: progress; }
+        /* Az inline-flex felülírná a `hidden` attribútum alapértelmezett display: none-ját */
+        .btn-remove-file[hidden] { display: none; }
+
+        .file-remove-note {
+            margin-top: 8px;
+            font-size: 0.82rem;
+            color: var(--danger);
+        }
+
         /* ── FUNKCIÓ-KAPCSOLÓK (Szekciók fül) ── */
         .flag-card {
             background: var(--surface);
@@ -1874,6 +1906,9 @@
                     <div id="golya-current" style="margin-bottom:20px;padding:16px;background:var(--surface2);border-radius:8px;display:none;">
                         <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:6px">Jelenlegi PDF:</p>
                         <a id="golya-current-link" href="#" target="_blank" style="color:var(--gold);font-weight:600;font-size:0.9rem;word-break:break-all;"></a>
+                        <div>
+                            <button type="button" class="btn-remove-file" id="remove-golya" onclick="requestGolyaPdfRemoval()"><i class="fas fa-trash-alt"></i> PDF eltávolítása</button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>PDF feltöltése</label>
@@ -2009,6 +2044,8 @@
                 <i class="fas fa-cloud-upload-alt"></i>
                 <p>Kattints vagy húzd ide a képet</p>
             </div>
+            <button type="button" class="btn-remove-file" id="remove-image-hir" hidden onclick="requestImageRemoval('hir')"><i class="fas fa-trash-alt"></i> Kép eltávolítása</button>
+            <p class="file-remove-note" id="remove-note-hir" hidden>A borítókép a Mentés gombra kattintva törlődik.</p>
         </div>
         <div class="form-group">
             <label>Képgaléria (max 10 kép)</label>
@@ -2083,6 +2120,8 @@
                 <i class="fas fa-cloud-upload-alt"></i>
                 <p>Kattints vagy húzd ide a képet</p>
             </div>
+            <button type="button" class="btn-remove-file" id="remove-image-tag" hidden onclick="requestImageRemoval('tag')"><i class="fas fa-trash-alt"></i> Kép eltávolítása</button>
+            <p class="file-remove-note" id="remove-note-tag" hidden>A profilkép a Mentés gombra kattintva törlődik.</p>
         </div>
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeModal('tag')">Mégse</button>
@@ -2153,6 +2192,8 @@
                 <i class="fas fa-cloud-upload-alt"></i>
                 <p>Kattints vagy húzd ide a logót</p>
             </div>
+            <button type="button" class="btn-remove-file" id="remove-image-munkacsoport" hidden onclick="requestImageRemoval('munkacsoport')"><i class="fas fa-trash-alt"></i> Logó eltávolítása</button>
+            <p class="file-remove-note" id="remove-note-munkacsoport" hidden>A logó a Mentés gombra kattintva törlődik.</p>
         </div>
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeModal('munkacsoport')">Mégse</button>
@@ -3081,20 +3122,30 @@ async function uploadImage(bucket, file, path) {
 // Egy fájlt töröl a Storage-ból a publikus URL alapján.
 // SOHA nem dob hibát és sosem szakítja meg a hívó folyamatot – ha a törlés
 // nem sikerül, csak console.error-ba kerül, a DB törlés attól még lefut.
-async function deleteStorageFile(bucket, url) {
-    if (!url || typeof url !== 'string') return;
+// Ugyanígy, ha a fájl már nem létezik: a Storage ilyenkor hibát ad, ami csak a
+// konzolra kerül.
+//
+// Visszatérési érték: true, ha a Storage visszaigazolta a törlést. A régi
+// hívók nem nézik – nekik semmi nem változott.
+//
+// `{ isWrite: true }`: mentés közbeni takarításhoz (régi kép cseréje /
+// eltávolítása). Ilyenkor a lejárt session ugyanúgy a sávot hozza elő, mint a
+// feltöltésnél (handleAuthError(res, true)). Nélküle – rekord törlésekor – a
+// kezelés pontosan a régi.
+async function deleteStorageFile(bucket, url, options = {}) {
+    if (!url || typeof url !== 'string') return false;
 
     // Csak a saját Storage-ba mutató publikus URL-eket bántjuk
     const marker = `/storage/v1/object/public/${bucket}/`;
     const idx = url.indexOf(marker);
     if (idx === -1) {
         console.warn(`Nem ${bucket} Storage URL, kihagyva:`, url);
-        return;
+        return false;
     }
 
     // Minden a /public/{bucket}/ után a fájl path-ja (query/hash levágva)
     const path = url.slice(idx + marker.length).split('?')[0].split('#')[0];
-    if (!path) return;
+    if (!path) return false;
 
     try {
         const res = await authFetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
@@ -3104,12 +3155,26 @@ async function deleteStorageFile(bucket, url) {
                 'Authorization': `Bearer ${currentSession?.access_token}`
             }
         });
+        if (options.isWrite && handleAuthError(res, true)) return false;
         if (!res.ok) {
             console.error(`Storage törlés sikertelen (${bucket}/${path}): HTTP ${res.status}`);
+            return false;
         }
+        return true;
     } catch (e) {
         console.error(`Storage törlés hiba (${bucket}/${path}):`, e);
+        return false;
     }
+}
+
+// A lecserélt vagy eltávolított régi kép törlése. CSAK sikeres DB mentés UTÁN
+// szabad hívni: a sorrend mindig új fájl feltöltése → DB mentés → régi fájl
+// törlése. Ha a feltöltés vagy a mentés elszáll, ide el sem jutunk, és a régi
+// kép érintetlen marad.
+// Ugyanazt a fájlt, amire a rekord most mutat, sosem töröljük.
+async function deleteReplacedImage(bucket, oldUrl, newUrl) {
+    if (!oldUrl || oldUrl === newUrl) return;
+    await deleteStorageFile(bucket, oldUrl, { isWrite: true });
 }
 
 // Hír törlésekor a galéria képeit is takarítjuk: előbb a Storage fájlokat,
@@ -3201,6 +3266,9 @@ function openModal(type, data = null) {
         } else {
             title.textContent = 'Új szponzor';
         }
+        // A mentett logó: csere után ezt töröljük a Storage-ból. (Eltávolító
+        // gomb itt nincs – a szponzornál a logó kötelező.)
+        resetModalImage('szponzor', data?.logo_url);
         overlay.classList.add('open');
     } else {
         editingId = data?.id || null;
@@ -3244,6 +3312,9 @@ function openModal(type, data = null) {
                                 type === 'esemeny' ? 'Új rendezvény' : 'Új munkacsoport';
             document.getElementById(`${type}-id`).value = '';
         }
+
+        // A mentett kép (új elemnél nincs): a cseréhez és az eltávolításhoz kell
+        if (REMOVABLE_IMAGE_KEYS.includes(type)) resetModalImage(type, data?.image_url);
 
         overlay.classList.add('open');
     }
@@ -3338,6 +3409,8 @@ function closeModal(type) {
 // KÉPFELTÖLTÉS ELŐNÉZET
 // ════════════════════════════════════════════
 function handleFileSelect(key) {
+    // Új fájlnál az eltávolító gomb is megjelenik (ahol van ilyen gomb)
+    syncImageRemoveUi(key);
     const file = document.getElementById(`file-${key}`).files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -3352,6 +3425,88 @@ function showPreview(key, src, isUrl) {
     prev.style.display = 'block';
     area.querySelector('i').style.display = 'none';
     area.querySelector('p').style.display = 'none';
+}
+
+// ════════════════════════════════════════════
+// MENTETT KÉP CSERÉJE ÉS ELTÁVOLÍTÁSA (modálok)
+// ════════════════════════════════════════════
+// Ahol a kép NEM kötelező, ott „Kép eltávolítása" gomb is van. A szponzornál
+// nincs: ott a logó kötelező (lásd saveSzponzor), csak cserélni lehet.
+const REMOVABLE_IMAGE_KEYS = ['hir', 'tag', 'munkacsoport'];
+
+// A szerkesztett rekord MENTETT képe (a DB-ben lévő URL), és hogy a
+// felhasználó eltávolításra jelölte-e – modálkulcsonként (hir, tag,
+// munkacsoport, szponzor). Az openModal minden megnyitáskor újraírja.
+//
+// Az eltávolítás is csak a Mentésnél történik meg, ugyanúgy, mint a galériában:
+// a gomb csak megjelöli a képet. Mentés nélkül bezárva nem történik semmi.
+// A mentés sorrendje (saveWithImage, saveHir): új fájl feltöltése → DB mentés →
+// CSAK siker után a régi fájl törlése (deleteReplacedImage).
+const modalImageState = {};
+
+function resetModalImage(key, storedUrl = null) {
+    modalImageState[key] = { storedUrl: storedUrl || null, removed: false };
+    syncImageRemoveUi(key);
+}
+
+// Az eltávolító gomb csak akkor látszik, ha van mit eltávolítani: egy mentett,
+// még meg nem jelölt kép, vagy egy most kiválasztott új fájl. A megjegyzés
+// („…a Mentés gombra kattintva törlődik") akkor, ha a mentett kép meg van
+// jelölve, és nincs helyette új fájl.
+function syncImageRemoveUi(key) {
+    const btn = document.getElementById(`remove-image-${key}`);
+    if (!btn) return;
+    const state = modalImageState[key] || { storedUrl: null, removed: false };
+    const hasFile = !!document.getElementById(`file-${key}`)?.files[0];
+    btn.hidden = !((state.storedUrl && !state.removed) || hasFile);
+    const note = document.getElementById(`remove-note-${key}`);
+    if (note) note.hidden = !(state.removed && !hasFile);
+}
+
+// Az előnézet eltüntetése, a feltöltő doboz felirata visszajön – ugyanaz,
+// amit az openModal a megnyitáskor csinál.
+function clearPreview(key) {
+    const prev = document.getElementById(`preview-${key}`);
+    if (prev) { prev.style.display = 'none'; prev.src = ''; }
+    const area = document.getElementById(`upload-${key}`);
+    if (area) {
+        const icon = area.querySelector('i');
+        if (icon) icon.style.display = '';
+        area.querySelectorAll('p').forEach(el => el.style.display = '');
+    }
+}
+
+// A „Kép eltávolítása" gomb. A gomb eltűnik, ezért a fókusz a fájlválasztóra
+// kerül – a Tab-sorrendben az áll előtte.
+function requestImageRemoval(key) {
+    const state = modalImageState[key];
+    const fileInput = document.getElementById(`file-${key}`);
+    const discardSelection = () => {
+        if (fileInput) fileInput.value = '';
+        clearPreview(key);
+        syncImageRemoveUi(key);
+        fileInput?.focus();
+    };
+
+    // Nincs mentett kép (vagy már meg van jelölve), csak egy most kiválasztott
+    // fájl: a Storage-ban nincs mit törölni, megerősítés sem kell.
+    if (!state?.storedUrl || state.removed) {
+        discardSelection();
+        return;
+    }
+
+    confirmAction({
+        title: 'Eltávolítod a képet?',
+        text: 'A kép a Mentés gombra kattintva végleg törlődik. Addig meggondolhatod: ha mentés nélkül bezárod az ablakot, a kép megmarad.',
+        confirmLabel: 'Eltávolítás',
+        onConfirm: () => {
+            // Közben nem nyílhatott másik modál (a megerősítő mindent eltakar),
+            // de ha mégis, egy idegen rekord állapotához nem nyúlunk
+            if (modalImageState[key] !== state) return;
+            state.removed = true;
+            discardSelection();
+        }
+    });
 }
 
 // ════════════════════════════════════════════
@@ -3441,6 +3596,42 @@ let pendingDelete = null;
 function confirmDelete(table, id, imageUrl = null, bucket = null) {
     lastFocusedElement = document.activeElement;
     pendingDelete = { table, id, imageUrl, bucket };
+    // A doboz szövegét a confirmAction átírhatta – rekordtörlésnél a régi szöveg
+    setConfirmTexts(CONFIRM_DELETE_TEXTS);
+    const overlay = document.getElementById('confirm-overlay');
+    overlay.classList.add('open');
+    overlay.removeAttribute('inert');
+    trapFocus(overlay);
+}
+
+// A rekordtörlés szövegei – pontosan azok, amik a HTML-ben állnak
+const CONFIRM_DELETE_TEXTS = {
+    title: 'Biztosan törlöd?',
+    text: 'Ez a művelet nem visszavonható.',
+    confirmLabel: 'Törlés'
+};
+
+function setConfirmTexts({ title, text, confirmLabel }) {
+    document.getElementById('confirm-title').textContent = title;
+    document.querySelector('#confirm-overlay .confirm-box p').textContent = text;
+    document.getElementById('confirm-delete-btn').textContent = confirmLabel;
+}
+
+// Ugyanaz a megerősítő doboz, de NEM rekordtörléshez (kép eltávolítása,
+// Gólya PDF eltávolítása): a szöveget a hívó adja, a megerősítő gomb pedig az
+// onConfirm-et futtatja a bezárás után (lásd a confirm-delete-btn kezelőjét).
+//
+// Egy nyitott modál fölött is használható. A modál saját visszatérési pontját
+// (lastFocusedElement – ahová a modál bezárásakor megy a fókusz) félretesszük,
+// és a closeConfirm visszaállítja; enélkül a modál bezárása után elveszne a
+// fókusz.
+let confirmOuterFocus = null;
+
+function confirmAction({ title, text, confirmLabel, onConfirm }) {
+    confirmOuterFocus = lastFocusedElement;
+    lastFocusedElement = document.activeElement;
+    pendingDelete = { onConfirm };
+    setConfirmTexts({ title, text, confirmLabel });
     const overlay = document.getElementById('confirm-overlay');
     overlay.classList.add('open');
     overlay.removeAttribute('inert');
@@ -3453,10 +3644,25 @@ function closeConfirm() {
     overlay.classList.remove('open');
     overlay.setAttribute('inert', '');
     restoreFocus();
+    // confirmAction után: a (még nyitott) modál visszatérési pontja él tovább
+    if (confirmOuterFocus) {
+        lastFocusedElement = confirmOuterFocus;
+        confirmOuterFocus = null;
+    }
 }
 
 document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
     if (!pendingDelete) return;
+
+    // confirmAction: nem rekordtörlés. A doboz bezárul, utána fut a művelet
+    // (a pendingDelete-et a closeConfirm nullázza, így dupla kattintásra sem
+    // indul kétszer).
+    if (pendingDelete.onConfirm) {
+        const { onConfirm } = pendingDelete;
+        closeConfirm();
+        await onConfirm();
+        return;
+    }
 
     // Kimásoljuk és nullázzuk, hogy dupla kattintásra ne induljon kétszer
     const { table, id, imageUrl, bucket } = pendingDelete;
@@ -3990,7 +4196,13 @@ async function loadMunkacsoportok() {
 // ════════════════════════════════════════════
 // MENTÉS FÜGGVÉNYEK
 // ════════════════════════════════════════════
-async function saveWithImage(key, bucket, buildData) {
+// `options.imageField` (pl. 'image_url' / 'logo_url'): ha meg van adva, a
+// mentés a rekord MENTETT képét is kezeli (modalImageState):
+//   - eltávolításra jelölt kép, új fájl nélkül → a mező null lesz,
+//   - csere vagy eltávolítás után a régi fájl törlődik a Storage-ból –
+//     CSAK a sikeres DB mentés után.
+// Nélküle minden pontosan úgy megy, mint eddig.
+async function saveWithImage(key, bucket, buildData, options = {}) {
     const btn = document.getElementById(`save-${key}`);
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Mentés...';
@@ -4016,6 +4228,11 @@ async function saveWithImage(key, bucket, buildData) {
         const data = buildData(imageUrl);
         const id = document.getElementById(`${key}-id`).value;
 
+        // Meglévő rekord mentett képe – csak szerkesztésnél lehet mit cserélni
+        const imageState = options.imageField && id ? modalImageState[key] : null;
+        const removeImage = !!(imageState?.removed && !imageUrl);
+        if (removeImage) data.payload[options.imageField] = null;
+
         let ok;
         if (id) {
             // Szerkesztéskor a sort_order-höz nem nyúlunk: azt csak a nyilak állítják
@@ -4031,6 +4248,10 @@ async function saveWithImage(key, bucket, buildData) {
         if (ok) {
             showToast('Sikeresen mentve!', 'success');
             closeModal(key);
+            // A rekord már az új képre (vagy semmire) mutat: a régi fájl mehet
+            if (imageState && (imageUrl || removeImage)) {
+                await deleteReplacedImage(bucket, imageState.storedUrl, imageUrl);
+            }
             loadAll();
         } else {
             showSaveError('Mentési hiba! Ellenőrizd a mezőket.');
@@ -4565,6 +4786,10 @@ async function saveHir() {
         // DEFAULT true lép életbe. Mindkettő biztonságos.
         const publishedCb = document.getElementById('hir-published');
         const kuldjukAzAllapotot = newsHasPublishedColumn === true && publishedCb;
+        // A mentett borítókép (csak szerkesztésnél): eltávolításra jelölve, új
+        // kép nélkül a mező null lesz. A régi fájlt a mentés VÉGÉN töröljük.
+        const coverState = id ? modalImageState.hir : null;
+        const removeCover = !!(coverState?.removed && !imageUrl);
         const payload = {
             title: document.getElementById('hir-title').value,
             date: document.getElementById('hir-date').value,
@@ -4572,6 +4797,7 @@ async function saveHir() {
             excerpt: document.getElementById('hir-excerpt').value,
             content: contentHtml,
             ...(imageUrl && { image_url: imageUrl }),
+            ...(removeCover && { image_url: null }),
             ...(kuldjukAzAllapotot && { is_published: publishedCb.checked })
         };
 
@@ -4703,6 +4929,10 @@ async function saveHir() {
         }
         closeModal('hir');
         resetGallery();
+        // A hír már az új borítóra (vagy semmire) mutat: a régi fájl mehet
+        if (coverState && (imageUrl || removeCover)) {
+            await deleteReplacedImage('news-images', coverState.storedUrl, imageUrl);
+        }
         loadAll();
 
     } catch(e) {
@@ -4777,7 +5007,7 @@ async function saveTag() {
             linkedin_url: document.getElementById('tag-linkedin').value || null,
             ...(imageUrl && { image_url: imageUrl })
         }
-    }));
+    }), { imageField: 'image_url' });
 }
 
 async function saveEsemeny() {
@@ -4816,7 +5046,7 @@ async function saveMunkacsoport() {
             color: document.getElementById('munkacsoport-color').value,
             ...(imageUrl && { image_url: imageUrl })
         }
-    }));
+    }), { imageField: 'image_url' });
 }
 
 // ════════════════════════════════════════════
@@ -5015,6 +5245,16 @@ async function saveGolyaPdf() {
     btn.innerHTML = '<span class="spinner"></span> Feltöltés...';
 
     try {
+        // 0. A MOSTANI sor(ok) – ezeket csak akkor töröljük, ha az új PDF már
+        //    biztosan fent van ÉS el van mentve. Ha a lekérés nem sikerül, a
+        //    feltöltés ettől még megy, csak a régi PDF marad meg (figyelmeztetéssel).
+        const before = await fetchGolyaRows(true);
+        if (before.authFailed) {
+            btn.disabled = false;
+            btn.innerHTML = 'Feltöltés & Mentés';
+            return;
+        }
+
         const file = fileInput.files[0];
         const path = `golya_kisokos_${Date.now()}.pdf`;
         const fileUrl = await uploadImage('documents', file, path);
@@ -5032,7 +5272,13 @@ async function saveGolyaPdf() {
         });
 
         if (ok) {
-            showToast('PDF sikeresen feltöltve!', 'success');
+            // Az új PDF él. Csak MOST jöhet a régi: előbb a sora, utána a fájlja.
+            const cleaned = before.rows ? await deleteGolyaRows(before.rows, true, fileUrl) : false;
+            if (cleaned) {
+                showToast('PDF sikeresen feltöltve!', 'success');
+            } else {
+                showSaveError('Az új PDF feltöltve, és már ez látszik a weboldalon – de a régit nem sikerült eltávolítani.');
+            }
             loadGolyaPdf();
         } else {
             showSaveError('Mentési hiba!');
@@ -5044,6 +5290,99 @@ async function saveGolyaPdf() {
 
     btn.disabled = false;
     btn.innerHTML = 'Feltöltés & Mentés';
+}
+
+// ── Gólya PDF: régi sorok takarítása és a PDF eltávolítása ──
+// A documents táblából a weboldal mindig a LEGFRISSEBB sort mutatja. Új
+// feltöltéskor új sor jön létre, és csak ha az sikerült, töröljük a régieket.
+// Azért törlés (és nem ugyanannak a sornak a frissítése), mert így a korábbi
+// feltöltésekből esetleg bent maradt TÖBB régi sor is eltűnik, és a „PDF
+// eltávolítása" gomb pontosan ugyanezt a lépést használja.
+
+// A documents összes sora. `authFailed`: lejárt session – a hívó álljon le.
+// `rows: null`: nem sikerült lekérni.
+async function fetchGolyaRows(isWrite) {
+    const res = await authFetch(`${SUPABASE_URL}/rest/v1/documents?select=id,file_url`, { headers: authHeaders() });
+    if (handleAuthError(res, isWrite)) return { authFailed: true, rows: null };
+    if (!res.ok) return { authFailed: false, rows: null };
+    const rows = await res.json().catch(() => null);
+    return { authFailed: false, rows: Array.isArray(rows) ? rows : null };
+}
+
+// A megadott documents sorokat törli, UTÁNA a fájljaikat a Storage-ból – de
+// CSAK azokét, amelyek sora a válasz szerint ténylegesen törlődött. Ha a sor
+// törlése nem sikerül, a fájlhoz nem nyúlunk: a weboldal linkje nem törhet el.
+// `keepUrl`: ezt a fájlt sosem töröljük (az épp feltöltött új PDF).
+// Visszatérési érték: true, ha minden sor törlődött.
+async function deleteGolyaRows(rows, isWrite, keepUrl = null) {
+    if (!rows.length) return true;
+    const ids = rows.map(row => row.id).join(',');
+    // Az authHeaders() `Prefer: return=representation` fejléce miatt a törölt
+    // sorok visszajönnek a válaszban
+    const res = await authFetch(`${SUPABASE_URL}/rest/v1/documents?id=in.(${ids})`, {
+        method: 'DELETE',
+        headers: authHeaders()
+    });
+    if (handleAuthError(res, isWrite)) return false;
+    if (!res.ok) {
+        console.error('A Gólya PDF sor(ok) törlése sikertelen: HTTP', res.status);
+        return false;
+    }
+    const deleted = await res.json().catch(() => null);
+    // Ha nem derül ki, mi törlődött, fájlt sem törlünk
+    if (!Array.isArray(deleted)) return false;
+    for (const row of deleted) {
+        if (row.file_url && row.file_url !== keepUrl) {
+            await deleteStorageFile('documents', row.file_url, { isWrite });
+        }
+    }
+    return deleted.length === rows.length;
+}
+
+function requestGolyaPdfRemoval() {
+    confirmAction({
+        title: 'Eltávolítod a Gólya Kisokost?',
+        text: 'A PDF végleg törlődik, és a weboldalon a letöltés gomb helyett újra a „Hamarosan elérhető..." felirat jelenik meg. Ez a művelet nem visszavonható.',
+        confirmLabel: 'Eltávolítás',
+        onConfirm: removeGolyaPdf
+    });
+}
+
+async function removeGolyaPdf() {
+    const btn = document.getElementById('remove-golya');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Eltávolítás...';
+    let removed = false;
+
+    try {
+        // Törlés: a lejárt session ugyanúgy kezelődik, mint a rekordtörlésnél
+        // (dbDelete) – nincs elveszíthető beírt adat.
+        const { authFailed, rows } = await fetchGolyaRows(false);
+        if (!authFailed) {
+            if (!rows) {
+                showToast('Nem sikerült lekérni a jelenlegi PDF-et. Próbáld újra!', 'error');
+            } else if (await deleteGolyaRows(rows, false)) {
+                removed = true;
+                document.getElementById('golya-current').style.display = 'none';
+                const link = document.getElementById('golya-current-link');
+                link.removeAttribute('href');
+                link.textContent = '';
+                showToast('PDF eltávolítva. A weboldalon a „Hamarosan elérhető..." felirat látszik.', 'success');
+            } else {
+                showSaveError('A PDF eltávolítása nem sikerült.');
+                loadGolyaPdf();
+            }
+        }
+    } catch (e) {
+        showToast('Váratlan hiba!', 'error');
+        console.error(e);
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-trash-alt"></i> PDF eltávolítása';
+    // Sikernél a gomb a dobozzal együtt eltűnt – a fókusz a feltöltő mezőre
+    // kerül. Hibánál vissza a gombra: a letiltás közben lekerült róla.
+    (removed ? document.getElementById('file-golya') : btn)?.focus();
 }
 
 // ════════════════════════════════════════════
@@ -5100,7 +5439,7 @@ async function saveSzponzor() {
             website_url: document.getElementById('szponzor-url').value || null,
             ...(imageUrl && { logo_url: imageUrl })
         }
-    }));
+    }), { imageField: 'logo_url' });
     loadSzponzorok();
 }
 
