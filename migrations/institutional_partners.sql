@@ -142,15 +142,17 @@ CREATE POLICY "Auth update institutional_partners" ON public.institutional_partn
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- JOGOSULTSÁGOK (biztonsági háló)
+-- JOGOSULTSÁGOK — KÖTELEZŐ, nem csak biztonsági háló
 -- ────────────────────────────────────────────────────────────────────────────
--- A Supabase alapból minden új public sémás táblára ad GRANT-ot az anon és
--- authenticated szerepnek, tehát ez a két sor jó eséllyel nem csinál semmit.
--- Azért van itt, hogy a tábla akkor is működjön, ha ezt az alapértelmezést
--- valaha megváltoztatnák.
+-- A Supabase 2026. október 30-tól az új public sémás táblákhoz MÁR NEM ad
+-- automatikusan GRANT-ot az anon / authenticated szerepnek — enélkül a tábla
+-- a Data API-n (PostgREST) keresztül elérhetetlen lenne ("permission denied").
+-- Ez a két sor ezért itt KÖTELEZŐ, nem csak elővigyázatosság (lásd CLAUDE.md,
+-- „Szabályok, amiket be kell tartanod", 6. pont).
 --
--- FIGYELEM: a GRANT nem szűkít, csak bővít. A védelmet a fenti RLS policy-k
--- adják, nem ez a két sor. (AUDIT_RLS.md, K-2.)
+-- FIGYELEM: a GRANT nem szűkít, csak bővít. A GRANT csak az ELSŐ kapu — a
+-- tényleges védelmet továbbra is a fenti RLS policy-k adják, nem ez a két
+-- sor. (AUDIT_RLS.md, K-2.)
 GRANT SELECT ON public.institutional_partners TO anon, authenticated;
 GRANT UPDATE ON public.institutional_partners TO authenticated;
 
