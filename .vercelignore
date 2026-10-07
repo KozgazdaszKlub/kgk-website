@@ -1,0 +1,40 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  MIRE VALÓ EZ A FÁJL? (nem kell hozzá programozói tudás)
+#
+#  Az itt felsorolt fájlok és mappák NEM kerülnek fel a Vercelre, vagyis a
+#  weboldalon nem lehet őket megnyitni. Ezek belső anyagok: SQL scriptek,
+#  audit jelentések, GitHub-beállítások, dokumentáció. A GitHubon (a repóban)
+#  ettől még ugyanúgy megvannak.
+#
+#  A szintaxis ugyanaz, mint a .gitignore-é. A sor eleji "/" azt jelenti, hogy
+#  a szabály csak a projekt gyökerében lévő fájlra / mappára vonatkozik.
+#
+#  SOHA ne kerüljön ide: api/, a .html oldalak (különösen a hir.html, mert az
+#  api/og-hir.js azt olvassa), images/, robots.txt, maintenance.js,
+#  script.js, style.css, vercel.json, package.json, package-lock.json.
+#  Ezek nélkül az oldal vagy valamelyik függvénye nem működne.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Kézzel futtatandó SQL scriptek (a Supabase SQL Editorába valók)
+/migrations/
+
+# Audit jelentések (az AUDIT_IMAGES.md a repóban van, a többi csak helyben)
+/AUDIT_*.md
+
+# GitHub Actions és git-beállítás – a GitHubon számítanak, nem a Vercelen
+/.github/
+/.gitattributes
+
+# Helyi eszközök és dokumentáció
+/scripts/
+/docs/
+/README.md
+/CLAUDE.md
+
+# Környezeti változók. A Vercel alapból csak a .env.local és a .env.*.local
+# fájlokat hagyja ki, a sima .env-et nem – egy gépről indított (CLI-s)
+# deploynál ez számít.
+/.env*
+
+# Maga ez a fájl se legyen letölthető (kiadná a belső fájlok listáját)
+/.vercelignore
