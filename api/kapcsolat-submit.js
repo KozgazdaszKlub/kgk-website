@@ -52,6 +52,20 @@ const MAX_BODY_BYTE = 100 * 1024;
 // hibákat (hiányzó @ vagy pont) akarjuk kiszűrni.
 const EMAIL_MINTA = /^\S+@\S+\.\S+$/;
 
+// Az e-mail cím a válaszcímbe (Reply-To) kerül, ezért PONTOSAN EGY címnek kell
+// lennie. Az EMAIL_MINTA ezt nem garantálja: átengedte pl. az
+// "a@b.c>,<evil@x.com" értéket, amiből két válaszcím lett – a klub válasza egy
+// harmadik félhez is elment volna. Ezért elutasítjuk mindazt, amivel egy mezőbe
+// több cím vagy egy álcázott cím csempészhető:
+//   , ;          – címlista-elválasztók
+//   < >          – a "Név <cím>" forma zárójelei
+//   "            – idézett helyi rész ("a,b"@x.com)
+//   ( ) [ ] \ :  – megjegyzés, domain-literál, escape, csoport-szintaxis
+//   whitespace és minden vezérlőkarakter (\p{Cc}: C0, DEL, C1)
+// Hétköznapi címet (pont, plusz, aposztróf, kötőjel, ékezetes domain) egyik
+// szabály sem érint.
+const EMAIL_TILTOTT_KARAKTER = /[,;<>"()\[\]\\:\s\p{Cc}]/u;
+
 // A tárgy elé kerülő jelölés, hogy a postafiókban egyből látszódjon,
 // honnan jött az üzenet (és lehessen rá szűrőt/címkét csinálni).
 const TARGY_PREFIX = '[KGK Kapcsolat] ';
@@ -147,6 +161,24 @@ function fejlecTisztit(szoveg) {
     return String(szoveg).replace(/[\r\n]+/g, ' ').trim();
 }
 
+// Pontosan egy e-mail cím-e (lásd EMAIL_TILTOTT_KARAKTER). Egy @ lehet benne,
+// és nem lehet MIME kódolt szó (=?…?=) sem: azt egyes levelezők visszafejtik,
+// és a kódolt részből egy másik cím bukkanhat elő.
+function egyetlenCim(email) {
+    if (EMAIL_TILTOTT_KARAKTER.test(email)) return false;
+    if (email.split('@').length !== 2) return false;
+    if (email.includes('=?')) return false;
+    return true;
+}
+
+// A válaszcím név része. A korábbi idézőjel-csere (" → ') megmarad, és a
+// < > , karakterek is kiesnek – így a név semmilyen levelezőben nem nézhet ki
+// címnek vagy címlistának. Hétköznapi névben nincs ilyen karakter, azokat ez
+// nem változtatja meg.
+function valaszNev(nev) {
+    return fejlecTisztit(nev).replace(/"/g, "'").replace(/[<>,]/g, '').trim();
+}
+
 // HTML-escape a levél HTML változatához: enélkül a beküldött szöveg
 // tag-jei tényleges HTML-ként jelennének meg a postafiókban.
 function escapeHtml(ertek) {
@@ -208,6 +240,7 @@ function ellenoriz({ nev, email, targy, uzenet }) {
     if (!uzenet) return 'Az üzenet megadása kötelező.';
 
     if (!EMAIL_MINTA.test(email)) return 'Az e-mail cím formátuma nem megfelelő.';
+    if (!egyetlenCim(email))      return 'Az e-mail cím formátuma nem megfelelő.';
 
     if (nev.length    > MAX_HOSSZ.nev)    return `A név legfeljebb ${MAX_HOSSZ.nev} karakter lehet.`;
     if (email.length  > MAX_HOSSZ.email)  return `Az e-mail cím legfeljebb ${MAX_HOSSZ.email} karakter lehet.`;
@@ -381,7 +414,10 @@ module.exports = async function handler(req, res) {
             // idegen címről küldjünk. A beküldő címe a replyTo-ba kerül.
             from:    `"KGK Kapcsolatfelvétel" <${SMTP_USER}>`,
             to:      CONTACT_EMAIL_TO,
-            replyTo: `"${fejlecTisztit(adat.nev).replace(/"/g, "'")}" <${fejlecTisztit(adat.email)}>`,
+            // Objektumként, NEM "Név" <cím> szövegként: így a nodemailer nem
+            // futtatja rajta a címértelmezőt (addressparser), vagyis a beküldött
+            // szövegből semmiképp nem lehet egynél több válaszcím.
+            replyTo: { name: valaszNev(adat.nev), address: fejlecTisztit(adat.email) },
             subject: TARGY_PREFIX + fejlecTisztit(adat.targy),
             text:    levelSzoveg(adat),
             html:    levelHtml(adat),
