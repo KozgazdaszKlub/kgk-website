@@ -345,9 +345,13 @@ async function loadAbout() {
     }
 
     const about = data[0];
+    // A width/height a fallback kép arányában (1200×801) lefoglalja a helyet,
+    // amíg a kép betölt; betöltés után a kép SAJÁT aránya érvényes. A
+    // height: auto kötelező mellé: a style.css csak a szélességet adja meg, és
+    // nélküle a height attribútum torzítaná a képet.
     container.innerHTML = `
         <div class="image-box hidden">
-            <img id="rolunk-img" src="${escapeAttr(safeUrl(about.image_url)) || 'images/Csopkép elnökség 24-25.jpg'}" alt="KGK Elnökség Csoportkép" onerror="this.onerror=null;this.src='images/Csopkép elnökség 24-25.jpg';">
+            <img id="rolunk-img" src="${escapeAttr(safeUrl(about.image_url)) || 'images/csopkep-elnokseg-24-25.jpg'}" width="1200" height="801" style="height: auto;" alt="KGK Elnökség Csoportkép" onerror="this.onerror=null;this.src='images/csopkep-elnokseg-24-25.jpg';">
         </div>
         <div class="text-box hidden">
             <p id="rolunk-text">${escapeAttr(about.text)}</p>

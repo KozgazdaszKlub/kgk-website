@@ -100,7 +100,13 @@
         <h2>Rólunk</h2>
         <div class="container">
             <div class="image-box hidden">
-                <img id="rolunk-img" src="images/Csopkép elnökség 24-25.jpg" alt="KGK Elnökség Csoportkép">
+                <!-- Szándékosan nincs src: a képet a script.js loadAbout()-ja tölti be
+                     (a DB-s képet, vagy ha az hiányzik / nem tölt be, a tömörített
+                     fallbacket), így a fallback nem töltődik le feleslegesen. A
+                     helyfoglalást a script.js-ben készülő kép végzi (width/height +
+                     height: auto); src nélkül a Chrome ezt az elemet alt-szövegként
+                     rajzolja, itt a méret csak az egységesség miatt áll. -->
+                <img id="rolunk-img" width="1200" height="801" style="height: auto;" alt="KGK Elnökség Csoportkép">
             </div>
             <div class="text-box hidden">
                 <p id="rolunk-text">Betöltés...</p>
