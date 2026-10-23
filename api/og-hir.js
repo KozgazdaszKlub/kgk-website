@@ -65,6 +65,12 @@ const CDN_CACHE_SECONDS = 600;
 // elő elavult példányként.
 const CDN_CACHE_SECONDS_DEGRADED = 60;
 
+// A nem létező hír 404-es válaszát is csak röviden őrizzük: ha a címet egy
+// hír publikálása ELŐTT már lekérte valaki (pl. piszkozatként), a publikálás
+// után legfeljebb ennyi ideig kaphatják még a keresők a 404-et. Itt sincs
+// stale-while-revalidate, különben a lejárat után még egyszer kimenne.
+const CDN_CACHE_SECONDS_NOT_FOUND = 60;
+
 // A nem létező hír oldalára (404) kerülő robots meta tag. Ugyanezt mondja az
 // X-Robots-Tag fejléc is; a kettő együtt biztos, hogy a kereső ne vegye fel.
 const NOINDEX_META = '<meta name="robots" content="noindex">';
@@ -430,16 +436,16 @@ module.exports = async function handler(req, res) {
         return;
     }
 
-    res.setHeader(
-        'Cache-Control',
-        `public, max-age=0, s-maxage=${CDN_CACHE_SECONDS}, stale-while-revalidate=86400`
-    );
-
     if (outcome === 'missing') {
+        res.setHeader('Cache-Control', `public, max-age=0, s-maxage=${CDN_CACHE_SECONDS_NOT_FOUND}`);
         res.setHeader('X-Robots-Tag', 'noindex');
         res.status(404).send(injectNoindex(html));
         return;
     }
 
+    res.setHeader(
+        'Cache-Control',
+        `public, max-age=0, s-maxage=${CDN_CACHE_SECONDS}, stale-while-revalidate=86400`
+    );
     res.status(200).send(html);
 };
