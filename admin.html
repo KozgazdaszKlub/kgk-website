@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin | KGK</title>
-    <link rel="icon" type="image/x-icon" href="images/Copy of kgk_feher.ico">
+    <!-- Az admin oldal ne kerüljön a keresőkbe. A vercel.json ugyanezt
+         X-Robots-Tag fejlécként is elküldi – ez a második réteg. A robots.txt
+         SZÁNDÉKOSAN nem tiltja az oldalt: akkor a Google ezt sem látná. -->
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -2853,6 +2857,8 @@ function restoreDraft() {
     }
 
     localStorage.removeItem(DRAFT_KEY);
+    // A visszaállított tartalom még nincs elmentve
+    markModalDirty();
     showToast('Piszkozat visszaállítva. Ellenőrizd, majd mentsd el!', 'success');
 }
 
@@ -2977,25 +2983,42 @@ function handleAuthError(res, isWrite = false) {
 //           új rekord id-ját nem kell utólag visszakeresni.
 //   error – hibánál a PostgREST hibatörzse ({ code, message, details, hint }),
 //           ha kiolvasható; lejárt sessionnél null.
+//
+// Hibánál a lastApiError-ba kerül az ok, magyarul (lásd HIBAÜZENETEK).
+// Hálózati hibánál nem dobnak, hanem sikertelen mentést adnak vissza.
 async function dbInsert(table, data, options = {}) {
-    const res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify(data)
-    });
+    lastApiError = null;
+    let res;
+    try {
+        res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify(data)
+        });
+    } catch (e) {
+        return networkWriteFailure(e, options);
+    }
     if (options.withResult) return readWriteResult(res);
     if (handleAuthError(res, true)) return false;
+    if (!res.ok) await rememberApiError(res);
     return res.ok;
 }
 
 async function dbUpdate(table, id, data, options = {}) {
-    const res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify(data)
-    });
+    lastApiError = null;
+    let res;
+    try {
+        res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+            method: 'PATCH',
+            headers: authHeaders(),
+            body: JSON.stringify(data)
+        });
+    } catch (e) {
+        return networkWriteFailure(e, options);
+    }
     if (options.withResult) return readWriteResult(res);
     if (handleAuthError(res, true)) return false;
+    if (!res.ok) await rememberApiError(res);
     return res.ok;
 }
 
@@ -3006,17 +3029,138 @@ async function readWriteResult(res) {
     // A törzs olvasása nem dönthet a sikerről: egy sikeres mentés akkor is
     // sikeres, ha a válasz törzse valamiért nem olvasható JSON
     const body = await res.json().catch(() => null);
-    if (!res.ok) return { ok: false, rows: null, error: body && typeof body === 'object' ? body : null };
+    if (!res.ok) {
+        lastApiError = describeApiError(res.status, body);
+        return { ok: false, rows: null, error: body && typeof body === 'object' ? body : null };
+    }
     return { ok: true, rows: Array.isArray(body) ? body : null, error: null };
 }
 
 async function dbDelete(table, id) {
-    const res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
-        method: 'DELETE',
-        headers: { ...authHeaders(), 'Prefer': 'return=minimal' }
-    });
+    lastApiError = null;
+    let res;
+    try {
+        res = await authFetch(`${SUPABASE_URL}/rest/v1/${table}?id=eq.${id}`, {
+            method: 'DELETE',
+            headers: { ...authHeaders(), 'Prefer': 'return=minimal' }
+        });
+    } catch (e) {
+        return networkWriteFailure(e);
+    }
     if (handleAuthError(res)) return false;
+    if (!res.ok) await rememberApiError(res);
     return res.ok;
+}
+
+// ════════════════════════════════════════════
+// HIBAÜZENETEK – a Supabase válasza alapján
+// ════════════════════════════════════════════
+// A legutóbbi sikertelen írás vagy feltöltés oka egy rövid magyar mondatban,
+// vagy null. Az uploadImage, a dbInsert, a dbUpdate és a dbDelete minden hívás
+// ELEJÉN nullázza, és hibánál beírja – a hívó így közvetlenül egy sikertelen
+// hívás után kiolvashatja (errorWithReason). Lejárt sessionnél (401) üres
+// marad: olyankor a sáv beszél, a showSaveError hallgat.
+// Párhuzamos hívásoknál (galéria) csak „valamelyik" hiba oka – ott ennyi elég.
+let lastApiError = null;
+
+const NETWORK_ERROR_TEXT = 'Nem sikerült elérni a szervert. Ellenőrizd az internetkapcsolatot, és próbáld újra!';
+
+// Hibaüzenet az okkal együtt: „<alap> <ok>". Ha az ok nem ismert, a
+// `fallback` marad – alapból maga az alapszöveg, vagyis a régi üzenet.
+function errorWithReason(base, fallback = base) {
+    return lastApiError ? `${base} ${lastApiError}` : fallback;
+}
+
+// A Supabase hibaválaszából (adatbázis vagy Storage) egy rövid magyar mondat.
+// A Storage a legtöbb hibát HTTP 400-zal küldi, a valódi kódot a törzs
+// `statusCode` mezőjébe teszi (pl. lejárt tokennél "403", túl nagy fájlnál
+// "413") – ezért azt nézzük elsőként. Az adatbázis (PostgREST) a Postgres
+// hibakódját a `code` mezőben adja. Ismeretlen hibánál a HTTP kód kerül a
+// szövegbe, hogy a karbantartó tudja, mit keressen.
+function describeApiError(status, body) {
+    const b = body && typeof body === 'object' ? body : {};
+    const code = String(b.statusCode || status);
+    const pgCode = String(b.code || '');
+    const text = `${b.error || ''} ${b.message || ''}`;
+
+    if (code === '413' || pgCode === 'EntityTooLarge') {
+        return 'A fájl túl nagy, a tárhely nem fogadta el. Válassz kisebb fájlt, vagy kicsinyítsd le!';
+    }
+    if (code === '415' || pgCode === 'InvalidMimeType' || /mime type/i.test(text)) {
+        return 'Ezt a fájltípust a tárhely nem fogadja el. Képnél JPG vagy PNG, a Gólya Kisokosnál PDF fájlt tölts fel!';
+    }
+    if (code === '401' || isJwtErrorText(text)) {
+        return 'A bejelentkezésed lejárt. Jelentkezz be újra, majd próbáld meg még egyszer!';
+    }
+    if (code === '403' || pgCode === '42501') {
+        return 'Ehhez nincs jogosultság – a szerver elutasította. Szólj a weboldal karbantartójának!';
+    }
+    if (/bucket not found/i.test(text)) {
+        return 'A fájlok tárhelye nem található. Szólj a weboldal karbantartójának!';
+    }
+    if (pgCode === '23503') {
+        return 'A kapcsolódó elem már nem létezik (lehet, hogy közben törölték). Frissítsd az oldalt, és próbáld újra!';
+    }
+    if (pgCode === '23505' || code === '409') {
+        return 'Ez az érték már szerepel egy másik elemnél.';
+    }
+    if (pgCode === '23502') {
+        return 'Egy kötelező mező üresen maradt. Töltsd ki, és mentsd el újra!';
+    }
+    if (pgCode === '22001') {
+        return 'Valamelyik szöveg túl hosszú. Rövidítsd le, és mentsd el újra!';
+    }
+    if (/^22/.test(pgCode)) {
+        return 'Valamelyik mező formátuma hibás (pl. a dátum vagy egy szám). Javítsd, és mentsd el újra!';
+    }
+    if (code === '429') {
+        return 'Túl sok kérés érkezett rövid idő alatt. Várj egy percet, és próbáld újra!';
+    }
+    if (/^5\d\d$/.test(code)) {
+        return `A szerver most nem tudta teljesíteni a kérést (HTTP ${status}). Várj egy kicsit, és próbáld újra!`;
+    }
+    return `A szerver elutasította a kérést (HTTP ${status}${pgCode ? ', ' + pgCode : ''}).`;
+}
+
+// A Storage lejárt vagy érvénytelen tokenre így válaszol (élesben mérve,
+// 2026-10-23, csak olvasó GET-tel): HTTP 400, a törzsben
+// {"statusCode":"403","error":"Unauthorized","code":"AccessDenied",
+//  "message":"Invalid Compact JWS" | "signature verification failed"};
+// lejárt tokennél a jose könyvtár üzenete: „"exp" claim timestamp check
+// failed" (élesben nem mértük). A jogosultsági (RLS) elutasítás kódja
+// ugyanez, csak az üzenete más („new row violates row-level security
+// policy"), ezért az üzenetet nézzük.
+function isJwtErrorText(text) {
+    return /\bjw[st]\b|signature|claim/i.test(text);
+}
+
+async function rememberApiError(res) {
+    const body = await res.json().catch(() => null);
+    lastApiError = describeApiError(res.status, body);
+}
+
+// A `fetch` hálózati hibánál TypeError-t dob – Chrome: „Failed to fetch",
+// Firefox: „NetworkError when attempting to fetch resource.", Safari: „Load failed".
+function isNetworkError(e) {
+    return e instanceof TypeError && /fetch|network|load failed/i.test(e.message);
+}
+
+// Hálózati hiba írás közben: a hívó ugyanazt kapja, mint egy elutasított
+// mentésnél (false, illetve `withResult`-tal { ok: false }), az ok pedig a
+// lastApiError-ba kerül. Korábban a hiba továbbrepült, és ahol nem volt
+// try/catch (rendezvény mentése, sorrend-csere, kapcsoló, törlés), ott a gomb
+// letiltva vagy pörgő állapotban maradt. Ami nem hálózati hiba, az továbbrepül.
+function networkWriteFailure(e, options = {}) {
+    if (!isNetworkError(e)) throw e;
+    console.error('Hálózati hiba mentés közben:', e);
+    lastApiError = NETWORK_ERROR_TEXT;
+    return options.withResult ? { ok: false, rows: null, error: null } : false;
+}
+
+// A mentő függvények `catch` ágának üzenete: hálózati hibánál a fenti
+// érthető mondat, minden másnál a régi „Váratlan hiba" szöveg.
+function unexpectedErrorText(e, fallback) {
+    return isNetworkError(e) ? NETWORK_ERROR_TEXT : fallback;
 }
 
 // ════════════════════════════════════════════
@@ -3083,37 +3227,213 @@ function compressGalleryImage(file) {
 }
 
 // ════════════════════════════════════════════
-// STORAGE – Képfeltöltés (tömörítéssel)
+// FELTÖLTÉS ELŐTTI ELLENŐRZÉS
 // ════════════════════════════════════════════
-async function uploadImage(bucket, file, path) {
-    // Tömörítés feltöltés előtt (PNG-nél megtartja az átlátszóságot, SVG-t változatlanul hagyja)
-    const finalFile = await compressImage(file);
+// Méretkorlát a KIVÁLASZTOTT (nyers) fájlra. A képet feltöltés előtt úgyis
+// tömörítjük (legfeljebb 1400 px széles JPEG / PNG lesz belőle), tehát a
+// feltöltött fájl jóval kisebb – a képkorlát a böngésző memóriáját és a
+// felhasználó idejét védi. A PDF-et nem tömörítjük, ott ez a feltöltött méret.
+// A Storage a bucket saját korlátja (storage.buckets.file_size_limit) és a
+// projekt-szintű korlát (az ingyenes csomagban legfeljebb 50 MB) fölött
+// elutasít – ezek az értékek ne legyenek nagyobbak náluk.
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
-    // A path kiterjesztését a tényleges kimeneti típushoz igazítjuk
-    let finalPath = path;
-    if (finalFile.type === 'image/png') {
-        finalPath = path.replace(/\.(jpg|jpeg|webp|heic|bmp)$/i, '.png');
-    } else if (finalFile.type === 'image/svg+xml') {
-        finalPath = path.replace(/\.(jpg|jpeg|png|webp|heic|bmp)$/i, '.svg');
-    } else {
-        finalPath = path.replace(/\.(png|webp|heic|bmp)$/i, '.jpg');
+// A feltöltött fájlok gyorsítótár-ideje: 1 év. Megtehetjük, mert minden
+// fájlnév egyedi (időbélyeg van benne), egy cím tartalma tehát soha nem
+// változik – csere esetén új fájl, új cím jön létre. A Storage ezt az értéket
+// a fájl mellé menti, és letöltéskor Cache-Control fejlécként adja vissza.
+// Fejléc nélkül `no-cache`-t mentett, és a böngésző minden oldalbetöltéskor
+// újra rákérdezett minden képre.
+const STORAGE_CACHE_CONTROL = 'max-age=31536000';
+
+// A kiterjesztés a tényleges tartalom típusából jön – lásd prepareUpload
+const EXTENSION_BY_TYPE = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/svg+xml': 'svg',
+    'application/pdf': 'pdf'
+};
+// Ezeket minden böngésző megjeleníti – tömörítés nélkül csak ezek mehetnek fel
+const WEB_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+const HEIC_ERROR_TEXT = 'Ez egy iPhone-os HEIC/HEIF kép, amit a böngésző nem tud megnyitni (a weboldal látogatói sem látnák). Küldd el magadnak JPG-ként, vagy iPhone-on állítsd a kamerát a „Leginkább kompatibilis" formátumra (Beállítások → Kamera → Formátumok), és válaszd ki újra!';
+const UNDECODABLE_IMAGE_TEXT = 'Ezt a fájlt a böngésző nem tudja képként megnyitni – lehet, hogy sérült, vagy nem kép. Mentsd el JPG vagy PNG formátumban, és próbáld újra!';
+const NOT_PDF_TEXT = 'Ez nem PDF fájl. A Gólya Kisokoshoz csak PDF tölthető fel.';
+
+function formatMegabytes(bytes) {
+    return (bytes / 1024 / 1024).toLocaleString('hu-HU', { maximumFractionDigits: 1 });
+}
+
+function tooLargeText(file, kind) {
+    const size = formatMegabytes(file.size);
+    return kind === 'pdf'
+        ? `A PDF túl nagy (${size} MB). Legfeljebb ${formatMegabytes(MAX_PDF_BYTES)} MB lehet – mentsd el kisebb méretben, és próbáld újra!`
+        : `A kép túl nagy (${size} MB). Legfeljebb ${formatMegabytes(MAX_IMAGE_BYTES)} MB-os képet tölthetsz fel – kicsinyítsd le, vagy válassz kisebbet!`;
+}
+
+// A fájl valódi típusa az első bájtjai („mágikus szám") alapján. A böngésző
+// által adott `file.type` a kiterjesztésből jön, ezért egy átnevezett vagy
+// kiterjesztés nélküli fájlnál hamis vagy üres – Windows alatt egy .heic
+// fájlé sokszor üres. null: nem ismert formátum.
+async function sniffFileType(file) {
+    let bytes;
+    try {
+        bytes = new Uint8Array(await file.slice(0, 1024).arrayBuffer());
+    } catch (e) {
+        return null;
+    }
+    const ascii = (from, to) => String.fromCharCode(...bytes.slice(from, to));
+    if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'image/jpeg';
+    if (bytes[0] === 0x89 && ascii(1, 4) === 'PNG') return 'image/png';
+    if (ascii(0, 4) === 'GIF8') return 'image/gif';
+    if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return 'image/webp';
+    // A PDF-szabvány szerint a fejléc az első 1024 bájton belül bárhol állhat
+    if (ascii(0, bytes.length).includes('%PDF-')) return 'application/pdf';
+    // HEIF-család (ISO BMFF): a 4. bájttól „ftyp", utána a fő márkanév
+    if (ascii(4, 8) === 'ftyp') {
+        const brand = ascii(8, 12);
+        if (['avif', 'avis'].includes(brand)) return 'image/avif';
+        if (['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'hevm', 'hevs', 'mif1', 'msf1'].includes(brand)) return 'image/heic';
+    }
+    return null;
+}
+
+function isHeicLike(file, sniffed) {
+    return sniffed === 'image/heic' || /^image\/hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
+}
+
+// Meg tudja-e nyitni a böngésző a képet? Ugyanaz a betöltés, amire a
+// tömörítés (compressImage) is épít – ha ez nem megy, az sem fog. A HEIC-et
+// pl. a Safari megnyitja (és a tömörítés JPEG-et csinál belőle), a Chrome, az
+// Edge és a Firefox nem.
+function canDecodeImage(file) {
+    return new Promise(resolve => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        const done = ok => {
+            URL.revokeObjectURL(url);
+            resolve(ok);
+        };
+        img.onload = () => done(img.naturalWidth > 0);
+        img.onerror = () => done(false);
+        img.src = url;
+    });
+}
+
+// A kiválasztott fájl ellenőrzése, mielőtt bármi történne vele (a
+// fájlválasztók change eseménye hívja, és a feltöltés is, utolsó védvonalként).
+// Hibánál a felhasználónak szóló üzenetet adja vissza, rendben lévő fájlnál null-t.
+//   kind: 'image' | 'pdf'
+async function checkUploadFile(file, kind) {
+    if (kind === 'pdf') {
+        if (file.size > MAX_PDF_BYTES) return tooLargeText(file, kind);
+        return await sniffFileType(file) === 'application/pdf' ? null : NOT_PDF_TEXT;
+    }
+    if (file.size > MAX_IMAGE_BYTES) return tooLargeText(file, kind);
+    if (await canDecodeImage(file)) return null;
+    return isHeicLike(file, await sniffFileType(file)) ? HEIC_ERROR_TEXT : UNDECODABLE_IMAGE_TEXT;
+}
+
+// Az útvonal kiterjesztése a tényleges típushoz igazítva. A hívók a fájlnévből
+// vett kiterjesztéssel rakják össze az útvonalat (pl. `tag_1712345678901.heic`),
+// ami a tömörítés után már nem igaz.
+function withExtension(path, type) {
+    return path.replace(/\.[^./]*$/, '') + '.' + EXTENSION_BY_TYPE[type];
+}
+
+// A feltöltendő fájl végleges alakja: { file, type, path }, ahol a `type` megy
+// a Content-Type fejlécbe, és a `path` kiterjesztése is ehhez illik. Mindkettő
+// a TÉNYLEGES tartalomból jön: a tömörített képnél a vászon kimenetéből (JPEG
+// vagy PNG), egyébként a fájl első bájtjaiból. Hibánál { error } – ilyenkor
+// semmi nem megy fel.
+// Korábban a meg nem nyitható kép (pl. HEIC Chrome-ban) tömörítés nélkül, .jpg
+// névvel ment fel, és a PDF helyére húzott JPEG is .pdf névvel.
+async function prepareUpload(bucket, file, path) {
+    if (bucket === 'documents') {
+        const problem = await checkUploadFile(file, 'pdf');
+        if (problem) return { error: problem };
+        return { file, type: 'application/pdf', path: withExtension(path, 'application/pdf') };
     }
 
-    const res = await authFetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${finalPath}`, {
-        method: 'POST',
-        headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${currentSession?.access_token}`,
-            'Content-Type': finalFile.type || 'image/jpeg',
-            'x-upsert': 'true'
-        },
-        body: finalFile
-    });
+    if (file.size > MAX_IMAGE_BYTES) return { error: tooLargeText(file, 'image') };
+    // SVG: vektoros, nem tömörítjük (ahogy eddig sem)
+    if (file.type === 'image/svg+xml') return { file, type: file.type, path: withExtension(path, file.type) };
+
+    const sniffed = await sniffFileType(file);
+    // A compressImage csak `image/*` típusú fájlhoz nyúl – egy kiterjesztés
+    // nélküli (üres típusú) képet a valódi típusával adunk át neki
+    const input = (!file.type.startsWith('image/') && sniffed?.startsWith('image/'))
+        ? new File([file], file.name, { type: sniffed })
+        : file;
+    const compressed = await compressImage(input);
+    // Sikeres tömörítés: új fájl, image/jpeg vagy image/png típussal
+    if (compressed !== input) {
+        return { file: compressed, type: compressed.type, path: withExtension(path, compressed.type) };
+    }
+
+    // A tömörítés nem sikerült. Az eredeti fájl csak akkor mehet fel, ha
+    // megnyitható, és a böngészők meg is tudják jeleníteni – a valódi típusával.
+    if (isHeicLike(file, sniffed)) return { error: HEIC_ERROR_TEXT };
+    if (WEB_IMAGE_TYPES.includes(sniffed) && await canDecodeImage(input)) {
+        return { file, type: sniffed, path: withExtension(path, sniffed) };
+    }
+    return { error: UNDECODABLE_IMAGE_TEXT };
+}
+
+// ════════════════════════════════════════════
+// STORAGE – Képfeltöltés (tömörítéssel)
+// ════════════════════════════════════════════
+// Minden feltöltés ezen megy át: hír borítókép, galéria, elnökségi tag,
+// munkacsoport, szponzor, Rólunk, intézményi partner és a Gólya PDF.
+// Sikernél a publikus URL-t adja, hibánál null-t – az ok a lastApiError-ban.
+async function uploadImage(bucket, file, path) {
+    lastApiError = null;
+    // Ellenőrzés + tömörítés (PNG-nél megtartja az átlátszóságot, SVG-t változatlanul hagyja)
+    const prepared = await prepareUpload(bucket, file, path);
+    if (prepared.error) {
+        lastApiError = prepared.error;
+        return null;
+    }
+
+    let res;
+    try {
+        res = await authFetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${prepared.path}`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${currentSession?.access_token}`,
+                'Content-Type': prepared.type,
+                'Cache-Control': STORAGE_CACHE_CONTROL,
+                'x-upsert': 'true'
+            },
+            body: prepared.file
+        });
+    } catch (e) {
+        if (!isNetworkError(e)) throw e;
+        console.error(`Feltöltési hiba (${bucket}/${prepared.path}):`, e);
+        lastApiError = NETWORK_ERROR_TEXT;
+        return null;
+    }
     // Lejárt session esetén is mentés-jellegű művelet: a hívó nyitva hagyja a
     // modált, mi pedig a sávval jelezzük, mi történt
     if (handleAuthError(res, true)) return null;
-    if (!res.ok) return null;
-    return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${finalPath}`;
+    if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        console.error(`Feltöltés sikertelen (${bucket}/${prepared.path}): HTTP ${res.status}`, body);
+        // A Storage a lejárt / érvénytelen tokenre nem 401-et ad, hanem 400-at
+        // (lásd isJwtErrorText). Ugyanúgy kezeljük, mint egy 401-et: a modál
+        // nyitva marad, a sáv felajánlja a munkamenet meghosszabbítását.
+        if (body && isJwtErrorText(`${body.error || ''} ${body.message || ''}`)) {
+            handleAuthError({ status: 401 }, true);
+            return null;
+        }
+        lastApiError = describeApiError(res.status, body);
+        return null;
+    }
+    return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${prepared.path}`;
 }
 
 // ════════════════════════════════════════════
@@ -3235,6 +3555,8 @@ function openModal(type, data = null) {
     // 1. Ide tér vissza a fókusz a modál bezárásakor. A mezők beállítása ELŐTT
     //    kell elmenteni, amíg még a megnyitó gomb az aktív elem.
     lastFocusedElement = document.activeElement;
+    // Frissen nyitott modálban még nincs mentetlen változás (lásd beforeunload)
+    modalDirty = false;
 
     // 2. A szponzor-modál mezői eltérnek a többitől (nincs rich editor, nincs
     //    galéria, nincs publikálás-kapcsoló), ezért saját reset-ága van.
@@ -3408,23 +3730,59 @@ function closeModal(type) {
 // ════════════════════════════════════════════
 // KÉPFELTÖLTÉS ELŐNÉZET
 // ════════════════════════════════════════════
-function handleFileSelect(key) {
+async function handleFileSelect(key) {
+    const input = document.getElementById(`file-${key}`);
+    const file = input.files[0];
+    // A túl nagy vagy a böngésző által meg nem nyitható kép (pl. iPhone-os
+    // HEIC) már itt kiesik, nem csak a Mentésnél
+    if (file) {
+        const problem = await checkUploadFile(file, 'image');
+        // Közben másik fájlt választottak (vagy a modál újranyílt): az a
+        // saját hívásában intéződik
+        if (input.files[0] !== file) return;
+        if (problem) {
+            rejectSelectedImage(key, problem);
+            return;
+        }
+    }
     // Új fájlnál az eltávolító gomb is megjelenik (ahol van ilyen gomb)
     syncImageRemoveUi(key);
-    const file = document.getElementById(`file-${key}`).files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = e => showPreview(key, e.target.result, false);
+    reader.onload = e => {
+        // Egy azóta kiválasztott másik fájl előnézetét ne írja felül
+        if (input.files[0] === file) showPreview(key, e.target.result, false);
+    };
     reader.readAsDataURL(file);
 }
+
+// A Rólunk és a partner-logók előnézetében legutóbb mutatott MENTETT kép
+// (showPreview isUrl-lel). A modáloknál ugyanezt a modalImageState tudja.
+const storedPreviewUrls = {};
 
 function showPreview(key, src, isUrl) {
     const prev = document.getElementById(`preview-${key}`);
     const area = document.getElementById(`upload-${key}`);
+    if (isUrl) storedPreviewUrls[key] = src;
     prev.src = src;
     prev.style.display = 'block';
     area.querySelector('i').style.display = 'none';
     area.querySelector('p').style.display = 'none';
+}
+
+// Elutasított fájlválasztás: a fájlválasztó kiürül, az előnézet visszaáll a
+// mentett képre (vagy az üres feltöltő dobozra), és a felhasználó megtudja,
+// miért. Az előnézetet azért kell visszaállítani, mert egy korábban
+// kiválasztott (még nem mentett) fájl ilyenkor már nincs a fájlválasztóban.
+function rejectSelectedImage(key, message) {
+    const input = document.getElementById(`file-${key}`);
+    if (input) input.value = '';
+    const state = modalImageState[key];
+    const stored = state ? (state.removed ? null : state.storedUrl) : storedPreviewUrls[key];
+    if (stored) showPreview(key, stored, true);
+    else clearPreview(key);
+    syncImageRemoveUi(key);
+    showToast(message, 'error');
 }
 
 // ════════════════════════════════════════════
@@ -3504,6 +3862,7 @@ function requestImageRemoval(key) {
             // de ha mégis, egy idegen rekord állapotához nem nyúlunk
             if (modalImageState[key] !== state) return;
             state.removed = true;
+            markModalDirty();
             discardSelection();
         }
     });
@@ -3690,13 +4049,15 @@ document.getElementById('confirm-delete-btn').addEventListener('click', async ()
         showToast('Sikeresen törölve!', 'success');
         loadAll();
     } else {
-        showToast('Hiba történt törléskor.', 'error');
+        showToast(errorWithReason('Hiba történt törléskor.'), 'error');
     }
 });
 
 // ════════════════════════════════════════════
 // TOAST
 // ════════════════════════════════════════════
+let toastTimer = null;
+
 function showToast(msg, type = 'success') {
     const toast = document.getElementById('toast');
     const icon = toast.querySelector('i');
@@ -3704,7 +4065,11 @@ function showToast(msg, type = 'success') {
     toast.className = `toast ${type}`;
     icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
     toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 3500);
+    // A hosszabb (főleg hiba-) üzenetnek több idő kell, hogy végig lehessen
+    // olvasni: karakterenként ~60 ms, legalább a régi 3,5 mp, legfeljebb 15 mp.
+    // Egy korábbi üzenet időzítője nem veheti le idő előtt az újat.
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), Math.min(15000, Math.max(3500, msg.length * 60)));
 }
 
 // ════════════════════════════════════════════
@@ -4218,7 +4583,7 @@ async function saveWithImage(key, bucket, buildData, options = {}) {
             const path = `${key}_${Date.now()}.${ext}`;
             imageUrl = await uploadImage(bucket, file, path);
             if (!imageUrl) {
-                showSaveError('Képfeltöltés sikertelen!');
+                showSaveError(errorWithReason('Képfeltöltés sikertelen!'));
                 btn.disabled = false;
                 btn.innerHTML = 'Mentés';
                 return;
@@ -4254,10 +4619,10 @@ async function saveWithImage(key, bucket, buildData, options = {}) {
             }
             loadAll();
         } else {
-            showSaveError('Mentési hiba! Ellenőrizd a mezőket.');
+            showSaveError(errorWithReason('Mentési hiba!', 'Mentési hiba! Ellenőrizd a mezőket.'));
         }
     } catch(e) {
-        showToast('Váratlan hiba történt.', 'error');
+        showToast(unexpectedErrorText(e, 'Váratlan hiba történt.'), 'error');
         console.error(e);
     }
 
@@ -4452,7 +4817,7 @@ function retryExistingGallery() {
     loadExistingGallery(galleryLoadNewsId);
 }
 
-function handleGallerySelect() {
+async function handleGallerySelect() {
     const input = document.getElementById('file-gallery');
     // Amíg a meglévő galéria nincs biztosan betöltve, új képet nem veszünk fel:
     // a mentés ilyenkor a galériához nem nyúl, tehát a kép némán elveszne, egy
@@ -4472,17 +4837,35 @@ function handleGallerySelect() {
         input.value = '';
         return;
     }
+    input.value = '';
+
+    // A túl nagy és a böngésző által meg nem nyitható (pl. HEIC) képek
+    // kimaradnak, a többi bekerül. Az ellenőrzés aszinkron: ha közben a modál
+    // bezárult, újranyílt vagy betöltés indult (galleryLoadSeq), eldobjuk.
+    const seq = galleryLoadSeq;
+    const problems = await Promise.all(newFiles.map(file => checkUploadFile(file, 'image')));
+    if (seq !== galleryLoadSeq) return;
+    const accepted = newFiles.filter((file, i) => !problems[i]);
+    const rejectedNames = newFiles.filter((file, i) => problems[i]).map(file => `„${file.name}"`);
+    if (rejectedNames.length) {
+        showToast(`Nem került be: ${rejectedNames.join(', ')}. ${problems.find(Boolean)}`, 'error');
+    }
+    // Ha az ellenőrzés alatt egy másik kiválasztás is bekerült
+    if (galleryOrder.length + accepted.length > GALLERY_MAX) {
+        showToast(`Maximum ${GALLERY_MAX} kép tölthető fel! (jelenleg ${galleryOrder.length})`, 'error');
+        return;
+    }
+    if (!accepted.length) return;
 
     // Az új fájlok a lista végére kerülnek, onnan húzhatók bárhová.
     // Az objektum-URL egyszer készül el és megmarad: így az újrarajzolás
     // (minden húzás után) nem szór szét használatlan URL-eket.
-    newFiles.forEach(file => {
+    accepted.forEach(file => {
         galleryOrder.push({ type: 'new', file, objUrl: URL.createObjectURL(file) });
     });
 
     syncGalleryArrays();
     renderGalleryPreviews();
-    input.value = '';
 }
 
 function renderGalleryPreviews() {
@@ -4520,6 +4903,7 @@ function removeGalleryItem(index) {
     // Az új fájl objektum-URL-jét elengedjük, hogy ne maradjon a memóriában
     if (item.type === 'new' && item.objUrl) URL.revokeObjectURL(item.objUrl);
     galleryOrder.splice(index, 1);
+    markModalDirty();
     syncGalleryArrays();
     renderGalleryPreviews();
 }
@@ -4732,7 +5116,10 @@ function endGalleryDrag(e) {
 
     const changed = applyGalleryDomOrder(grid);
     renderGalleryPreviews();
-    if (changed) showToast('Sorrend frissítve – ne felejtsd el menteni!');
+    if (changed) {
+        markModalDirty();
+        showToast('Sorrend frissítve – ne felejtsd el menteni!');
+    }
 }
 
 // Megszakítás (pl. görgetés indult érintéssel): marad az eredeti állapot
@@ -4766,7 +5153,7 @@ async function saveHir() {
             const ext = file.name.split('.').pop();
             imageUrl = await uploadImage('news-images', file, `cover_${Date.now()}.${ext}`);
             if (!imageUrl) {
-                showSaveError('Borítókép feltöltése sikertelen!');
+                showSaveError(errorWithReason('Borítókép feltöltése sikertelen!'));
                 btn.disabled = false;
                 btn.innerHTML = 'Mentés';
                 return;
@@ -4813,7 +5200,7 @@ async function saveHir() {
                 showSaveError(`Ez a slug már foglalt: „${payload.slug}". Adj meg egy másikat, pl. tegyél a végére egy számot!`);
                 document.getElementById('hir-slug').focus();
             } else {
-                showSaveError('Mentési hiba! Ellenőrizd a mezőket.');
+                showSaveError(errorWithReason('Mentési hiba!', 'Mentési hiba! Ellenőrizd a mezőket.'));
             }
             btn.disabled = false;
             btn.innerHTML = 'Mentés';
@@ -4829,6 +5216,8 @@ async function saveHir() {
 
         // Igaz lesz, ha a galéria valamelyik része nem került a helyére (lásd a végén)
         let galleryIncomplete = false;
+        // Az első ilyen hiba oka (lastApiError), ha kiderült – a végén kiírjuk
+        let galleryErrorReason = null;
         // Sikeres mentés, de a válaszból nem derült ki az új hír id-ja: a
         // kiválasztott képeket nem tudjuk a hírhez kötni, ezért ne írjunk
         // „Sikeresen mentve!"-t
@@ -4894,6 +5283,7 @@ async function saveHir() {
                         return uploadImage('news-images', file, path);
                     });
                     const urls = await Promise.all(uploads);
+                    if (!galleryErrorReason && urls.some(url => !url)) galleryErrorReason = lastApiError;
                     const inserts = urls.map(async (url, j) => {
                         const { item, idx } = newItems[i + j];
                         if (!url) { galleryIncomplete = true; return; }
@@ -4903,6 +5293,7 @@ async function saveHir() {
                         else galleryIncomplete = true;
                     });
                     await Promise.all(inserts);
+                    if (!galleryErrorReason && galleryIncomplete) galleryErrorReason = lastApiError;
                 }
             }
 
@@ -4911,7 +5302,10 @@ async function saveHir() {
             const visibleUrls = galleryOrder
                 .map(item => item.type === 'existing' ? item.url : uploadedUrls.get(item))
                 .filter(Boolean);
-            if (!await normalizeGallerySortOrder(newsId, visibleUrls)) galleryIncomplete = true;
+            if (!await normalizeGallerySortOrder(newsId, visibleUrls)) {
+                galleryIncomplete = true;
+                if (!galleryErrorReason) galleryErrorReason = lastApiError;
+            }
         }
 
         // Ha a galéria nem került teljesen a helyére, nem írunk „Sikeresen
@@ -4923,7 +5317,8 @@ async function saveHir() {
             // de azóta meghosszabbított session nem nyelheti el az üzenetet
             showToast('A hír elmentve. A galéria nem töltődött be, ezért a képekhez nem nyúltunk – a meglévő képek megmaradtak.', 'error');
         } else if (galleryIncomplete) {
-            showSaveError('A hír elmentve, de a galériát nem sikerült teljesen menteni. Nyisd meg újra, ellenőrizd a képeket, és mentsd el még egyszer!');
+            showSaveError('A hír elmentve, de a galériát nem sikerült teljesen menteni. Nyisd meg újra, ellenőrizd a képeket, és mentsd el még egyszer!'
+                + (galleryErrorReason ? ` Ok: ${galleryErrorReason}` : ''));
         } else {
             showToast('Sikeresen mentve!', 'success');
         }
@@ -4936,7 +5331,7 @@ async function saveHir() {
         loadAll();
 
     } catch(e) {
-        showToast('Váratlan hiba történt.', 'error');
+        showToast(unexpectedErrorText(e, 'Váratlan hiba történt.'), 'error');
         console.error(e);
     }
 
@@ -5029,7 +5424,7 @@ async function saveEsemeny() {
         closeModal('esemeny');
         loadAll();
     } else {
-        showSaveError('Mentési hiba!');
+        showSaveError(errorWithReason('Mentési hiba!'));
     }
 
     btn.disabled = false;
@@ -5075,6 +5470,15 @@ async function saveRolunk() {
             const file = fileInput.files[0];
             const ext = file.name.split('.').pop();
             imageUrl = await uploadImage('about-images', file, `about_${Date.now()}.${ext}`);
+            // Ha a kép nem ment fel, a szöveget sem mentjük. Korábban a szöveg
+            // elmentődött, és „Rólunk sikeresen mentve!" jelent meg, holott a
+            // kép nem cserélődött – ugyanúgy állunk meg, mint a többi fülön.
+            if (!imageUrl) {
+                showSaveError(errorWithReason('Képfeltöltés sikertelen!') + ' A szöveg sem lett mentve.');
+                btn.disabled = false;
+                btn.innerHTML = 'Mentés';
+                return;
+            }
         }
 
         const payload = {
@@ -5096,11 +5500,13 @@ async function saveRolunk() {
 
         if (ok) {
             showToast('Rólunk sikeresen mentve!', 'success');
+            // Mostantól ez a mentett kép (egy később elutasított kiválasztás erre áll vissza)
+            if (imageUrl) storedPreviewUrls.rolunk = imageUrl;
         } else {
-            showSaveError('Mentési hiba!');
+            showSaveError(errorWithReason('Mentési hiba!'));
         }
     } catch(e) {
-        showToast('Váratlan hiba!', 'error');
+        showToast(unexpectedErrorText(e, 'Váratlan hiba!'), 'error');
         console.error(e);
     }
 
@@ -5189,10 +5595,10 @@ async function saveSiteContent() {
         if (ok) {
             showToast('Statisztikák és szövegek mentve!', 'success');
         } else {
-            showSaveError('Mentési hiba!');
+            showSaveError(errorWithReason('Mentési hiba!'));
         }
     } catch(e) {
-        showToast('Váratlan hiba!', 'error');
+        showToast(unexpectedErrorText(e, 'Váratlan hiba!'), 'error');
         console.error(e);
     }
 
@@ -5224,10 +5630,20 @@ async function loadGolyaPdf() {
     currentLink.textContent = doc.title || 'Gólya Kisokos';
 }
 
-document.getElementById('file-golya').addEventListener('change', function() {
+document.getElementById('file-golya').addEventListener('change', async function() {
     const file = this.files[0];
     if (!file) return;
     const nameEl = document.getElementById('golya-filename');
+    // A túl nagy vagy nem PDF fájl (pl. ide húzott kép) már itt kiesik
+    const problem = await checkUploadFile(file, 'pdf');
+    if (this.files[0] !== file) return;
+    if (problem) {
+        this.value = '';
+        nameEl.textContent = '';
+        nameEl.style.display = 'none';
+        showToast(problem, 'error');
+        return;
+    }
     nameEl.textContent = file.name;
     nameEl.style.display = 'block';
 });
@@ -5260,7 +5676,7 @@ async function saveGolyaPdf() {
         const fileUrl = await uploadImage('documents', file, path);
 
         if (!fileUrl) {
-            showToast('Feltöltés sikertelen!', 'error');
+            showSaveError(errorWithReason('Feltöltés sikertelen!'));
             btn.disabled = false;
             btn.innerHTML = 'Feltöltés & Mentés';
             return;
@@ -5281,10 +5697,10 @@ async function saveGolyaPdf() {
             }
             loadGolyaPdf();
         } else {
-            showSaveError('Mentési hiba!');
+            showSaveError(errorWithReason('Mentési hiba!'));
         }
     } catch(e) {
-        showToast('Váratlan hiba!', 'error');
+        showToast(unexpectedErrorText(e, 'Váratlan hiba!'), 'error');
         console.error(e);
     }
 
@@ -5374,7 +5790,7 @@ async function removeGolyaPdf() {
             }
         }
     } catch (e) {
-        showToast('Váratlan hiba!', 'error');
+        showToast(unexpectedErrorText(e, 'Váratlan hiba!'), 'error');
         console.error(e);
     }
 
@@ -5612,7 +6028,7 @@ async function savePartner(id) {
             // NEM mentünk: különben a név/link elmentődne, a logó viszont nem,
             // és a felhasználó azt hinné, minden rendben van.
             if (!logoUrl) {
-                showSaveError('A logó feltöltése nem sikerült! A többi mező sem lett mentve.');
+                showSaveError(errorWithReason('A logó feltöltése nem sikerült!') + ' A többi mező sem lett mentve.');
                 btn.disabled = false;
                 btn.innerHTML = 'Mentés';
                 return;
@@ -5633,10 +6049,10 @@ async function savePartner(id) {
             showToast('Partner sikeresen mentve!', 'success');
             await loadPartnerek();
         } else {
-            showSaveError('Mentési hiba!');
+            showSaveError(errorWithReason('Mentési hiba!'));
         }
     } catch(e) {
-        showToast('Váratlan hiba!', 'error');
+        showToast(unexpectedErrorText(e, 'Váratlan hiba!'), 'error');
         console.error(e);
     }
 
@@ -5850,7 +6266,7 @@ async function toggleFeatureFlag(id, input) {
         // olyan állapotot mutatna, ami az adatbázisban nincs is így – és a
         // felhasználó azt hinné, elmentette.
         input.checked = !kivant;
-        showSaveError('A kapcsoló mentése nem sikerült!');
+        showSaveError(errorWithReason('A kapcsoló mentése nem sikerült!'));
     }
 }
 
@@ -5887,6 +6303,43 @@ function initDragDropVisuals() {
 }
 
 document.addEventListener('DOMContentLoaded', initDragDropVisuals);
+
+// ════════════════════════════════════════════
+// FIGYELMEZTETÉS A LAP ELHAGYÁSA ELŐTT
+// ════════════════════════════════════════════
+// Ha egy nyitott modálban mentetlen változás van, vagy épp mentés / feltöltés
+// fut, a böngésző rákérdez, mielőtt bezárnád vagy újratöltenéd a lapot. A
+// kérdés szövegét a böngésző adja – sajátot ma már egyik sem jelenít meg.
+//
+// Mentetlen változás: a modál megnyitása óta beleírtak vagy fájlt választottak
+// (input / change esemény a modálon belül), kivettek vagy átrendeztek egy
+// galériaképet, eltávolításra jelölték a képet, vagy egy piszkozat lett
+// visszaállítva. A programból kitöltött mezők (szerkesztés megnyitása) nem
+// számítanak. A sikeres mentés bezárja a modált – utána nincs mit védeni.
+let modalDirty = false;
+
+function markModalDirty() {
+    modalDirty = true;
+}
+
+['input', 'change'].forEach(type => document.addEventListener(type, e => {
+    if (e.target instanceof Element && e.target.closest('.modal-overlay.open')) markModalDirty();
+}, true));
+
+// Fut-e mentés vagy feltöltés? Minden mentő gomb a futás idejére
+// `<span class="spinner">`-t kap, és a végén visszakapja a feliratát. A
+// bejelentkezés gombja is – az nem számít.
+function saveInProgress() {
+    return !!document.querySelector('button:not(#login-btn) > .spinner');
+}
+
+window.addEventListener('beforeunload', e => {
+    const dirtyModal = modalDirty && document.querySelector('.modal-overlay.open');
+    if (!dirtyModal && !saveInProgress()) return;
+    e.preventDefault();
+    // Régebbi Chrome és Safari csak ebből érti, hogy kérdezni kell
+    e.returnValue = '';
+});
 
 // ════════════════════════════════════════════
 // MOBIL NAVIGÁCIÓ
