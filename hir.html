@@ -207,11 +207,20 @@
         </ul>
     </nav>
 
+    <!-- FŐ TARTALOM – a <main> a képernyőolvasóknak jelöli az oldal fő részét
+         (a nav és a footer kívül marad). Tisztán szerkezeti elem, stílus nincs
+         rajta; részletesen lásd az index.html azonos blokkjánál. A lightbox
+         szándékosan a <main> UTÁN áll: az egy rejtett, teljes képernyős réteg,
+         nem a cikk része. -->
+    <main>
+
     <section class="article-page">
         <div class="article-container">
             <p class="loading-text">Hír betöltése...</p>
         </div>
     </section>
+
+    </main>
 
     <!-- LIGHTBOX -->
     <div class="lightbox-overlay" id="lightbox" onclick="lightboxOverlayClick(event)">
