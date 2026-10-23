@@ -116,6 +116,12 @@ header#hero {
 .hamburger {
     display: none; /* Gépen nem látszik */
     cursor: pointer;
+    /* ÉRINTÉSI CÉL: a három csík önmagában csak 25×29 px, kisebb az ajánlott
+       44×44-nél. A padding a koppintható területet 45×45-re növeli, a vele
+       egyező negatív margó pedig visszahúzza – a nav elrendezése és a csíkok
+       helye pixelre ugyanaz marad, csak a kattintható felület nő. */
+    padding: 8px 10px;
+    margin: -8px -10px;
 }
 
 /* 2. Így néznek ki a fehér csíkok (a gomb részei) */
@@ -373,6 +379,31 @@ footer {
     color: #F1C039;
     margin: 0 10px;
     text-decoration: none;
+    /* ÉRINTÉSI CÉL: sima szövegként csak 20 px magasak voltak, mobilon pedig
+       két-három sorba tördelve 20 px-enként követték egymást. Így mindegyik
+       legalább 44 px magas, a tördelt sorok nem érnek egymásba, és egy link
+       (pl. „KGKx Instagram") a sor végén sem törik ketté. */
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+}
+
+/* A LinkedIn helyőrző (href="#") a HTML-ben inline `opacity: 0.5`-öt kap: az
+   arany így a sötétkéken csak 3,5:1 (AA: 4,5:1). Az inline stílust csak
+   !important írja felül – a HTML-hez ennél a feladatnál nem nyúltunk. 0,65
+   mellett 5,1:1, és még mindig láthatóan halványabb a többi linknél.
+   Ha az inline stílus egyszer kikerül a HTML-ből, ez a szabály mehet vele. */
+.footer-socials a[href="#"] {
+    opacity: 0.65 !important;
+}
+
+/* Az e-mail cím a lábléc szövegében. Saját szabály nélkül a böngésző alap
+   kékje (#0000EE) maradt, ami a sötétkéken ~2:1 – a közösségi linkek aranya
+   10,9:1. Az aláhúzás SZÁNDÉKOSAN marad: a link egy mondatban áll, és az
+   arany a körülötte lévő fehér szövegtől csak 1,7:1-gyel tér el, tehát szín
+   alapján önmagában nem lehetne linknek felismerni. */
+footer a[href^="mailto:"] {
+    color: #F1C039;
 }
 
 /* --- INTÉZMÉNYI PARTNEREK A FOOTERBEN ---
@@ -553,14 +584,19 @@ a.footer-partner:hover {
     font-size: 1.2rem;
 }
 
+/* KONTRASZT: a halvány szürkék és a világoskék linkek a WCAG AA 4,5:1-es
+   határa alatt voltak. A cserék a lehető legvilágosabb árnyalatot tartják,
+   ami kis ráhagyással átmegy: fehér háttéren #737373 (4,7:1), a #F1F1E6
+   oldalháttéren #6b6b6b (4,7:1), a linkeknél a #498CFF sötétebb változata,
+   ugyanazzal az árnyalattal: #1964E6 (fehéren 5,2:1). */
 .news-item .meta {
     font-size: 0.85rem;
-    color: #888;
+    color: #737373; /* #888 volt: fehéren 3,5:1 */
     margin-bottom: 15px;
 }
 
 .news-item a {
-    color: #498CFF;
+    color: #1964E6; /* #498CFF volt: fehéren 3,2:1 */
     text-decoration: none;
     font-weight: 600;
 }
@@ -638,7 +674,7 @@ a.footer-partner:hover {
 }
 
 .article-date {
-    color: #888;
+    color: #737373; /* #888 volt: fehéren 3,5:1 */
     font-size: 0.9rem;
     margin-bottom: 10px;
 }
@@ -674,11 +710,19 @@ blockquote {
 
 /* --- BETÖLTÉS SZÖVEG --- */
 .loading-text {
-    color: #aaa;
+    color: #6b6b6b; /* #aaa volt: az oldalháttéren 2,0:1, a hír-kártyán 2,3:1 */
     font-style: italic;
     text-align: center;
     width: 100%;
     padding: 20px 0;
+}
+
+/* A Gólya Kisokos „Hamarosan elérhető..." felirata (index.html) ugyanilyen
+   halvány szöveg, de a színe inline stílusban áll (#aaa, fehéren 2,3:1).
+   Azt csak !important írja felül – a HTML-hez ennél a feladatnál nem
+   nyúltunk. Ha az inline szín egyszer kikerül a HTML-ből, ez mehet vele. */
+#golya-pdf-missing {
+    color: #737373 !important;
 }
 
 /* --- BETÖLTÉSI HIBA + ÚJRAPRÓBÁLÁS ---
@@ -760,10 +804,27 @@ blockquote {
     transform: translateY(-2px);
 }
 
-/* --- DISZKRÉT ADMIN LINK --- */
+/* --- DISZKRÉT ADMIN LINK ---
+   ÉRINTÉSI CÉL: a pötty a 8 px-es betűvel csak ~10 px magas, a `display:
+   block` miatt viszont korábban a lábléc TELJES szélességében kattintható
+   volt (egy láthatatlan csík). Most egy 44×44-es, középre igazított négyzet;
+   a pötty pixelre a régi helyén marad, és a lábléc magassága sem változik:
+   - line-height: 10px + padding 10/24 → a doboz pontosan 44 px magas;
+   - margin-bottom: -34px → a többlet (10 + 24) nem nyújtja meg a láblécet;
+   - top: -10px → a doboz a felső paddingnyit feljebb csúszik, így a pötty a
+     helyén marad (a relatív eltolás az elrendezést nem érinti).
+   A többlet SZÁNDÉKOSAN lefelé nagyobb (a lábléc 40 px-es alsó paddingjába
+   lóg): felette az Adatvédelem link csak 15 px magas, és a WCAG 2.5.8 szerint
+   a középpontja körüli 24 px-es körbe nem lóghat bele másik célpont. 17 px-es
+   felső túllógásnál a Lighthouse ezt hibának jelezte (target-size). */
 .admin-link {
     display: block;
-    margin-top: 20px;
+    width: 44px;
+    line-height: 10px;
+    padding: 10px 0 24px;
+    margin: 20px auto -34px;
+    position: relative;
+    top: -10px;
     color: rgba(255,255,255,0.08);
     font-size: 0.5rem;
     text-decoration: none;
@@ -1172,6 +1233,26 @@ blockquote {
     margin: 0 auto;
 }
 
+/* CLS (elmozdulás) ELLEN: a hírlista legalább a képernyő aljáig ér.
+   A script.js betöltéskor 9 skeleton-kártyát rajzol (mobilon ~1700 px), ami a
+   footert a képernyő alá tolja. Ha utána kevés vagy egy hír sincs (vagy hiba
+   jön), a lista összeesik, és a footer a képernyő aljáról a közepére ugrik –
+   mobilon ez egymagában 0,36-os CLS volt. A min-height miatt a footer MINDEN
+   állapotban (Betöltés..., skeleton, üres, hiba, kevés hír) a képernyő alatt
+   kezdődik, tehát az ugrás a látható részen kívül történik.
+   A 360px: a lista fölötti rész (nav + szekció-padding + cím + bevezető)
+   mobilon ~300, asztalon ~280 px, a lista alatt pedig még 125 px jön (a
+   lapozó margója + a szekció alsó paddingja). Így a footer mobilon ~65,
+   asztalon ~45 px-szel a képernyő alja alatt kezdődik. Ha a lista fölé új
+   elem kerül, az csak lejjebb tolja a footert – a védelem nem gyengül.
+   Az `align-content: start` nem díszítés: nélküle a rács a sorait a
+   min-height-ig nyújtaná, és egy utolsó oldalon álló 1-2 hír fehér kártyája
+   képernyőnyi magasra nőne. */
+#hirek-archivum .news-grid {
+    min-height: calc(100vh - 360px);
+    align-content: start;
+}
+
 /* "Összes hír megtekintése" gomb a főoldali hírek alatt */
 .news-more {
     margin-top: 25px;
@@ -1251,7 +1332,7 @@ blockquote {
 }
 
 .page-gap {
-    color: #aaa;
+    color: #6b6b6b; /* #aaa volt: az oldalháttéren 2,0:1 */
     font-weight: 700;
     padding: 0 2px;
     user-select: none;
@@ -1317,7 +1398,7 @@ blockquote {
 
 .notfound-link,
 .article-missing-link {
-    color: #498CFF;
+    color: #1964E6; /* #498CFF volt: fehéren 3,2:1 */
     text-decoration: none;
     font-weight: 600;
     font-size: 0.95rem;
@@ -1595,11 +1676,11 @@ body:has(.nav-links.active) .back-to-top {
 .kapcsolat-fallback {
     margin: 26px 0 0;
     font-size: 0.9rem;
-    color: #888;
+    color: #737373; /* #888 volt: fehéren 3,5:1 */
 }
 
 .kapcsolat-fallback a {
-    color: #498CFF;
+    color: #1964E6; /* #498CFF volt: fehéren 3,2:1 */
     text-decoration: none;
     font-weight: 600;
 }
@@ -1731,7 +1812,7 @@ body:has(.nav-links.active) .back-to-top {
 }
 
 .kapcsolat-kikapcsolva a {
-    color: #498CFF;
+    color: #1964E6; /* #498CFF volt: a #f4f4ec dobozon 2,9:1 */
     text-decoration: none;
     font-weight: 700;
 }
@@ -1893,7 +1974,7 @@ body:has(.nav-links.active) .back-to-top {
 /* A h1 alatti apró dátumsor - halvány, hogy ne vonja el a figyelmet */
 .szoveg-datum {
     font-size: 0.82rem;
-    color: #999;
+    color: #737373; /* #999 volt: fehéren 2,8:1 */
     margin: 0 0 30px;
 }
 
