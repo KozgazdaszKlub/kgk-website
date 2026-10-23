@@ -1,4 +1,11 @@
 /* --- ALAP BEÁLLÍTÁSOK (MARAD) --- */
+/* Csak világos színséma: a Chrome automatikus sötét módja ("Auto Dark Mode")
+   különben átszínezné az oldalt, és a sötétkék navon eltűnne a fehér
+   hamburger ikon. Ugyanez <meta name="color-scheme">-ként mind a hat oldal
+   fejében is ott van – a meta már a CSS megérkezése előtt hat. */
+:root {
+    color-scheme: only light;
+}
 body {
     margin: 0;
     padding: 0;
@@ -388,13 +395,12 @@ footer {
     min-height: 44px;
 }
 
-/* A LinkedIn helyőrző (href="#") a HTML-ben inline `opacity: 0.5`-öt kap: az
-   arany így a sötétkéken csak 3,5:1 (AA: 4,5:1). Az inline stílust csak
-   !important írja felül – a HTML-hez ennél a feladatnál nem nyúltunk. 0,65
-   mellett 5,1:1, és még mindig láthatóan halványabb a többi linknél.
-   Ha az inline stílus egyszer kikerül a HTML-ből, ez a szabály mehet vele. */
-.footer-socials a[href="#"] {
-    opacity: 0.65 !important;
+/* A LinkedIn helyőrző (href="#", „Hamarosan"). 0,5-ös átlátszósággal az arany
+   a sötétkéken csak 3,5:1 lenne (AA: 4,5:1); 0,65 mellett 5,1:1, és még mindig
+   láthatóan halványabb a többi linknél. */
+.footer-socials .footer-social-soon {
+    opacity: 0.65;
+    cursor: default;
 }
 
 /* Az e-mail cím a lábléc szövegében. Saját szabály nélkül a böngésző alap
@@ -717,12 +723,11 @@ blockquote {
     padding: 20px 0;
 }
 
-/* A Gólya Kisokos „Hamarosan elérhető..." felirata (index.html) ugyanilyen
-   halvány szöveg, de a színe inline stílusban áll (#aaa, fehéren 2,3:1).
-   Azt csak !important írja felül – a HTML-hez ennél a feladatnál nem
-   nyúltunk. Ha az inline szín egyszer kikerül a HTML-ből, ez mehet vele. */
-#golya-pdf-missing {
-    color: #737373 !important;
+/* A Gólya Kisokos „Hamarosan elérhető..." felirata (index.html, fehér
+   háttéren). A régi #aaa fehéren csak 2,3:1 volt; a #737373 4,7:1. */
+.golya-pdf-soon {
+    color: #737373;
+    font-style: italic;
 }
 
 /* --- BETÖLTÉSI HIBA + ÚJRAPRÓBÁLÁS ---
@@ -1366,6 +1371,10 @@ blockquote {
     box-sizing: border-box;
 }
 
+/* Az arany „404" sötétkék jelvényen: fehér háttéren az arany csak 1,7:1 volt
+   (nagy szövegnél is 3:1 kell), sötétkéken 10,9:1 – így a márkaszín marad.
+   A bal padding 4 px-szel nagyobb: a letter-spacing az utolsó számjegy UTÁN
+   is hagy 4 px-et, így a szám optikailag középen áll. */
 .notfound-box .notfound-code {
     font-family: 'Montserrat', sans-serif;
     font-weight: 700;
@@ -1373,7 +1382,11 @@ blockquote {
     line-height: 1;
     letter-spacing: 4px;
     color: #F1C039;
-    margin: 0 0 10px;
+    background-color: #08122b;
+    display: inline-block;
+    padding: 14px 26px 14px 30px;
+    border-radius: 10px;
+    margin: 0 0 24px;
 }
 
 .notfound-box h1 {
@@ -1445,7 +1458,7 @@ blockquote {
 
 @media (max-width: 768px) {
     .notfound-box { padding: 40px 24px; }
-    .notfound-box .notfound-code { font-size: 3.4rem; }
+    .notfound-box .notfound-code { font-size: 3.4rem; padding: 12px 20px 12px 24px; }
 }
 
 /* ════════════════════════════════════════════

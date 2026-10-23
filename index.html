@@ -8,7 +8,7 @@
          egy pillanatra felvillanna a valódi tartalom. Az admin.html-be EZ
          SOHA nem kerülhet be — karbantartás alatt is elérhetőnek kell lennie. -->
     <script src="maintenance.js"></script>
-    <title>Home | KGK</title>
+    <title>Közgazdász Klub – A közösség, ami összehoz.</title>
     <!-- KERESŐK ÉS MEGOSZTÁS – csak metaadat, a látható oldalon nem változtat.
          A címek abszolútak, és mind a kanonikus, www nélküli
          https://kozgazdaszklub.com domainre mutatnak: ugyanez az oldal a www.-s
@@ -19,6 +19,11 @@
     <meta name="description" content="A Közgazdász Klub (KGK) kolozsvári romániai magyar egyetemista szervezet. Ismerd meg csapatunkat, munkacsoportjainkat, rendezvényeinket és híreinket.">
     <link rel="canonical" href="https://kozgazdaszklub.com/">
     <meta name="theme-color" content="#08122b">
+    <!-- CSAK VILÁGOS SZÍNSÉMA – a Chrome automatikus sötét módja ("Auto Dark
+         Mode") különben magától átszínezi az oldalt, és a sötétkék navon
+         eltűnik a fehér hamburger ikon. Ugyanez a style.css :root szabályában
+         is ott van; mindkettő kell (a meta már a CSS megérkezése előtt hat). -->
+    <meta name="color-scheme" content="only light">
     <meta property="og:title" content="Közgazdász Klub – A közösség, ami összehoz.">
     <meta property="og:description" content="A Közgazdász Klub (KGK) kolozsvári romániai magyar egyetemista szervezet. Ismerd meg csapatunkat, munkacsoportjainkat, rendezvényeinket és híreinket.">
     <meta property="og:url" content="https://kozgazdaszklub.com/">
@@ -57,9 +62,19 @@
         ]
     }
     </script>
-    <link rel="icon" type="image/x-icon" href="images/Copy of kgk_feher.ico">
+    <!-- IKONOK – mindkettő a gyökérben van, mert a böngészők és a keresők
+         link nélkül is ott keresik (/favicon.ico, /apple-touch-icon.png).
+         Sötétkék háttéren a fehér logó: átlátszó háttéren a világos
+         böngészőfülön láthatatlan lenne. Az apple-touch-icon 180×180-as
+         (iPhone kezdőképernyő), a favicon.ico 16/32/48 px-es. -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- FONT AWESOME – csak ez az oldal használja (a Gólya letöltés ikonja és az
+         elnökségi kártyák közösségi ikonjai). Az integrity a cdnjs hivatalos
+         SRI hash-e: ha a CDN-en a fájl megváltozna, a böngésző nem tölti be.
+         Verzióváltásnál a hash-t is cserélni kell (cdnjs.com, "Copy SRI"). -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous">
     <link rel="stylesheet" href="style.css">
     <script src="script.js" defer></script>
 </head>
@@ -219,7 +234,7 @@
                 <a id="golya-pdf-btn" href="#" class="btn" style="display:none;">
                     <i class="fas fa-download"></i> Gólya Kisokos Letöltése
                 </a>
-                <p id="golya-pdf-missing" style="color:#aaa; font-style:italic;">Hamarosan elérhető...</p>
+                <p id="golya-pdf-missing" class="golya-pdf-soon">Hamarosan elérhető...</p>
             </div>
         </div>
     </section>
@@ -275,12 +290,12 @@
                 <a href="https://www.facebook.com/kozgazdaszklub" target="_blank">Facebook</a>
                 <a href="https://www.instagram.com/kozgazdaszklub" target="_blank">Instagram</a>
                 <a href="https://www.instagram.com/_kgk_x_/" target="_blank">KGKx Instagram</a>
-                <a href="#" style="opacity: 0.5; cursor: default;" title="Hamarosan...">LinkedIn (Hamarosan)</a>
+                <a href="#" class="footer-social-soon" title="Hamarosan...">LinkedIn (Hamarosan)</a>
             </div>
 
             <p class="footer-legal"><a href="adatvedelem.html">Adatvédelem</a></p>
         </div>
-        <a href="admin.html" class="admin-link">&#9679;</a>
+        <a href="admin.html" class="admin-link" aria-label="Admin" rel="nofollow">&#9679;</a>
     </footer>
 
 </body>
