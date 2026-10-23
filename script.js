@@ -256,9 +256,9 @@ function emptyMessage(text) {
 //   if (!x.length) { ...a régi üres ág, változatlanul... } ← [] = nincs adat
 //
 // SZÁNDÉKOSAN nincs hibaüzenet a kapcsolóknál (loadFeatureFlags), a
-// statisztikáknál (loadSiteContent) és a footer partnereinél
-// (loadInstitutionalPartners): ott a hiba esetére kitalált fallback a jó
-// viselkedés, lásd ott.
+// statisztikáknál és a Gólyáknak szövegénél (loadSiteContent), valamint a
+// footer partnereinél (loadInstitutionalPartners): ott a hiba esetére
+// beégetett alapérték vagy az elrejtés a jó viselkedés, lásd ott.
 //
 // A dobozt DOM-elemként rakjuk össze, nem HTML szövegként: így a gomb a saját
 // kattintás-figyelőjével együtt születik, nem kell utólag megkeresni.
@@ -438,16 +438,42 @@ async function loadGolyaPdf() {
 // ============================================================
 // STATISZTIKÁK + GÓLYÁKNAK SZÖVEG BETÖLTÉSE
 // ============================================================
-// Ha a site_content tábla nem érhető el (hálózati hiba, üres tábla), ezek az
-// értékek jelennek meg – így a szekció sosem marad üresen vagy 0-n ragadva.
+// Ha a site_content tábla nem érhető el (hálózati hiba, üres tábla), a
+// Gólyáknak szekció ezt a szöveget kapja – így sosem marad üresen.
+//
+// A statisztikáknak SZÁNDÉKOSAN nincs ilyen alapértéke. Egy beégetett szám
+// előbb-utóbb elavul (a régi „500 Aktív Tag" már eltért a DB-ben álló 400-tól),
+// és hiba esetén a látogató egy kitalált adatot látna valódiként. Helyette az a
+// statisztika, aminek nincs érvényes száma és felirata, rejtve marad; ha
+// egyiknek sincs, a teljes #stats sáv (lásd statFromRow()).
 const SITE_CONTENT_FALLBACK = {
-    stat_1_value: 15,  stat_1_label: 'Év Tapasztalat',
-    stat_2_value: 500, stat_2_label: 'Aktív Tag',
-    stat_3_value: 50,  stat_3_label: 'Éves Rendezvény',
-    stat_4_value: 100, stat_4_label: '% Közösség',
     golyaknak_title: 'Üdvözlünk az egyetemen!',
     golyaknak_text: 'Tudjuk, hogy az első hetek nehezek lehetnek, de mi segítünk eligazodni. Töltsd le a Gólya Kisokost, amiben mindent megtalálsz!'
 };
+
+// A mértékegység a DB-ben a FELIRAT elején áll (pl. "% Közösség" – az admin
+// mezőjének mintaszövege is ez). Ilyenkor az egység a szám mögé kerül, a "+"
+// HELYETT: "100%" / "Közösség", nem "100+" / "% Közösség". Egységnek a
+// százalék- és ezrelékjel, a fokjel és a pénznemjelek (€, $, £…) számítanak.
+// Szöveges egységet (pl. "Ft", "km") nem ismer fel: azt a felirat első
+// szavától nem lehet megkülönböztetni.
+const STAT_UNIT_PATTERN = /^([%‰°]|\p{Sc})\s*(\S.*)$/u;
+
+// Az n-edik statisztika a site_content sorából: { value, suffix, label }, vagy
+// null, ha nincs érvényes száma vagy felirata (ilyenkor a doboza rejtve marad).
+function statFromRow(row, n) {
+    if (!row) return null;
+    const raw = row[`stat_${n}_value`];
+    // A Number(null) és a Number('') 0 lenne – a hiányzó szám nem nulla
+    const value = raw === null || raw === undefined || raw === '' ? NaN : Number(raw);
+    const label = String(row[`stat_${n}_label`] ?? '').trim();
+    if (!Number.isFinite(value) || value < 0 || !label) return null;
+
+    const unit = STAT_UNIT_PATTERN.exec(label);
+    return unit
+        ? { value, suffix: unit[1], label: unit[2] }
+        : { value, suffix: '+', label };
+}
 
 async function loadSiteContent() {
     const statsContainer = document.querySelector('#stats .stats-container');
@@ -456,31 +482,41 @@ async function loadSiteContent() {
     if (!statsContainer && !golyaTitle && !golyaText) return;
 
     const content = { ...SITE_CONTENT_FALLBACK };
+    let row = null;   // a DB sora – a statisztikák CSAK innen jöhetnek
     try {
         const data = await supabaseFetch('site_content', { limit: 1 });
         if (data.length) {
+            row = data[0];
             // Csak a kitöltött mezőket vesszük át, a null-oknál marad az alapérték
-            for (const [key, val] of Object.entries(data[0])) {
+            for (const [key, val] of Object.entries(row)) {
                 if (key in content && val !== null && val !== undefined) content[key] = val;
             }
         } else {
-            console.warn('site_content: nincs sor, az alapértelmezett tartalom jelenik meg.');
+            console.warn('site_content: nincs sor – a statisztikák rejtve maradnak, a Gólyáknak szöveg az alapértelmezett.');
         }
     } catch (err) {
         console.error('loadSiteContent hiba:', err);
     }
 
-    // Statisztikák – a data-target értéket az initCounters() olvassa ki
+    // Statisztikák – a data-target és a data-suffix értéket az initCounters() olvassa ki
     if (statsContainer) {
+        let shown = 0;
         statsContainer.querySelectorAll('.stat-box').forEach((box, i) => {
+            const stat = statFromRow(row, i + 1);
+            if (!stat) { box.hidden = true; return; }
+            shown++;
             const counter = box.querySelector('.counter');
             const label = box.querySelector('p');
             if (counter) {
-                counter.setAttribute('data-target', Number(content[`stat_${i + 1}_value`]) || 0);
+                counter.setAttribute('data-target', stat.value);
+                counter.setAttribute('data-suffix', stat.suffix);
                 counter.textContent = '0';   // a skeleton helyére a kiindulási érték
             }
-            if (label) label.textContent = content[`stat_${i + 1}_label`] || '';
+            if (label) label.textContent = stat.label;
         });
+        // Egyetlen érvényes statisztika sincs (hiba, üres tábla): a sötétkék
+        // sáv se maradjon ott üresen, a skeletonokkal
+        if (!shown) statsContainer.closest('#stats').hidden = true;
     }
 
     // Gólyáknak szekció szövege (a PDF gombot a loadGolyaPdf() kezeli)
@@ -686,6 +722,13 @@ async function loadNews() {
 // ============================================================
 const NEWS_PER_PAGE = 9;
 
+// Betöltés közben ennyi skeleton-kártya látszik: asztalon egy teljes sor,
+// mobilon nagyjából egy képernyőnyi. SZÁNDÉKOSAN nem NEWS_PER_PAGE: a 9
+// skeleton mobilon ~1700 px magas volt, és ha utána kevés hír jött vagy egy
+// sem, a lista összeesett. A footer ugrását ettől függetlenül a style.css
+// `#hirek-archivum .news-grid` min-height-je tartja a képernyő alatt.
+const NEWS_ARCHIVE_SKELETONS = 3;
+
 // Egy oldalnyi hír lekérése + a hírek teljes darabszáma
 async function fetchNewsPage(page) {
     return supabaseFetch('news', {
@@ -713,13 +756,16 @@ function renderPagination(container, page, totalPages) {
     if (!container) return;
     if (totalPages <= 1) { container.innerHTML = ''; return; }
 
+    // Az inaktív gomb <span> (nincs hova lapozni), ezért disabled attribútumot
+    // nem kaphat. Az aria-disabled jelzi a képernyőolvasónak – és a Lighthouse
+    // kontrasztmérésének –, hogy szándékosan inaktív: a halvány színe 1,86:1.
     const prev = page > 1
         ? `<a class="page-btn" href="hirek.html?page=${page - 1}">&laquo; Előző</a>`
-        : `<span class="page-btn disabled">&laquo; Előző</span>`;
+        : `<span class="page-btn disabled" aria-disabled="true">&laquo; Előző</span>`;
 
     const next = page < totalPages
         ? `<a class="page-btn" href="hirek.html?page=${page + 1}">Következő &raquo;</a>`
-        : `<span class="page-btn disabled">Következő &raquo;</span>`;
+        : `<span class="page-btn disabled" aria-disabled="true">Következő &raquo;</span>`;
 
     const numbers = buildPageList(page, totalPages).map(p => {
         if (p === '...') return `<span class="page-gap">…</span>`;
@@ -735,7 +781,7 @@ async function loadNewsArchive() {
     const pager = document.getElementById('pagination');
     if (!grid) return;
 
-    grid.innerHTML = skeletonNewsItems(NEWS_PER_PAGE);
+    grid.innerHTML = skeletonNewsItems(NEWS_ARCHIVE_SKELETONS);
     if (pager) pager.innerHTML = '';
 
     // Az oldalszám az URL-ből jön (hirek.html?page=2); hiányzó vagy hibás érték = első oldal
@@ -1163,7 +1209,8 @@ function initCounters() {
                         counter.innerText = Math.ceil(count + inc);
                         setTimeout(updateCount, 20);
                     } else {
-                        counter.innerText = target + '+';
+                        // A "+" helyén mértékegység is állhat (pl. "%") – lásd statFromRow()
+                        counter.innerText = target + (counter.getAttribute('data-suffix') ?? '+');
                     }
                 };
                 updateCount();
