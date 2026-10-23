@@ -58,6 +58,17 @@ const PUBLISHER_LOGO = 'images/kgk-logo-negyzet.png';
 // egy admin-oldali szerkesztés után még a régi cím/kép a megosztásokban.
 const CDN_CACHE_SECONDS = 600;
 
+// Ha a Supabase nem válaszolt rendesen, a válasz a sima sablon (meta tagek
+// nélkül). Azt NEM akarjuk 10 percre befagyasztani a CDN-be: rövid életű
+// gyorsítótárral a következő kérés már újra megpróbálja. Itt szándékosan
+// nincs stale-while-revalidate sem, hogy egy ilyen válasz később se jöhessen
+// elő elavult példányként.
+const CDN_CACHE_SECONDS_DEGRADED = 60;
+
+// A nem létező hír oldalára (404) kerülő robots meta tag. Ugyanezt mondja az
+// X-Robots-Tag fejléc is; a kettő együtt biztos, hogy a kereső ne vegye fel.
+const NOINDEX_META = '<meta name="robots" content="noindex">';
+
 // ============================================================
 // A STATIKUS hir.html BEOLVASÁSA
 // ============================================================
@@ -177,8 +188,10 @@ function getSlug(req) {
     if (!slug) return null;
     slug = String(slug).trim();
 
-    // Ilyen hosszú slug biztosan nem létezik - felesleges lekérdezni.
-    if (!slug || slug.length > 200) return null;
+    // Hosszkorlát SZÁNDÉKOSAN nincs: a null itt 404-et jelent, az admin
+    // viszont nem korlátozza a slug hosszát – egy hosszú, de létező hír így
+    // kieshetne a keresőből. Hogy létezik-e, azt mindig a Supabase dönti el.
+    if (!slug) return null;
     return slug;
 }
 
@@ -305,9 +318,31 @@ function injectMeta(html, article, origin, slug) {
     );
 }
 
+// A noindex meta tag befűzése a nem létező hír oldalába, a <title> UTÁN –
+// ugyanúgy, mint az injectMeta(). A sablonból semmi nem törlődik, a cím sem
+// változik: a „nem található" feliratot és címet a loadArticle() írja ki.
+function injectNoindex(html) {
+    if (/<title>[\s\S]*?<\/title>/i.test(html)) {
+        return html.replace(
+            /<title>[\s\S]*?<\/title>/i,
+            (titleTag) => `${titleTag}\n    ${NOINDEX_META}`
+        );
+    }
+
+    return html.replace(
+        /<head[^>]*>/i,
+        (headTag) => `${headTag}\n    ${NOINDEX_META}`
+    );
+}
+
 // ============================================================
 // SUPABASE LEKÉRDEZÉS
 // ============================================================
+// Három kimenet, és a különbségük a lényeg:
+//  - a hír sora: létezik (és publikus – a piszkozatot az RLS elrejti);
+//  - null: a Supabase rendben válaszolt, de nincs ilyen hír -> 404;
+//  - dobott hiba: NEM tudjuk, létezik-e (HTTP hiba, hálózati hiba,
+//    időtúllépés, értelmezhetetlen válasz) -> SOHA nem 404.
 
 async function fetchArticle(slug) {
     const url = `${SUPABASE_URL}/rest/v1/news`
@@ -325,12 +360,14 @@ async function fetchArticle(slug) {
     });
 
     if (!res.ok) {
-        console.error(`og-hir: Supabase hiba (${res.status}) – slug: ${slug}`);
-        return null;
+        throw new Error(`Supabase hiba (${res.status}) – slug: ${slug}`);
     }
 
     const rows = await res.json();
-    return Array.isArray(rows) && rows.length ? rows[0] : null;
+    if (!Array.isArray(rows)) {
+        throw new Error(`Váratlan Supabase-válasz (nem lista) – slug: ${slug}`);
+    }
+    return rows.length ? rows[0] : null;
 }
 
 // ============================================================
@@ -351,26 +388,58 @@ module.exports = async function handler(req, res) {
         return;
     }
 
+    // A kérés kimenete – ettől függ a státusz és a gyorsítótár:
+    //  - 'found':   létező hír -> 200, meta tagekkel (mint eddig);
+    //  - 'missing': nincs slug, vagy a Supabase szerint nincs ilyen hír ->
+    //               404 + noindex. A látogató ugyanazt az oldalt látja: a
+    //               loadArticle() kiírja, hogy a hír nem található.
+    //  - 'unknown': nem tudjuk, létezik-e -> 200, sima sablon, rövid cache.
+    let outcome = 'unknown';
+
     try {
         const slug = getSlug(req);
-        // Slug nélkül (pl. valaki simán a /hir.html-t nyitja meg) nincs mit
-        // beszúrni - megy vissza az eredeti HTML, a kliensoldali JS kezeli.
-        if (slug) {
+        if (!slug) {
+            // Slug nélkül (pl. valaki simán a /hir.html-t nyitja meg) nincs
+            // mit megjeleníteni: a loadArticle() is a „nem található" oldalt adja.
+            outcome = 'missing';
+        } else {
             const article = await fetchArticle(slug);
-            // Nem létező slug esetén sem hibázunk: a loadArticle() ugyanúgy
-            // kiírja majd, hogy a hír nem található.
-            if (article) html = injectMeta(html, article, getOrigin(req), slug);
+            if (article) {
+                html = injectMeta(html, article, getOrigin(req), slug);
+                outcome = 'found';
+            } else {
+                outcome = 'missing';
+            }
         }
     } catch (err) {
-        // Bármilyen hiba esetén az eredeti HTML megy vissza. A látogató
-        // ugyanúgy látja a hírt, csak a megosztási előnézet lesz általános.
+        // Bármilyen hiba esetén az eredeti HTML megy vissza, 200-zal. A
+        // látogató ugyanúgy látja a hírt, csak a megosztási előnézet lesz
+        // általános. SZÁNDÉKOSAN nem 404 (egy átmeneti hiba miatt a kereső
+        // valódi híreket dobna ki) és nem is 503: ha egyszer csak ez a
+        // függvény romlik el tartósan (pl. kulcscserénél kimarad ez a fájl),
+        // a 503 miatt a kereső pár nap alatt az ÖSSZES hírt kidobná, miközben
+        // a látogatóknak – a script.js-nek köszönhetően – minden működik.
         console.error('og-hir hiba:', err);
     }
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+
+    if (outcome === 'unknown') {
+        res.setHeader('Cache-Control', `public, max-age=0, s-maxage=${CDN_CACHE_SECONDS_DEGRADED}`);
+        res.status(200).send(html);
+        return;
+    }
+
     res.setHeader(
         'Cache-Control',
         `public, max-age=0, s-maxage=${CDN_CACHE_SECONDS}, stale-while-revalidate=86400`
     );
+
+    if (outcome === 'missing') {
+        res.setHeader('X-Robots-Tag', 'noindex');
+        res.status(404).send(injectNoindex(html));
+        return;
+    }
+
     res.status(200).send(html);
 };
