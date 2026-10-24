@@ -5489,7 +5489,23 @@ async function saveRolunk() {
 
         // Upsert: ha van már sor, frissíti, ha nincs, létrehozza
         const checkRes = await authFetch(`${SUPABASE_URL}/rest/v1/about?limit=1`, { headers: authHeaders() });
-        const existing = await checkRes.json();
+        // Ez olvasás, de egy MENTÉS közben fut: ha itt jár le a session, a
+        // beírt szöveg nem veszhet el (ugyanúgy, mint a saveSiteContent-ben)
+        if (handleAuthError(checkRes, true)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
+        // Hibás válasznál nem tudjuk, van-e már sor – ilyenkor nem mentünk.
+        // Korábban a hibaválasz (egy objektum, nem lista) üres táblának
+        // látszott, és a kód egy MÁSODIK `about` sort szúrt be.
+        const existing = checkRes.ok ? await checkRes.json() : null;
+        if (!Array.isArray(existing)) {
+            // Az ok csak a hibás HTTP válaszból ismert – egy korábbi mentés
+            // elavult oka ne kerüljön az üzenetbe
+            lastApiError = null;
+            if (!checkRes.ok) await rememberApiError(checkRes);
+            showSaveError(errorWithReason('Mentési hiba!'));
+            btn.disabled = false;
+            btn.innerHTML = 'Mentés';
+            return;
+        }
 
         let ok;
         if (existing.length) {
