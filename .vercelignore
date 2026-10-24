@@ -25,11 +25,14 @@
 /.github/
 /.gitattributes
 
-# Helyi eszközök és dokumentáció
+# Helyi eszközök és dokumentáció. Az útmutatók a GitHubon olvashatók – a
+# weboldalon nincs dolguk (a keresők se indexeljék őket a klub domainjén).
 /scripts/
 /docs/
 /README.md
 /CLAUDE.md
+/ADMIN-UTMUTATO.md
+/OPERATIONS.md
 
 # Környezeti változók. A Vercel alapból csak a .env.local és a .env.*.local
 # fájlokat hagyja ki, a sima .env-et nem – egy gépről indított (CLI-s)
