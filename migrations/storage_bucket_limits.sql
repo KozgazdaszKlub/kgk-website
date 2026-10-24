@@ -40,10 +40,11 @@
 --       Más bucketbe PDF nem kerül.
 --
 --   Bucketek és feltöltési helyek:
---     about-images   Rólunk kép                          (fotó)
---     group-images   munkacsoport / kiscsoport kép       (fotó)
+--     about-images   Rólunk csoportkép                   (fotó)
 --     news-images    hír borítókép + galéria             (fotó)
---     team-images    elnökségi tag képe                  (fotó)
+--     team-images    elnökségi tag profilképe            (fotó)
+--     group-images   kiscsoport logó (az admin mezője:
+--                    „Logó (csak kiscsoportnál)")        (logó)
 --     sponsor-logos  szponzor logó                       (logó)
 --     partner-logos  intézményi partner logó (footer)    (logó)
 --     documents      Gólya Kisokos PDF                   (PDF)
@@ -55,7 +56,8 @@
 --     mégis SVG-t választ pl. tagképnek, a Mentésnél ezt az üzenetet kapja:
 --     „Ezt a fájltípust a tárhely nem fogadja el. Képnél JPG vagy PNG…"
 --     Ha ezt nem szeretnéd, a b) lépés listájához add hozzá: 'image/svg+xml'.
---   * Logó bucketek: ugyanez + SVG (logó gyakran vektoros), legfeljebb 10 MB.
+--   * Logó bucketek (a group-images is – oda a kiscsoportok logói kerülnek):
+--     ugyanez + SVG (logó gyakran vektoros), legfeljebb 10 MB.
 --   * documents: csak PDF, legfeljebb 20 MB.
 --   A 10 / 20 MB pontosan az admin saját korlátja (MAX_IMAGE_BYTES,
 --   MAX_PDF_BYTES): amit az admin elfogad, azt a szerver is.
@@ -129,13 +131,13 @@ END $$;
 UPDATE storage.buckets
 SET file_size_limit    = 10 * 1024 * 1024,
     allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-WHERE id IN ('about-images', 'group-images', 'news-images', 'team-images');
+WHERE id IN ('about-images', 'news-images', 'team-images');
 
--- c) Logók: ugyanez + SVG; legfeljebb 10 MB
+-- c) Logók (szponzor, partner, kiscsoport): ugyanez + SVG; legfeljebb 10 MB
 UPDATE storage.buckets
 SET file_size_limit    = 10 * 1024 * 1024,
     allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']
-WHERE id IN ('partner-logos', 'sponsor-logos');
+WHERE id IN ('group-images', 'partner-logos', 'sponsor-logos');
 
 -- d) Gólya PDF: csak PDF; legfeljebb 20 MB
 UPDATE storage.buckets
