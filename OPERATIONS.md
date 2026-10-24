@@ -15,6 +15,7 @@ a kulcsok, hogyan cserélhetők, mi a teendő, ha valami leáll.
 4. [Fiókvédelem: második tulajdonos + 2FA](#4-fiókvédelem-második-tulajdonos--2fa)
 5. [Keep-alive (a Supabase ébren tartása)](#5-keep-alive-a-supabase-ébren-tartása)
 6. [Ha az oldal leáll](#6-ha-az-oldal-leáll)
+7. [Monitorozás (UptimeRobot)](#7-monitorozás-uptimerobot)
 
 ---
 
@@ -28,6 +29,7 @@ a kulcsok, hogyan cserélhetők, mi a teendő, ha valami leáll.
 | Cloudflare | a domain DNS-e (nem proxyzott, „DNS only") | üzemeltető |
 | Gmail – küldő fiók | a kapcsolat űrlap leveleit küldi (alkalmazásjelszóval) | üzemeltető |
 | Gmail – klub fiók | ide érkeznek a kapcsolat űrlap üzenetei | elnökség |
+| UptimeRobot | az oldal figyelése, e-mail riasztás leálláskor (7. pont) | üzemeltető (+ tartalék tulajdonos) |
 | Admin felület (`/admin.html`) | tartalom | tartalomfelelősök |
 
 **Szerepek:**
@@ -47,12 +49,13 @@ a kulcsok, hogyan cserélhetők, mi a teendő, ha valami leáll.
 
 | Kulcs / titok | Hol van | Titkos? |
 |---|---|---|
-| Supabase **publishable** kulcs (`sb_publishable_…`) | a kódban, **5 fájlban**: `script.js`, `admin.html`, `maintenance.js`, `api/og-hir.js`, `api/sitemap.js` | **nem** – nyilvános kulcs, a táblákat a Supabase jogosultsági szabályai (RLS) védik |
+| Supabase **publishable** kulcs (`sb_publishable_…`) | a kódban, **6 fájlban**: `script.js`, `admin.html`, `maintenance.js`, `api/og-hir.js`, `api/sitemap.js`, `api/health.js` | **nem** – nyilvános kulcs, a táblákat a Supabase jogosultsági szabályai (RLS) védik |
 | ugyanez még egyszer | GitHub → Settings → Secrets and variables → Actions → `SUPABASE_ANON_KEY` (a keep-alive használja) | nem, de secretként tároljuk |
 | Supabase **secret** / `service_role` kulcs | **sehol** – nem kell a weboldalnak | **igen** – mindenhez jogot ad, megkerüli az RLS-t |
 | `SMTP_APP_PASSWORD` – a küldő Gmail fiók alkalmazásjelszava | Vercel → Project → Settings → Environment Variables | **igen** |
 | `SMTP_USER` – a küldő Gmail cím | Vercel → Environment Variables | nem titok |
 | `CONTACT_EMAIL_TO` – a címzett | Vercel → Environment Variables | nem titok |
+| `HEALTH_CHECK_TOKEN` – az e-mail-ellenőrzés (`/api/health?deep=1`) tokenje | Vercel → Environment Variables **és** az UptimeRobot „KGK – e-mail" figyelőjének címe (7. pont) | **igen**, de kis tétű: csak egy (ritkított) SMTP-ellenőrzést indít, adatot nem lát |
 | Admin fiókok jelszavai | Supabase → Authentication → Users (csak a hash) | **igen** |
 | Karbantartás előnézeti érték | `maintenance.js` (`BYPASS_VALUE`) + `admin.html` (`MAINTENANCE_BYPASS_VALUE`) | **nem** – benne van a nyilvános JS-ben; csak a véletlen látogató ellen véd |
 
@@ -65,13 +68,15 @@ legvégén töröld, különben az oldal közben elérhetetlen.
 
 1. Supabase Dashboard → **Project Settings → API Keys** → *Publishable key* →
    új kulcs létrehozása.
-2. Cseréld a kulcsot mind az **5 fájlban**. Így találod meg őket:
+2. Cseréld a kulcsot mind a **6 fájlban**. Így találod meg őket:
    ```bash
    git grep -n "sb_publishable_"
    ```
 3. Commit, push, várd meg a Vercel deployt.
 4. Ellenőrzés: a főoldal tartalma betölt, az admin bejelentkezés működik, egy
-   hír oldala megnyílik, a `/sitemap.xml` 200-at ad.
+   hír oldala megnyílik, a `/sitemap.xml` 200-at ad, a `/api/health`
+   `{"status":"ok"}`-t ír. (Ha a régi kulcs törlése után a health 503-at ad,
+   az `api/health.js`-ben maradt a régi kulcs.)
 5. GitHub → Settings → Secrets and variables → Actions → `SUPABASE_ANON_KEY`
    → **Update** az új értékkel. Utána Actions → *Supabase keep-alive* →
    **Run workflow** → zöld pipa kell.
@@ -95,6 +100,9 @@ alkalmazásjelszót érvényteleníti** – a kapcsolat űrlap addig nem küld).
    legutóbbi Production deploy → **⋯ → Redeploy**.
 5. Próba: küldj egy üzenetet a kapcsolat űrlapon, és nézd meg, megérkezik-e.
    (Ha a kapcsolat szekció ki van kapcsolva, előtte kapcsold be az adminban.)
+   Levél nélküli próba: nyisd meg a „KGK – e-mail" figyelő címét (7. pont) –
+   `{"status":"ok"}` kell. Az új deploy friss példányokon fut, tehát ez már
+   az új jelszóval jelentkezik be.
 6. A Google-fiókban **töröld a régi** alkalmazásjelszót.
 
 Ha a próba nem sikerül: Vercel → Project → **Logs**, szűrés a
@@ -104,6 +112,24 @@ Ha a próba nem sikerül: Vercel → Project → **Logs**, szűrés a
 
 Ugyanaz, mint fent a 3–5. lépés: Vercel → Environment Variables → Edit →
 **Redeploy** → próbaüzenet. Új küldő fióknál új alkalmazásjelszó is kell.
+
+### Rotáció: `HEALTH_CHECK_TOKEN`
+
+Akkor kell, ha kiszivárgott (pl. képernyőképen vagy egy megosztott
+UptimeRobot-fiókban látszott), vagy ha valaki elhagyja a csapatot, akinek
+megvolt. Kis tétű titok: csak az e-mail-ellenőrzést indítja el, azt is
+legfeljebb 10 percenként.
+
+1. Új érték készítése (7. pont, 1. lépés).
+2. Vercel → Environment Variables → `HEALTH_CHECK_TOKEN` → **Edit** → Save →
+   **Redeploy**.
+3. UptimeRobot → a „KGK – e-mail" figyelő → **Edit** → a címben a
+   `token=` utáni rész cseréje → Save.
+4. Ellenőrzés: a figyelő zöld. A régi tokennel megnyitott cím 401-et ad
+   (`{"status":"unauthorized"}`).
+
+A 2. és a 3. lépés között a figyelő egy ideig pirosat jelezhet (401) – ez
+várható, nem leállás.
 
 ### Supabase secret / `service_role` kulcs
 
@@ -216,6 +242,9 @@ oldalnak sincs látogatója (pl. nyáron), 7 nap múlva a Supabase leáll.
 Megelőzés és javítás:
 
 1. Havonta egyszer nézz rá: GitHub → **Actions** → az utolsó futások zöldek-e.
+   (Ha a 7. pont „KGK – adatbázis" figyelője fut, az 5 percenként maga is
+   lekérdezi a Supabase-t, tehát ébren tartja – a keep-alive ettől még
+   maradjon, ez a tartalék.)
 2. Ha a workflow ki van kapcsolva: Actions → *Supabase keep-alive* →
    **Enable workflow** → **Run workflow**. (Egy commit is újraindítja a 60
    napos számlálót.)
@@ -245,6 +274,9 @@ Piros X az Actions fülön:
 | A kapcsolat űrlap hibát ír | Gmail alkalmazásjelszó, vagy napi küldési korlát | Vercel → Logs → `kapcsolat-submit` | üzemeltető |
 | Hibás / nem oda való tartalom jelent meg | szerkesztési hiba | admin: javítás, hírnél **Piszkozat**, vagy törlés | tartalomfelelős |
 | Facebook-megosztásnál rossz kép / cím | gyorsítótár | Sharing Debugger → Scrape Again (ADMIN-UTMUTATO.md) | tartalomfelelős |
+| UptimeRobot riasztás: „KGK – főoldal" | az oldal nem érhető el, vagy nem a mi oldalunk jön | a fenti első két sor (Vercel, DNS) | üzemeltető / tartalék |
+| UptimeRobot riasztás: „KGK – adatbázis" | a Supabase nem válaszol | a „Nem sikerült betölteni" sor; Vercel → Logs → `/api/health` | üzemeltető / tartalék |
+| UptimeRobot riasztás: „KGK – e-mail" | a kapcsolat űrlap nem tud küldeni | 7. pont → *Ha riasztás jön* | üzemeltető |
 
 (A `kgk-website.vercel.app` ehhez nem jó: az 308-cal a fő domainre irányít.
 A deploy saját címét a Vercel Dashboard → Deployments → a deploy adatlapján
@@ -300,3 +332,194 @@ admin → **Szekciók → Karbantartás mód** bekapcsolása (ADMIN-UTMUTATO.md,
 - Írd le röviden, mi történt, mikor, mi lett a megoldás (a GitHub issue-k
   között vagy a belső jegyzetekben).
 - Ha kulcs vagy jelszó szivárgott ki: rotáció a 2. pont szerint.
+
+## 7. Monitorozás (UptimeRobot)
+
+**Mit csinál:** egy külső szolgáltatás (UptimeRobot, ingyenes csomag)
+rendszeresen lekéri az oldalt, és e-mailt küld, ha nem jó választ kap – majd
+még egyet, amikor helyreállt. Így egy leállásról nem a látogatóktól
+értesülünk.
+
+> A lépéseket az UptimeRobot leírásai alapján írtuk (2026-10), a felületet nem
+> kattintottuk végig – ha egy menüpontot máshogy hívnak, a logika ugyanaz.
+
+### Mit figyelünk
+
+| # | Figyelő neve | Típus | Cím | Gyakoriság | Ha piros, akkor… |
+|---|---|---|---|---|---|
+| 1 | KGK – főoldal | **Keyword** (kulcsszó) | `https://kozgazdaszklub.com/` | 5 perc | az oldal nem érhető el, vagy nem a mi oldalunk jön (pl. lejárt domain, rossz DNS) |
+| 2 | KGK – adatbázis | **HTTP(s)** | `https://kozgazdaszklub.com/api/health` | 5 perc | a Supabase nem válaszol: a weboldalon a tartalom helyén „Nem sikerült betölteni" áll, az adminba nem lehet belépni |
+| 3 | KGK – e-mail | **HTTP(s)** | `https://kozgazdaszklub.com/api/health?deep=1&token=<HEALTH_CHECK_TOKEN>` | 60 perc | a kapcsolat űrlap nem tud levelet küldeni |
+
+### A `/api/health` válaszai
+
+| Válasz | Jelentés |
+|---|---|
+| `200` `{"status":"ok"}` | minden rendben |
+| `503` `{"status":"error","failed":["database"]}` | a Supabase 3 másodpercen belül nem válaszolt, vagy hibát adott |
+| `503` `{"status":"error","failed":["email"]}` | (csak `?deep=1`) a Gmail-bejelentkezés nem sikerült, vagy a Vercelen hiányzik egy `SMTP_…` / `CONTACT_EMAIL_TO` változó |
+| `503` `{"status":"error","failed":["database","email"]}` | mindkettő |
+| `401` `{"status":"unauthorized"}` | (csak `?deep=1`) hiányzó vagy hibás token, vagy a Vercelen nincs beállítva a `HEALTH_CHECK_TOKEN` |
+| `405` `{"status":"method_not_allowed"}` | nem GET / HEAD kérés |
+
+A válaszban szándékosan nincs több részlet (hibaüzenet, kulcs, e-mail cím). A
+pontos ok a Vercel naplójában van: Vercel → Project → **Logs** → szűrés:
+`/api/health`.
+
+A válasz soha nem kerül gyorsítótárba (`Cache-Control: no-store`), és a
+keresők nem veszik fel (`X-Robots-Tag: noindex`). A sitemapban nincs benne.
+
+### Karbantartás módban is 200 – ez rendben van
+
+A karbantartás mód a böngészőben kapcsol be: a `maintenance.js` takarja le az
+oldalt. A szerver mindkét esetben **ugyanazt a HTML-t** küldi, a figyelő pedig
+nem futtat JavaScriptet – tehát a főoldal figyelője karbantartás alatt is
+zöld. Ez így helyes: a figyelő azt nézi, hogy **elérhető-e** az oldal, nem
+azt, hogy mit lát a látogató. A `/api/health` sem nézi a kapcsolót: a
+karbantartás szándékos állapot, nem hiba.
+
+**Ezeket a figyelők NEM jelzik:**
+
+- ha a karbantartás mód bekapcsolva maradt → admin → *Szekciók* fül;
+- ha egy rossz deploy után a JavaScript elromlik (a HTML megjön, de a
+  szekciók nem töltődnek be) → deploy után mindig nézz rá az oldalra
+  (README → *Deploy*);
+- a hír-oldalak és az admin felület egyedi hibái.
+
+**Miért kulcsszavas a főoldal figyelője?** A sima 200 félrevezető lehet: egy
+lejárt domain parkoló oldala vagy egy elállított DNS mögötti idegen oldal is
+200-at ad. A kulcsszó (`maintenance.js`) minden publikus oldalunk fejében
+ott áll, és szándékosan nem változik (README, 4. buktató) – egy idegen oldalon
+nem szerepel. A neve ellenére **nem** a karbantartás módot figyeli, csak azt,
+hogy a mi oldalunk jön-e.
+
+A `/api/health`-hez nem kell kulcsszó: a válasz kódja (200 / 503) maga a
+jelzés.
+
+### Miért csak óránként az e-mail-ellenőrzés, és miért kell hozzá token
+
+Az e-mail-ellenőrzés minden alkalommal **valódi bejelentkezés** a küldő Gmail
+fiókba. 5 percenként ez napi 288 bejelentkezés változó címekről – a Google ezt
+gyanúsnak veheti, és letilthatja a fiókot, épp a kapcsolat űrlapot állítva le.
+Ha pedig bárki elindíthatná, a sorozatos sikertelen bejelentkezésekkel a fiókot
+is zárolhatná. Ezért:
+
+- token nélkül nem fut (`401`);
+- tokennel is legfeljebb 10 percenként jelentkezik be ténylegesen (a közben
+  érkező kérések az előző eredményt kapják);
+- a figyelőben **60 perc** (vagy ritkább) legyen.
+
+Az UptimeRobot ingyenes csomagja nem küld egyedi fejlécet (az UptimeRobot
+leírása szerint az fizetős funkció), ezért a token **a címbe** kerül
+(`&token=…`). Így látszik az UptimeRobot felületén és a Vercel naplójában –
+kis tétű titok, de ne oszd meg, és ha kiszivárgott, cseréld (2. pont →
+*Rotáció: `HEALTH_CHECK_TOKEN`*). A végpont az `Authorization: Bearer <token>`
+fejlécet is elfogadja, ha egyszer olyan figyelőre váltasz, ami tud fejlécet
+küldeni (a cím akkor token nélkül: `…/api/health?deep=1`).
+
+### Beállítás lépésenként
+
+**1. Token készítése** (csak a 3. figyelőhöz kell)
+
+- Jelszókezelővel: véletlen jelszó, **legalább 40 karakter, csak betű és
+  szám** (speciális karakter nélkül, mert a címbe kerül).
+- Vagy ha van Node.js a gépen:
+  ```bash
+  node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+  ```
+- 32 karakternél rövidebb tokent a végpont nem fogad el (`401`).
+
+**2. A token a Vercelen**
+
+1. Vercel → Project → **Settings → Environment Variables** → **Add**: név
+   `HEALTH_CHECK_TOKEN`, érték a token, környezet: **Production** → Save.
+2. **Redeploy** (Deployments → a legutóbbi Production deploy → **⋯ →
+   Redeploy**) – a változó csak az új deployban él.
+3. Próba böngészőben: `https://kozgazdaszklub.com/api/health?deep=1&token=<a token>`
+   → `{"status":"ok"}`. Ha `{"status":"unauthorized"}`: a token nem egyezik,
+   vagy a redeploy még nem futott le.
+
+**3. UptimeRobot fiók**
+
+1. Regisztráció az uptimerobot.com-on, **Free** csomag. A riasztások a fiók
+   e-mail címére mennek – ez az üzemeltető címe, vagy egy klub által kezelt
+   cím legyen.
+2. Kapcsold be a fiókban a kétlépcsős azonosítást (mint a 4. pontban).
+
+**4. „KGK – főoldal" figyelő**
+
+1. **New monitor** → típus: **Keyword**.
+2. URL: `https://kozgazdaszklub.com/`
+3. Keyword: `maintenance.js` – riasztás, ha a kulcsszó **nem** szerepel
+   („Keyword not exists").
+4. Interval: **5 perc**. Alert contact: a saját e-mail címed → Create.
+
+**5. „KGK – adatbázis" figyelő**
+
+1. **New monitor** → típus: **HTTP(s)**.
+2. URL: `https://kozgazdaszklub.com/api/health`
+3. Interval: **5 perc**, alert contact: a saját címed → Create.
+
+**6. „KGK – e-mail" figyelő**
+
+1. **New monitor** → típus: **HTTP(s)**.
+2. URL: `https://kozgazdaszklub.com/api/health?deep=1&token=<a token>`
+3. Interval: **60 perc** → Create.
+4. Ezt a figyelőt **csak egy** UptimeRobot fiókban állítsd be – egy második
+   példány kétszer annyi Gmail-bejelentkezést jelentene.
+
+**7. Riasztás a tartalék tulajdonosnak (nem kötelező)**
+
+Az ingyenes csomag riasztásait alapból a fiók e-mail címe kapja. Ha a
+felületen (Integrations / Alert contacts) fel tudsz venni egy második e-mail
+címet, vedd fel a tartalék tulajdonosét, és kapcsold rá az 1. és a 2.
+figyelőre. Ha ez fizetős csomaghoz kötött, két ingyenes út van:
+
+- **A)** a tartalék tulajdonos saját, ingyenes UptimeRobot fiókot nyit, és
+  abban felveszi az **1. és a 2.** figyelőt (a 3.-at nem, lásd fent). Ez egyben
+  tartalék is, ha az egyik fiók elérhetetlenné válik.
+- **B)** a te postafiókodban egy szűrő továbbítja neki az UptimeRobot
+  leveleit (Gmail: Beállítások → Szűrők és letiltott címek → új szűrő →
+  „Továbbítás").
+
+**8. Próba: megérkezik-e a riasztás**
+
+1. Ideiglenes figyelő: HTTP(s), URL
+   `https://kozgazdaszklub.com/api/health?deep=1` (token **nélkül** → mindig
+   401), interval 5 perc.
+2. 5–10 percen belül jönnie kell egy „Down" levélnek (a tartalék
+   tulajdonosnak is, ha be van állítva).
+3. Töröld az ideiglenes figyelőt.
+
+A Vercel naplójában ilyenkor `health: ?deep=1 kérés hiányzó vagy hibás
+tokennel` sorok jelennek meg – ez várható.
+
+### Ha riasztás jön
+
+| Figyelő | Első lépés |
+|---|---|
+| KGK – főoldal | 6. pont → *Gyors diagnózis*, az első két sor (Vercel, DNS) |
+| KGK – adatbázis | status.supabase.com és a Supabase Dashboard: szünetel-e a projekt → **Restore** (5. pont). Kulcscsere után: maradt-e régi kulcs az `api/health.js`-ben (2. pont) |
+| KGK – e-mail, `503` | Vercel → Logs → `/api/health`. `EAUTH` + `535` = rossz vagy érvénytelenné vált alkalmazásjelszó (2. pont → rotáció). „hiányzó környezeti változó" = a Vercelen hiányzik a felsorolt változó. `ETIMEDOUT` / `HEALTH_TIMEOUT` = a Gmail nem volt elérhető; ha magától helyreáll, nincs teendő |
+| KGK – e-mail, `401` | a token nem egyezik a Vercelen beállítottal, vagy a változó beállítása után elmaradt a Redeploy |
+
+Javítás után az e-mail-ellenőrzés legfeljebb 10 percig még a régi eredményt
+adhatja (ha ugyanaz a függvénypéldány válaszol); egy Redeploy után azonnal
+friss.
+
+### Miért UptimeRobot, és nem Better Stack?
+
+Mindkettő megfelel; ennél az oldalnál az UptimeRobot az egyszerűbb.
+
+| | UptimeRobot Free | Better Stack Free |
+|---|---|---|
+| Figyelők | 50 | 10 (a szívverés-figyelőkkel együtt) |
+| Gyakoriság | 5 perc | 3 perc |
+| Kulcsszavas figyelés | van | van |
+| Riasztás | e-mail | e-mail, Slack |
+| Egyedi fejléc (token fejlécben) | csak fizetős | a leírása szerint beállítható; hogy ingyenesen is, nem ellenőriztük |
+| Felhasználás | a feltételei szerint bármilyen; a csomag leírása: hobbi- és nonprofit projektekhez | „personal projects" |
+
+(A szolgáltatók oldalai alapján, 2026-10-24.) A Better Stack két előnye – a
+3 perc és a fejlécben küldhető token – itt keveset számít: egy klub-oldalnál a
+2 perc különbség nem lényeges, a token pedig kis tétű.

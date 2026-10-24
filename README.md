@@ -16,7 +16,8 @@ Vercelen fut.
 |---|---|---|
 | Weboldal | sima HTML, CSS, JavaScript | **nincs build lépés, framework és bundler** |
 | Adatbázis, bejelentkezés, fájlok | [Supabase](https://supabase.com) (Postgres + Auth + Storage) | a kód natív `fetch`-csel hívja a REST API-t, `supabase-js` nélkül |
-| Hosting | [Vercel](https://vercel.com) | a statikus fájlok + 3 szerveroldali függvény (`api/`) |
+| Hosting | [Vercel](https://vercel.com) | a statikus fájlok + 4 szerveroldali függvény (`api/`) |
+| Monitorozás | UptimeRobot (ingyenes) + `/api/health` | beállítás: OPERATIONS.md, 7. pont |
 | Ütemezett feladat | GitHub Actions | a Supabase ébren tartása (lásd OPERATIONS.md) |
 | Külső | Google Fonts, Font Awesome 6.4.0 (cdnjs, SRI hash-sel) | a Font Awesome-ot csak az `index.html` tölti be |
 
@@ -43,6 +44,7 @@ api/
   og-hir.js           /hir.html → megosztási (Open Graph) tagek, 404 nem létező hírnél
   sitemap.js          /sitemap.xml → futásidőben generált sitemap
   kapcsolat-submit.js a kapcsolat űrlap → e-mail (Gmail SMTP)
+  health.js           /api/health → állapotjelzés a monitorozáshoz (200 / 503)
 migrations/           kézzel futtatandó SQL scriptek (Supabase SQL Editor)
 .github/workflows/    supabase-keepalive.yml – éjszakai ébren tartó lekérdezés
 vercel.json           útvonalak, átirányítások, biztonsági fejlécek
@@ -85,7 +87,7 @@ Tudnivalók:
    a gyökérben lévő fájlok statikusan, az `api/` fájlok függvényként mennek
    ki.
 3. Ellenőrzés: a főoldal betölt, az admin bejelentkező képernyője megjelenik,
-   a `/sitemap.xml` 200-at ad.
+   a `/sitemap.xml` 200-at ad, a `/api/health` `{"status":"ok"}`-t ír.
 
 - **Ami nem kerül ki a weboldalra:** a `.vercelignore` sorolja fel (pl.
   `migrations/`, `.github/`, a dokumentáció). A GitHubon ezek ettől még
@@ -106,8 +108,13 @@ OPERATIONS.md → *Kulcsok és titkok*.
 | `SMTP_USER` | Vercel → Environment Variables | `api/kapcsolat-submit.js` – a küldő Gmail fiók | nem titok, de ne terjeszd |
 | `SMTP_APP_PASSWORD` | Vercel → Environment Variables | `api/kapcsolat-submit.js` – Google alkalmazásjelszó | **igen** |
 | `CONTACT_EMAIL_TO` | Vercel → Environment Variables | `api/kapcsolat-submit.js` – ide érkeznek az üzenetek | nem |
+| `HEALTH_CHECK_TOKEN` | Vercel → Environment Variables (+ az UptimeRobot e-mail-figyelőjének címe) | `api/health.js` – a `?deep=1` (SMTP) ellenőrzés tokenje, min. 32 karakter | **igen** (kis tétű) |
 | `SUPABASE_ANON_KEY` | GitHub → Settings → Secrets and variables → Actions | `.github/workflows/supabase-keepalive.yml` | nem titok (publikus kulcs) |
-| Supabase URL + publikus (publishable) kulcs | a kódban, 5 fájlban | a weboldal és az admin | **nem titok** – a táblákat a Supabase jogosultsági szabályai (RLS) védik |
+| Supabase URL + publikus (publishable) kulcs | a kódban, 6 fájlban | a weboldal, az admin és a függvények | **nem titok** – a táblákat a Supabase jogosultsági szabályai (RLS) védik |
+
+Az `api/health.js` az `SMTP_USER`, `SMTP_APP_PASSWORD` és `CONTACT_EMAIL_TO`
+változót is olvassa (a `?deep=1` mód ellenőrzi, hogy megvannak-e, és hogy a
+Gmail-bejelentkezés sikerül-e).
 
 - A Supabase **secret / `service_role` kulcsa soha nem kerülhet a kódba**, a
   Vercelre vagy a GitHubra.
@@ -154,9 +161,9 @@ OPERATIONS.md → *Kulcsok és titkok*.
 5. **„Hiba esetén minden látszik":** a szekció-kapcsolók és a karbantartás
    mód csak kifejezett értékre rejt el bármit. Egy adatbázishiba soha ne
    tüntesse el a tartalmat.
-6. **A publikus kulcs 5 fájlban van** (`script.js`, `admin.html`,
-   `maintenance.js`, `api/og-hir.js`, `api/sitemap.js`) + a GitHub secretben.
-   Cserénél mindegyiket (OPERATIONS.md).
+6. **A publikus kulcs 6 fájlban van** (`script.js`, `admin.html`,
+   `maintenance.js`, `api/og-hir.js`, `api/sitemap.js`, `api/health.js`) + a
+   GitHub secretben. Cserénél mindegyiket (OPERATIONS.md).
 7. **Az adminban minden tokenes kérés az `authFetch`-en, minden feltöltés az
    `uploadImage`-en, minden Storage-törlés a `deleteStorageFile`-on megy át.**
    Új kérést is ezekkel indíts – így működik a munkamenet automatikus
