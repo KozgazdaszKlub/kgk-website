@@ -1,5 +1,8 @@
 # Környezeti változók – soha ne kerüljön a publikus repóba
 .env
+# A `vercel env pull` / `vercel dev` ide írja a Vercel valódi titkait
+# (pl. SMTP_APP_PASSWORD) – bármelyik mappában.
+.env*.local
 
 # Helyi projekt-kontextus (Claude Code) – csak ezen a gépen
 CLAUDE.md

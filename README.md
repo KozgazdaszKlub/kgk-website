@@ -74,7 +74,8 @@ Tudnivalók:
   (maga a hír betölt, mert azt a böngésző tölti le). A függvényekhez a Vercel
   CLI kell (`vercel dev`, bejelentkezéssel és a projekt összekapcsolásával).
   Vigyázz: a `vercel env pull` egy `.env.local` fájlba írja a valódi
-  titkokat, és ezt a `.gitignore` jelenleg nem zárja ki – ne commitold.
+  titkokat. A `.gitignore` kizárja (`.env*.local`), de ne másold át más
+  néven, és ne commitold `git add -f`-fel.
 - Az `npm install` csak az `api/` függvényekhez kell.
 
 ## Deploy
