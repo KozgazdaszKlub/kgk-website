@@ -5599,7 +5599,20 @@ async function saveSiteContent() {
         // Ez olvasás, de egy MENTÉS közben fut: ha itt jár le a session, a
         // beírt statisztikák és a Gólyáknak szöveg nem veszhet el
         if (handleAuthError(checkRes, true)) { btn.disabled = false; btn.innerHTML = 'Mentés'; return; }
-        const existing = checkRes.ok ? await checkRes.json() : [];
+        // Hibás válasznál nem tudjuk, van-e már sor – ilyenkor nem mentünk.
+        // Korábban a hibaválasz üres táblának számított, és a kód egy
+        // MÁSODIK `site_content` sort szúrt be (ugyanaz, mint a saveRolunk-ban).
+        const existing = checkRes.ok ? await checkRes.json() : null;
+        if (!Array.isArray(existing)) {
+            // Az ok csak a hibás HTTP válaszból ismert – egy korábbi mentés
+            // elavult oka ne kerüljön az üzenetbe
+            lastApiError = null;
+            if (!checkRes.ok) await rememberApiError(checkRes);
+            showSaveError(errorWithReason('Mentési hiba!'));
+            btn.disabled = false;
+            btn.innerHTML = 'Mentés';
+            return;
+        }
 
         let ok;
         if (existing.length) {
