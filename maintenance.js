@@ -323,21 +323,26 @@
     // A KAPCSOLÓ LEKÉRÉSE
     // ────────────────────────────────────────────────────────────────
     async function karbantartasBe() {
+        // A kulcs URL-paraméterként megy, NEM fejlécként. Így ez „egyszerű"
+        // CORS-kérés marad, és a böngésző nem küld előtte külön preflight
+        // (OPTIONS) kérést – első látogatáskor (és utána óránként, ennyi ideig
+        // érvényes a Supabase preflight-válasza) egy teljes oda-vissza kört
+        // spórolunk, pont azon az úton, amíg az egész oldal takarva van. A
+        // Supabase a paraméteres kulcsot ugyanúgy fogadja: azonos státusz,
+        // fejlécek és törzs, rossz kulcsnál ugyanúgy 401 (mérve 2026-10-25).
+        // Ide SEMMILYEN saját fejlécet ne tegyél (apikey, Authorization,
+        // Prefer…): az visszahozná a preflightot.
         const url = SUPABASE_URL + '/rest/v1/feature_flags'
             + '?select=enabled'
             + '&flag_key=eq.' + encodeURIComponent(FLAG_KEY)
-            + '&limit=1';
+            + '&limit=1'
+            + '&apikey=' + encodeURIComponent(SUPABASE_ANON_KEY);
 
         // A `no-store` azért kell, hogy a kikapcsolás azonnal hasson: egy
         // gyorsítótárazott „be van kapcsolva" válasz különben azután is
         // karbantartás oldalt mutatna, hogy az adminban már kikapcsoltuk.
-        const valasz = await fetch(url, {
-            cache: 'no-store',
-            headers: {
-                'apikey': SUPABASE_ANON_KEY,
-                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
-            }
-        });
+        // (A preflightot nem hozza vissza.)
+        const valasz = await fetch(url, { cache: 'no-store' });
 
         if (!valasz.ok) {
             console.error('maintenance: Supabase hiba (' + valasz.status + ') – az oldal normálisan töltődik.');
