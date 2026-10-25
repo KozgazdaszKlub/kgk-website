@@ -183,3 +183,8 @@ Gmail-bejelentkezés sikerül-e).
 12. **A `migrations/` mappa nincs gitignore-olva** – commitolásnál mindig
     explicit fájlnévvel stage-elj (`git add <fájl>`), ne `git add .`-tal.
 13. **Sorvégek:** a `.gitattributes` minden szöveges fájlt LF-re állít.
+14. **Betűtípus-csere = új fájlnév.** A `fonts/` woff2 fájljai 1 éves,
+    `immutable` gyorsítótárat kapnak (`vercel.json`), ezért ugyanazon a néven
+    soha ne tegyél fel más fájlt. Fájlnév-változásnál a `style.css` (és az
+    `admin.html`) `@font-face` szabályait és az öt HTML `preload` sorát is
+    át kell írni.

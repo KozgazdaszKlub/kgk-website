@@ -28,6 +28,11 @@
       "headers": { "X-Robots-Tag": "noindex, nofollow" },
       "continue": true
     },
+    {
+      "src": "/fonts/[^/]+\\.woff2",
+      "headers": { "Cache-Control": "public, max-age=31536000, immutable" },
+      "continue": true
+    },
     { "src": "/hir\\.html", "dest": "/api/og-hir" },
     { "src": "/sitemap\\.xml", "dest": "/api/sitemap" }
   ],
