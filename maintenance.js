@@ -361,13 +361,22 @@
     //
     // A script.js DOMContentLoaded kezelője ezt a promise-t várja be, mielőtt
     // bármit betöltene – lásd ott a „KARBANTARTÁS MÓD" guard-ot.
+    //
+    // Az időzítő akkor is lefut, ha a lekérés már rég végzett (a race-t ez nem
+    // zavarja: a késői `resolve(false)` hatástalan). A figyelmeztetést ezért
+    // csak akkor írjuk ki, ha a lekérés TÉNYLEG nem végzett időben – különben
+    // minden 3,5 mp-nél tovább nyitva hagyott lapon téves „időtúllépés"
+    // állna a konzolban.
+    let lekeresVegzett = false;
     window.KGK_MAINTENANCE_READY = Promise.race([
         karbantartasBe().catch(err => {
             console.error('maintenance hiba – az oldal normálisan töltődik:', err);
             return false;
-        }),
+        }).finally(() => { lekeresVegzett = true; }),
         new Promise(resolve => setTimeout(() => {
-            console.warn('maintenance: időtúllépés – az oldal normálisan töltődik.');
+            if (!lekeresVegzett) {
+                console.warn('maintenance: időtúllépés – az oldal normálisan töltődik.');
+            }
             resolve(false);
         }, TIMEOUT_MS))
     ]).then(be => {
