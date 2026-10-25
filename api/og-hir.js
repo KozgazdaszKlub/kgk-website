@@ -26,8 +26,11 @@ const path = require('path');
 // BEÁLLÍTÁSOK
 // ============================================================
 
-// Supabase - ugyanaz a publikus (anon) kulcs, mint a script.js-ben és az
-// admin.html-ben. Kulcscserénél MIND A HÁROM helyen frissíteni kell.
+// Supabase - ugyanaz a publikus (anon) kulcs, mint a script.js-ben, az
+// admin.html-ben és a többi api/ függvényben. Kulcscserénél MINDEN helyen
+// frissíteni kell - a pontos, naprakész lista a CLAUDE.md-ben (Supabase
+// szakasz) és az OPERATIONS.md-ben (Rotáció: Supabase publishable kulcs) van,
+// vagy: git grep -n "sb_publishable_".
 const SUPABASE_URL = 'https://agdstsliixwysbjedppu.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_LXqTP-dPmfwWvd0IZTzrMw_tjYERBe9';
 
