@@ -19,7 +19,8 @@ Vercelen fut.
 | Hosting | [Vercel](https://vercel.com) | a statikus fájlok + 4 szerveroldali függvény (`api/`) |
 | Monitorozás | UptimeRobot (ingyenes) + `/api/health` | beállítás: OPERATIONS.md, 7. pont |
 | Ütemezett feladat | GitHub Actions | a Supabase ébren tartása (lásd OPERATIONS.md) |
-| Külső | Google Fonts, Font Awesome 6.4.0 (cdnjs, SRI hash-sel) | a Font Awesome-ot csak az `index.html` tölti be |
+| Betűtípusok | Inter, Montserrat – saját tárhelyről (`fonts/`, woff2, OFL licenc) | a `@font-face` a `style.css`-ben (az adminé a sajátjában); a Google Fonts-ot csak az `adatvedelem.html` tölti még be |
+| Külső | Font Awesome 6.4.0 (cdnjs, SRI hash-sel) | csak az `index.html` (és az admin) tölti be |
 
 A `package.json` **kizárólag** az `api/` függvények npm-függősége
 (`nodemailer`) miatt létezik. Nincs benne és ne is kerüljön bele `build`
@@ -40,6 +41,7 @@ style.css             a publikus oldalak stílusa
 maintenance.js        karbantartás mód (a <head> első scriptje)
 favicon.ico, apple-touch-icon.png   ikonok – a gyökérben kell maradniuk
 images/               statikus képek (logók, megosztási kép, tartalékképek)
+fonts/                betűtípusok (Inter, Montserrat; woff2) + a licencük (OFL)
 api/
   og-hir.js           /hir.html → megosztási (Open Graph) tagek, 404 nem létező hírnél
   sitemap.js          /sitemap.xml → futásidőben generált sitemap
@@ -174,7 +176,7 @@ Gmail-bejelentkezés sikerül-e).
    `api/sitemap.js` `STATIC_PAGES` listája, a `<main>` elem, és a `.vercelignore`
    ne zárja ki.
 10. **A `.vercelignore`-ba soha ne kerüljön** `api/`, `.html` oldal (különösen
-    a `hir.html`), `images/`, a két ikon, `robots.txt`, `script.js`,
+    a `hir.html`), `images/`, `fonts/`, a két ikon, `robots.txt`, `script.js`,
     `style.css`, `maintenance.js`, `vercel.json`, `package*.json`.
 11. **SQL-t csak kézzel, a Supabase SQL Editorban futtatunk.** Új táblához
     RLS policy-k ÉS explicit `GRANT` is kell, ugyanabban a scriptben.

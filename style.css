@@ -6,15 +6,140 @@
 :root {
     color-scheme: only light;
 }
+
+/* --- BETŰTÍPUSOK (saját tárhelyről, a fonts/ mappából) ---
+   Ugyanazok a woff2 fájlok és ugyanazok a szabályok, amiket korábban a
+   Google Fonts adott (Inter v20, Montserrat v31; a licenc: fonts/OFL-*.txt).
+   Csak a latin és a latin-ext készlet van meg: a latin-ben vannak az á, é, í,
+   ó, ö, ú, ü betűk, a latin-ext-ben az ő és az ű (ezért kell mindkettő). A
+   böngésző a unicode-range alapján csak azt a fájlt tölti le, amelyik betűi
+   tényleg szerepelnek az oldalon.
+   - Az Inter fájl VÁLTOZÓ betűtípus (wght 100–900): a 400-as és a 600-as
+     szabály ugyanarra a fájlra mutat, a böngésző csak egyszer tölti le.
+   - A Montserrat itt a statikus 700-as változat (az admin a változót kapja).
+     A 800-at kérő hero-cím ezért 700-zal jelenik meg – pontosan úgy, mint a
+     Google Fonts idején. Egy 800-as szabály a címet láthatóan vastagabbá tenné.
+   - A súlyok és a unicode-range-ek SZÁNDÉKOSAN egyeznek a Google-éval, így a
+     betűválasztás (pl. a 300-at kérő szövegnél a 400, a 700-at kérőnél a 600)
+     sem változott.
+   - Fájlcserénél ÚJ fájlnév kell (a verziószám a névben van): a fájlok egy
+     évre gyorsítótárazódhatnak.
+   ELŐTÖLTÉS (preload): az öt HTML (index, hir, hirek, kapcsolat, 404) csak a
+   Montserrat 700 latin fájlt tölti előre – ha itt a fájlnév változik, ott
+   is. Az Inter előtöltése SZÁNDÉKOSAN nincs benne: lassított hálózaton
+   (150 ms, 1,6 Mbit/s, a karbantartás-ellenőrzéssel együtt, 2026-10-25) a
+   két előtöltés az első festést (FCP) ~250–300 ms-mal késleltette, mert a
+   fontok a CSS elől vitték el a sávszélességet; egy (19 KB) ~90–130 ms-mal.
+   A Lighthouse szimulált mérése ezzel szemben az előtöltést jutalmazza –
+   az egy Montserrat-preload a kettő eredményének szinte egészét hozza. */
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('fonts/inter-v20-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('fonts/inter-v20-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('fonts/inter-v20-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('fonts/inter-v20-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Montserrat';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('fonts/montserrat-v31-700-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Montserrat';
+    font-style: normal;
+    font-weight: 700;
+    font-display: swap;
+    src: url('fonts/montserrat-v31-700-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Metrikus tartalék (fallback): amíg a webfont meg nem érkezik, a szöveg
+   Arialban jelenik meg, de a webfont méreteire igazítva – így a betűcsere
+   kevésbé mozdítja el az elrendezést (CLS).
+   - size-adjust: az oldalak valódi szövegén mért szélességarány (webfont /
+     Arial, illetve Arial Bold), 2026-10-25.
+   - ascent/descent-override: a webfont saját metrikája (Inter: 1984 / 494 /
+     2048, Montserrat: 968 / 251 / 1000) OSZTVA a size-adjusttal – a Chrome az
+     override-okat is szorozza vele. Így a "normal" sormagasság pontosan a
+     webfonté (Inter 1,21, Montserrat 1,219; az Arialé 1,15 lenne).
+   - Ahol nincs Arial (Android), a local() nem talál semmit, és a sima
+     sans-serif marad – pontosan úgy, mint eddig.
+   A 600-as Inter és a 700-as Montserrat tartaléka az Arial Bold: a régi
+   tartalék (sans-serif) is azt választotta ezekre a súlyokra.
+   A unicode-range a két webfont-készlet (latin + latin-ext) uniója: ami
+   ezeken kívül esik (pl. a → nyíl), azt a webfont sem rajzolja meg, ezért
+   ott a sima sans-serif marad – pontosan úgy, mint eddig. */
+@font-face {
+    font-family: 'Inter Fallback';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Arial'), local('ArialMT');
+    size-adjust: 105.98%;
+    ascent-override: 91.41%;
+    descent-override: 22.76%;
+    line-gap-override: 0%;
+    unicode-range: U+0000-00FF, U+0100-02BA, U+02BB-02BC, U+02BD-02C5, U+02C6, U+02C7-02CC, U+02CE-02D7, U+02DA, U+02DC, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2000-206F, U+20A0-20AB, U+20AC, U+20AD-20C4, U+2113, U+2122, U+2191, U+2193, U+2212, U+2215, U+2C60-2C7F, U+A720-A7FF, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Inter Fallback';
+    font-style: normal;
+    font-weight: 600;
+    src: local('Arial Bold'), local('Arial-BoldMT');
+    size-adjust: 101.34%;
+    ascent-override: 95.59%;
+    descent-override: 23.80%;
+    line-gap-override: 0%;
+    unicode-range: U+0000-00FF, U+0100-02BA, U+02BB-02BC, U+02BD-02C5, U+02C6, U+02C7-02CC, U+02CE-02D7, U+02DA, U+02DC, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2000-206F, U+20A0-20AB, U+20AC, U+20AD-20C4, U+2113, U+2122, U+2191, U+2193, U+2212, U+2215, U+2C60-2C7F, U+A720-A7FF, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Montserrat Fallback';
+    font-style: normal;
+    font-weight: 700;
+    src: local('Arial Bold'), local('Arial-BoldMT');
+    size-adjust: 106.27%;
+    ascent-override: 91.09%;
+    descent-override: 23.62%;
+    line-gap-override: 0%;
+    unicode-range: U+0000-00FF, U+0100-02BA, U+02BB-02BC, U+02BD-02C5, U+02C6, U+02C7-02CC, U+02CE-02D7, U+02DA, U+02DC, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2000-206F, U+20A0-20AB, U+20AC, U+20AD-20C4, U+2113, U+2122, U+2191, U+2193, U+2212, U+2215, U+2C60-2C7F, U+A720-A7FF, U+FEFF, U+FFFD;
+}
+
 body {
     margin: 0;
     padding: 0;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Inter Fallback', sans-serif;
     background-color: #F1F1E6; 
     color: #333;
 }
 h1, h2, h3 {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
     text-transform: uppercase;
     font-weight: 700;
 }
@@ -489,7 +614,7 @@ a.footer-partner:hover {
    a sötétkék láblécen van, ezért VILÁGOS a betűszín – a korábbi sötétkék
    olvashatatlan lenne. */
 .footer-partner-name {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.5px;
@@ -653,7 +778,7 @@ a.footer-partner:hover {
     font-size: 3rem;
     color: #F1C039; /* Sárga számok */
     margin: 0;
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
 }
 
 .stat-box p {
@@ -754,7 +879,7 @@ blockquote {
    túl hangos lenne egy hibaüzenet mellett – a figyelmet a tartalomnak kell
    visszakapnia, nem a hibának. */
 .load-error-retry {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
     font-weight: 700;
     font-size: 0.85rem;
     color: #08122b;
@@ -801,7 +926,7 @@ blockquote {
     border-radius: 6px;
     text-decoration: none;
     font-weight: 700;
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
     transition: background-color 0.3s, transform 0.2s;
 }
 .btn:hover {
@@ -1153,7 +1278,7 @@ blockquote {
 /* Név-fallback: ha a logó képe nem tölthető be, a kép helyén a szponzor neve jelenik meg */
 .sponsor-name-fallback {
     display: none;
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
     font-weight: 600;
     font-size: 0.95rem;
     line-height: 56px;
@@ -1283,7 +1408,7 @@ blockquote {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
     font-weight: 700;
     font-size: 0.85rem;
     text-decoration: none;
@@ -1376,7 +1501,7 @@ blockquote {
    A bal padding 4 px-szel nagyobb: a letter-spacing az utolsó számjegy UTÁN
    is hagy 4 px-et, így a szám optikailag középen áll. */
 .notfound-box .notfound-code {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
     font-weight: 700;
     font-size: 4.5rem;
     line-height: 1;
@@ -1435,7 +1560,7 @@ blockquote {
     border-radius: 50%;
     background-color: #08122b;
     color: #F1C039;
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
     font-weight: 700;
     font-size: 2.2rem;
     display: flex;
@@ -1589,7 +1714,7 @@ body:has(.nav-links.active) .back-to-top {
 }
 
 .form-mezo label {
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Montserrat', 'Montserrat Fallback', sans-serif;
     font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -1607,7 +1732,7 @@ body:has(.nav-links.active) .back-to-top {
     width: 100%;
     box-sizing: border-box;
     padding: 13px 14px;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', 'Inter Fallback', sans-serif;
     font-size: 1rem;
     color: #333;
     background-color: #fbfbf6;

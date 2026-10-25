@@ -33,7 +33,14 @@
     <meta name="twitter:image" content="https://kozgazdaszklub.com/images/og-default.jpg">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700&display=swap" rel="stylesheet">
+    <!-- Betűtípusok: saját tárhelyről (fonts/, a @font-face a style.css-ben).
+         Csak a címsorok betűjét (Montserrat 700, 19 KB) töltjük előre: a
+         második (Inter, 48 KB) előtöltése lassú hálózaton már a CSS elől
+         vette el a sávszélességet (mérés: style.css fejkomment). A
+         crossorigin saját domainen is kell: a betűtípust a böngésző
+         CORS-módban kéri, enélkül a preload kárba menne, és a fájl kétszer
+         töltődne le. -->
+    <link rel="preload" href="fonts/montserrat-v31-700-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="style.css">
     <script src="script.js" defer></script>
 </head>
