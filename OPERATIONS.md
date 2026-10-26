@@ -16,6 +16,7 @@ a kulcsok, hogyan cserélhetők, mi a teendő, ha valami leáll.
 5. [Keep-alive (a Supabase ébren tartása)](#5-keep-alive-a-supabase-ébren-tartása)
 6. [Ha az oldal leáll](#6-ha-az-oldal-leáll)
 7. [Monitorozás (UptimeRobot)](#7-monitorozás-uptimerobot)
+8. [CSP-jelentések (Content-Security-Policy-Report-Only)](#8-csp-jelentések-content-security-policy-report-only)
 
 ---
 
@@ -277,6 +278,7 @@ Piros X az Actions fülön:
 | UptimeRobot riasztás: „KGK – főoldal" | az oldal nem érhető el, vagy nem a mi oldalunk jön | a fenti első két sor (Vercel, DNS) | üzemeltető / tartalék |
 | UptimeRobot riasztás: „KGK – adatbázis" | a Supabase nem válaszol | a „Nem sikerült betölteni" sor; Vercel → Logs → `/api/health` | üzemeltető / tartalék |
 | UptimeRobot riasztás: „KGK – e-mail" | a kapcsolat űrlap nem tud küldeni | 7. pont → *Ha riasztás jön* | üzemeltető |
+| Sok `csp-report:` sor a Vercel naplóban | új külső forrás került az oldalra, vagy egy deploy hozott be valamit | 8. pont | üzemeltető |
 
 (A `kgk-website.vercel.app` ehhez nem jó: az 308-cal a fő domainre irányít.
 A deploy saját címét a Vercel Dashboard → Deployments → a deploy adatlapján
@@ -523,3 +525,75 @@ Mindkettő megfelel; ennél az oldalnál az UptimeRobot az egyszerűbb.
 (A szolgáltatók oldalai alapján, 2026-10-24.) A Better Stack két előnye – a
 3 perc és a fejlécben küldhető token – itt keveset számít: egy klub-oldalnál a
 2 perc különbség nem lényeges, a token pedig kis tétű.
+
+---
+
+## 8. CSP-jelentések (Content-Security-Policy-Report-Only)
+
+A `vercel.json` minden válaszra tesz egy `Content-Security-Policy-Report-Only`
+fejlécet (CSP). Ez felsorolja, honnan tölthet be az oldal scriptet, stílust,
+képet és betűtípust, és hová küldhet kérést (ma: a saját domain, a Supabase
+projekt címe és a cdnjs a Font Awesome-hoz). **Report-Only módban a böngésző
+semmit nem tilt le** – csak szól, ha valami nincs a listán: a látogató
+konzoljába ír, és egy jelentést küld a `/api/csp-report` végpontnak, ami egy
+sort ír a Vercel naplóba. Normál használatnál egyetlen jelentés sem keletkezik
+(helyben, mind az öt publikus oldalon, a hír-oldalon, a 404-en, karbantartás
+módban és az adminban mérve).
+
+### Hol látszanak
+
+Vercel → a projekt → **Logs**, szűrés: `/api/csp-report` (vagy keresés:
+`csp-report:`). Egy sor így néz ki:
+
+```
+csp-report: {"directive":"img-src","blocked":"https://pelda.hu/kep.png","page":"https://kozgazdaszklub.com/hir.html","disposition":"report"}
+```
+
+- `directive` – melyik szabály: `img-src` kép, `script-src…` script,
+  `style-src…` stílus, `font-src` betűtípus, `connect-src` háttérkérés
+  (`fetch`), `frame-src` beágyazás;
+- `blocked` – mi sértette: egy cím (query rész nélkül), vagy `inline` (az
+  oldalba írt kód), `eval` (szövegből futtatott kód), `data` / `blob`;
+- `page` – melyik oldalon (query rész nélkül);
+- `source`, `sample` – ha van: melyik fájl hányadik sora, és a kód első 40
+  karaktere.
+
+IP-cím és böngészőazonosító nem kerül a sorba.
+
+**A Vercel a naplót rövid ideig őrzi:** a dokumentációja szerint a Hobby
+csomagban 1 óráig, Pro csomagban 1 napig. Hogy a projekt melyik csomagban
+van, a Vercel Dashboardon látszik. A jelentések tehát nem gyűlnek hosszú
+távon: deploy után, és ha valami gyanús, kell ránézni.
+
+### Mit jelent egy sor, mi a teendő
+
+| A sor | Jelentés | Teendő |
+|---|---|---|
+| `blocked`: egy új külső cím (videó, analitika, másik CDN) | valaki új külső forrást tett az oldalra | ha szándékos: a forrást fel kell venni a `vercel.json` policyjába, a megfelelő szabályhoz (README, 15. buktató); ha nem: ki és hogyan tette oda? |
+| `img-src`, idegen cím, `page`: egy hír-oldal | a hír szövegébe egy másik weboldalról bemásolt kép került (a szerkesztő beillesztéskor átveszi) | a képet töltsd le, és töltsd fel az adminban; egy élesített CSP mellett az idegen kép nem jelenne meg |
+| `page`: nem a `kozgazdaszklub.com` (pl. egy `…vercel.app` előnézeti cím) | a Vercel előnézeti eszköztára vagy egy teszt-deploy | nincs teendő |
+| `blocked`: `inline` vagy `eval`, új `source`-szal | egy script olyan kódot futtat, ami eddig nem volt | ha egy friss fejlesztésből jön: a fejlesztővel átnézni; ha nem a mi kódunkból: biztonsági gyanú – a 6. pont szerint, szükség esetén karbantartás mód |
+| `ütemkorlát – … eldobva` | egy percen belül sok jelentés jött | rossz deploy után várható: az előtte álló sorok mutatják az okot |
+
+A böngészőbővítményekből jövő jelentéseket a végpont eldobja. A végpontot
+bárki hívhatja, tehát egy-egy furcsa, magányos sor lehet hamisítvány is; sok
+egyforma sor viszont valódi.
+
+### Próba deploy után
+
+```bash
+curl -i -X POST https://kozgazdaszklub.com/api/csp-report -H "Content-Type: application/csp-report" --data '{"csp-report":{"document-uri":"https://kozgazdaszklub.com/proba","effective-directive":"img-src","blocked-uri":"https://example.com/proba.png","disposition":"report"}}'
+```
+
+A válasz `204`, és a naplóban megjelenik:
+`csp-report: {"directive":"img-src","blocked":"https://example.com/proba.png","page":"https://kozgazdaszklub.com/proba","disposition":"report"}`.
+
+### Mikor lehet élesíteni
+
+Élesítés = a fejléc neve `Content-Security-Policy` lesz (Report-Only nélkül),
+és onnantól a böngésző a listán kívüli forrást **letiltja**. Előfeltétel:
+hetekig nincs valódi `csp-report:` sor. A mai policy még engedi az oldalba
+írt scripteket és stílusokat (`'unsafe-inline'`), mert az admin és két
+publikus oldal ilyeneket használ – ezért élesítve is csak részleges védelmet
+adna. A teljes szigorításhoz előbb ezeket külön fájlba kell szervezni; ez
+fejlesztői feladat.

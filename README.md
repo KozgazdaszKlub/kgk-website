@@ -16,7 +16,7 @@ Vercelen fut.
 |---|---|---|
 | Weboldal | sima HTML, CSS, JavaScript | **nincs build lépés, framework és bundler** |
 | Adatbázis, bejelentkezés, fájlok | [Supabase](https://supabase.com) (Postgres + Auth + Storage) | a kód natív `fetch`-csel hívja a REST API-t, `supabase-js` nélkül |
-| Hosting | [Vercel](https://vercel.com) | a statikus fájlok + 4 szerveroldali függvény (`api/`) |
+| Hosting | [Vercel](https://vercel.com) | a statikus fájlok + 5 szerveroldali függvény (`api/`) |
 | Monitorozás | UptimeRobot (ingyenes) + `/api/health` | beállítás: OPERATIONS.md, 7. pont |
 | Ütemezett feladat | GitHub Actions | a Supabase ébren tartása (lásd OPERATIONS.md) |
 | Betűtípusok | Inter, Montserrat – saját tárhelyről (`fonts/`, woff2, OFL licenc) | a `@font-face` a `style.css`-ben (az adminé a sajátjában); Google Fonts-ot egyik oldal sem tölt be |
@@ -47,9 +47,10 @@ api/
   sitemap.js          /sitemap.xml → futásidőben generált sitemap
   kapcsolat-submit.js a kapcsolat űrlap → e-mail (Gmail SMTP)
   health.js           /api/health → állapotjelzés a monitorozáshoz (200 / 503)
+  csp-report.js       /api/csp-report → a CSP-jelentések egy-egy sora a Vercel naplóba
 migrations/           kézzel futtatandó SQL scriptek (Supabase SQL Editor)
 .github/workflows/    supabase-keepalive.yml – éjszakai ébren tartó lekérdezés
-vercel.json           útvonalak, átirányítások, biztonsági fejlécek
+vercel.json           útvonalak, átirányítások, biztonsági fejlécek (köztük a CSP, egyelőre Report-Only)
 .vercelignore         ami NEM kerül ki a weboldalra
 robots.txt            keresőrobotoknak
 ```
@@ -89,7 +90,8 @@ Tudnivalók:
    a gyökérben lévő fájlok statikusan, az `api/` fájlok függvényként mennek
    ki.
 3. Ellenőrzés: a főoldal betölt, az admin bejelentkező képernyője megjelenik,
-   a `/sitemap.xml` 200-at ad, a `/api/health` `{"status":"ok"}`-t ír.
+   a `/sitemap.xml` 200-at ad, a `/api/health` `{"status":"ok"}`-t ír, és a
+   Vercel naplóban nincs új `csp-report:` sor (OPERATIONS.md, 8. pont).
 
 - **Ami nem kerül ki a weboldalra:** a `.vercelignore` sorolja fel (pl.
   `migrations/`, `.github/`, a dokumentáció). A GitHubon ezek ettől még
@@ -188,3 +190,11 @@ Gmail-bejelentkezés sikerül-e).
     soha ne tegyél fel más fájlt. Fájlnév-változásnál a `style.css` (és az
     `admin.html`) `@font-face` szabályait és a hat HTML `preload` sorát is
     át kell írni.
+15. **Új külső forrásnál a CSP-t is bővíteni kell.** A `vercel.json`
+    `Content-Security-Policy-Report-Only` fejléce felsorolja, honnan jöhet
+    script, stílus, kép, betűtípus és `fetch` (ma: a saját domain, a
+    Supabase projekt címe és a cdnjs). Egy új külső forrás (pl. beágyazott
+    videó, analitika, másik CDN) ma még működik, de minden betöltésnél egy
+    `csp-report:` sort ír a Vercel naplóba – és ha a CSP egyszer élesítve lesz,
+    nem töltődne be. Ugyanez igaz, ha a Supabase projekt címe változna. A
+    jelentések olvasása: OPERATIONS.md, 8. pont.

@@ -19,7 +19,8 @@
         "X-Frame-Options": "DENY",
         "X-Content-Type-Options": "nosniff",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+        "Content-Security-Policy-Report-Only": "default-src 'self'; script-src 'self' 'unsafe-inline' 'report-sample'; style-src 'self' 'unsafe-inline' 'report-sample' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://agdstsliixwysbjedppu.supabase.co; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https://agdstsliixwysbjedppu.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; report-uri /api/csp-report"
       },
       "continue": true
     },
