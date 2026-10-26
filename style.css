@@ -24,9 +24,9 @@
      sem változott.
    - Fájlcserénél ÚJ fájlnév kell (a verziószám a névben van): a fájlok egy
      évre gyorsítótárazódhatnak.
-   ELŐTÖLTÉS (preload): az öt HTML (index, hir, hirek, kapcsolat, 404) csak a
-   Montserrat 700 latin fájlt tölti előre – ha itt a fájlnév változik, ott
-   is. Az Inter előtöltése SZÁNDÉKOSAN nincs benne: lassított hálózaton
+   ELŐTÖLTÉS (preload): a hat HTML (index, hir, hirek, kapcsolat, adatvedelem,
+   404) csak a Montserrat 700 latin fájlt tölti előre – ha itt a fájlnév
+   változik, ott is. Az Inter előtöltése SZÁNDÉKOSAN nincs benne: lassított hálózaton
    (150 ms, 1,6 Mbit/s, a karbantartás-ellenőrzéssel együtt, 2026-10-25) a
    két előtöltés az első festést (FCP) ~250–300 ms-mal késleltette, mert a
    fontok a CSS elől vitték el a sávszélességet; egy (19 KB) ~90–130 ms-mal.

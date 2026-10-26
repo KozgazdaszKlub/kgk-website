@@ -19,7 +19,7 @@ Vercelen fut.
 | Hosting | [Vercel](https://vercel.com) | a statikus fájlok + 4 szerveroldali függvény (`api/`) |
 | Monitorozás | UptimeRobot (ingyenes) + `/api/health` | beállítás: OPERATIONS.md, 7. pont |
 | Ütemezett feladat | GitHub Actions | a Supabase ébren tartása (lásd OPERATIONS.md) |
-| Betűtípusok | Inter, Montserrat – saját tárhelyről (`fonts/`, woff2, OFL licenc) | a `@font-face` a `style.css`-ben (az adminé a sajátjában); a Google Fonts-ot csak az `adatvedelem.html` tölti még be |
+| Betűtípusok | Inter, Montserrat – saját tárhelyről (`fonts/`, woff2, OFL licenc) | a `@font-face` a `style.css`-ben (az adminé a sajátjában); Google Fonts-ot egyik oldal sem tölt be |
 | Külső | Font Awesome 6.4.0 (cdnjs, SRI hash-sel) | csak az `index.html` (és az admin) tölti be |
 
 A `package.json` **kizárólag** az `api/` függvények npm-függősége
@@ -186,5 +186,5 @@ Gmail-bejelentkezés sikerül-e).
 14. **Betűtípus-csere = új fájlnév.** A `fonts/` woff2 fájljai 1 éves,
     `immutable` gyorsítótárat kapnak (`vercel.json`), ezért ugyanazon a néven
     soha ne tegyél fel más fájlt. Fájlnév-változásnál a `style.css` (és az
-    `admin.html`) `@font-face` szabályait és az öt HTML `preload` sorát is
+    `admin.html`) `@font-face` szabályait és a hat HTML `preload` sorát is
     át kell írni.
