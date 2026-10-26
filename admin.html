@@ -1371,6 +1371,62 @@
             color: var(--danger);
         }
 
+        /* ── ELUTASÍTOTT FÁJLVÁLASZTÁS ──
+           Az elem CSAK akkor létezik a DOM-ban, ha egy kiválasztott fájl nem
+           került be (lásd markSelectionRejected) – a hibátlan úton nincs mire
+           hatnia. A feltöltő doboz ALATT áll, mert a dobozt a láthatatlan
+           fájlválasztó teljesen lefedi: egy benne lévő gombra kattintva a
+           fájlválasztó nyílna meg. */
+        .upload-rejected {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            gap: 10px 12px;
+            margin-top: 10px;
+            padding: 12px 14px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: var(--text-muted);
+        }
+
+        .upload-rejected > i { margin-top: 3px; color: var(--danger); }
+
+        /* Ugyanaz a tördelés, mint a galéria betöltési dobozánál: keskeny
+           helyen a gomb a szöveg alá kerül */
+        .upload-rejected-body { flex: 1 1 200px; min-width: 0; }
+
+        .upload-rejected-body strong {
+            display: block;
+            color: var(--text);
+            font-weight: 600;
+            /* Egy hosszú, szóköz nélküli fájlnév se lógjon ki */
+            overflow-wrap: anywhere;
+        }
+
+        .upload-rejected-body span { display: block; }
+        .upload-rejected-body .upload-rejected-hint { margin-top: 6px; }
+
+        .upload-rejected-ok {
+            flex-shrink: 0;
+            align-self: center;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 14px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: border-color 0.2s, color 0.2s;
+        }
+
+        .upload-rejected-ok:hover { border-color: var(--gold); color: var(--gold); }
+        .upload-rejected-ok:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
         /* ── FUNKCIÓ-KAPCSOLÓK (Szekciók fül) ── */
         .flag-card {
             background: var(--surface);
@@ -1523,6 +1579,11 @@
            partner neve két sorba tördel – így a két gomb egy vonalban áll. */
         .partner-card .btn-save {
             margin-top: auto;
+            /* Az általános .btn-save `flex: 2`-je a modálok lábsorára készült
+               (a Mégse mellett). Itt, a függőleges kártyában a gombot
+               MAGASSÁGBAN nyújtaná, amint a másik kártya magasabb (pl. egy
+               elutasított logó piros doboza miatt). */
+            flex: none;
         }
 
         /* A logó előnézete a LÁBLÉC SÖTÉTKÉKJÉN (--navy = #08122b): a weboldalon
@@ -3646,6 +3707,9 @@ function openModal(type, data = null) {
     lastFocusedElement = document.activeElement;
     // Frissen nyitott modálban még nincs mentetlen változás (lásd beforeunload)
     modalDirty = false;
+    // …és egy korábbi megnyitáskor elutasított fájl sem számít (a galériáé a
+    // resetGallery-ben törlődik)
+    clearSelectionRejected(type);
 
     // 2. A szponzor-modál mezői eltérnek a többitől (nincs rich editor, nincs
     //    galéria, nincs publikálás-kapcsoló), ezért saját reset-ága van.
@@ -3825,13 +3889,21 @@ async function handleFileSelect(key) {
     // A túl nagy vagy a böngésző által meg nem nyitható kép (pl. iPhone-os
     // HEIC) már itt kiesik, nem csak a Mentésnél
     if (file) {
-        const problem = await checkUploadFile(file, 'image');
-        // Közben másik fájlt választottak (vagy a modál újranyílt): az a
-        // saját hívásában intéződik
-        if (input.files[0] !== file) return;
-        if (problem) {
-            rejectSelectedImage(key, problem);
-            return;
+        // Amíg az ellenőrzés fut, a mentés megvárja (selectionBlocksSave)
+        const finishCheck = beginSelectionCheck(key);
+        try {
+            const problem = await checkUploadFile(file, 'image');
+            // Közben másik fájlt választottak (vagy a modál újranyílt): az a
+            // saját hívásában intéződik
+            if (input.files[0] !== file) return;
+            if (problem) {
+                rejectSelectedImage(key, problem, file.name);
+                return;
+            }
+            // Jó fájl: egy korábban elutasított már nem tartja vissza a mentést
+            clearSelectionRejected(key);
+        } finally {
+            finishCheck();
         }
     }
     // Új fájlnál az eltávolító gomb is megjelenik (ahol van ilyen gomb)
@@ -3863,7 +3935,9 @@ function showPreview(key, src, isUrl) {
 // mentett képre (vagy az üres feltöltő dobozra), és a felhasználó megtudja,
 // miért. Az előnézetet azért kell visszaállítani, mert egy korábban
 // kiválasztott (még nem mentett) fájl ilyenkor már nincs a fájlválasztóban.
-function rejectSelectedImage(key, message) {
+// Az ok a toast után a mező alatt is megmarad, és addig a mentés áll (lásd
+// ELUTASÍTOTT FÁJLVÁLASZTÁS).
+function rejectSelectedImage(key, message, fileName) {
     const input = document.getElementById(`file-${key}`);
     if (input) input.value = '';
     const state = modalImageState[key];
@@ -3872,6 +3946,111 @@ function rejectSelectedImage(key, message) {
     else clearPreview(key);
     syncImageRemoveUi(key);
     showToast(message, 'error');
+    markSelectionRejected(key, [fileName], message);
+}
+
+// ════════════════════════════════════════════
+// ELUTASÍTOTT FÁJLVÁLASZTÁS – A MENTÉS ADDIG ÁLL
+// ════════════════════════════════════════════
+// Az elutasított fájl (túl nagy, HEIC, sérült…) már a kiválasztáskor kiesik a
+// fájlválasztóból. Korábban erről csak egy toast szólt: ha utána a Mentésre
+// kattintottak, a mentés a fájl NÉLKÜL lefutott, és a zöld „sikeresen
+// mentve" üzenet eltakarta a pirosat (2026-10-26-án élesben így maradt ki
+// mindkét partnerlogó). Most:
+//   - az ok a mező alatt, egy piros dobozban megmarad,
+//   - amíg a doboz látszik, a mező mentése nem indul el (selectionBlocksSave),
+//   - a doboz eltűnik, ha jó fájlt választanak, ha a „Rendben" gombbal
+//     jelzik, hogy a fájl nélkül mentenének, vagy ha a modál újranyílik.
+// A még futó ellenőrzést (checkUploadFile) a mentés megvárja – a galériánál
+// enélkül a kiválasztott képek némán kimaradnának a mentésből.
+//
+// Kulcs: a fájlválasztóé – 'hir', 'tag', 'munkacsoport', 'szponzor',
+// 'rolunk', 'partner-<id>', és 'gallery' (a hír galériája). A Gólya PDF-nél
+// nem kell: ott fájl nélkül a mentés el sem indul („Válassz ki egy PDF
+// fájlt!"), tehát sikerüzenet sem jöhet.
+const rejectedSelections = {};      // kulcs → { names, message }
+const pendingSelectionChecks = {};  // kulcs → a futó ellenőrzés ígérete
+
+// Egy ellenőrzés kezdete. A visszaadott függvényt a végén (finally) KELL
+// hívni – addig a mentés vár. Egy közben indult újabb ellenőrzést nem töröl.
+function beginSelectionCheck(key) {
+    let finish;
+    const promise = new Promise(resolve => { finish = resolve; });
+    pendingSelectionChecks[key] = promise;
+    return () => {
+        if (pendingSelectionChecks[key] === promise) delete pendingSelectionChecks[key];
+        finish();
+    };
+}
+
+function selectionAnchor(key) {
+    return document.getElementById(key === 'gallery' ? 'gallery-upload-area' : `upload-${key}`);
+}
+
+function markSelectionRejected(key, names, message) {
+    rejectedSelections[key] = { names, message };
+    renderSelectionRejected(key);
+}
+
+function clearSelectionRejected(key) {
+    delete rejectedSelections[key];
+    document.getElementById(`rejected-${key}`)?.remove();
+}
+
+// A piros doboz a feltöltő doboz után. Ha már létezik, csak a szövege
+// frissül (a fókusz a gombján maradhat).
+function renderSelectionRejected(key) {
+    const state = rejectedSelections[key];
+    const anchor = selectionAnchor(key);
+    if (!state || !anchor) return;
+
+    let box = document.getElementById(`rejected-${key}`);
+    if (!box) {
+        box = document.createElement('div');
+        box.id = `rejected-${key}`;
+        box.className = 'upload-rejected';
+        box.setAttribute('role', 'alert');
+        box.innerHTML = `
+            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+            <div class="upload-rejected-body">
+                <strong></strong>
+                <span></span>
+                <span class="upload-rejected-hint">Amíg ez a doboz látszik, a Mentés nem indul el. Válassz másik fájlt, vagy ha nélküle mentenéd, nyomd meg a „Rendben" gombot.</span>
+            </div>
+            <button type="button" class="upload-rejected-ok">Rendben</button>`;
+        box.querySelector('button').addEventListener('click', () => dismissSelectionRejected(key));
+        anchor.after(box);
+    }
+    const names = state.names.map(name => `„${name}"`).join(', ');
+    box.querySelector('strong').textContent = key === 'gallery'
+        ? `Nem került a galériába: ${names}`
+        : `Nem került be: ${names}`;
+    box.querySelector('.upload-rejected-body span').textContent = state.message;
+}
+
+// „Rendben": a felhasználó tudja, hogy a fájl nem megy fel, és nélküle
+// mentene. A gomb a dobozzal együtt eltűnik – a fókusz a fájlválasztóra
+// kerül, a Tab-sorrendben az áll előtte.
+function dismissSelectionRejected(key) {
+    clearSelectionRejected(key);
+    document.getElementById(key === 'gallery' ? 'file-gallery' : `file-${key}`)?.focus();
+}
+
+// A mentés elején hívandó, a Mentés gomb letiltása UTÁN (a várakozás alatt
+// ne lehessen még egyszer rákattintani). Igaz, ha a mentés NEM mehet tovább –
+// a felhasználó ilyenkor már tudja, miért.
+async function selectionBlocksSave(keys) {
+    // A futó ellenőrzések kivárása – egy közben indult újabbé is
+    let pending;
+    while ((pending = keys.map(key => pendingSelectionChecks[key]).filter(Boolean)).length) {
+        await Promise.all(pending);
+    }
+    const key = keys.find(k => rejectedSelections[k]);
+    if (!key) return false;
+    const names = rejectedSelections[key].names.map(name => `„${name}"`).join(', ');
+    showToast(`Nem mentettünk semmit: ${names} nem került be. Válassz másik fájlt, vagy a piros dobozban nyomd meg a „Rendben" gombot, ha nélküle mentenéd.`, 'error');
+    document.querySelector(`#rejected-${key} .upload-rejected-ok`)?.focus();
+    return true;
 }
 
 // ════════════════════════════════════════════
@@ -3931,6 +4110,8 @@ function requestImageRemoval(key) {
     const discardSelection = () => {
         if (fileInput) fileInput.value = '';
         clearPreview(key);
+        // A képről döntöttek: egy korábban elutasított fájl már nem számít
+        clearSelectionRejected(key);
         syncImageRemoveUi(key);
         fileInput?.focus();
     };
@@ -4661,6 +4842,13 @@ async function saveWithImage(key, bucket, buildData, options = {}) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Mentés...';
 
+    // Elutasított (vagy még ellenőrzés alatt álló) kép: nem mentünk
+    if (await selectionBlocksSave([key])) {
+        btn.disabled = false;
+        btn.innerHTML = 'Mentés';
+        return;
+    }
+
     try {
         const fileInput = document.getElementById(`file-${key}`);
         let imageUrl = null;
@@ -4908,22 +5096,29 @@ function retryExistingGallery() {
 
 async function handleGallerySelect() {
     const input = document.getElementById('file-gallery');
+    // Ami a kiválasztásból nem kerül be, az a mező alatt is megmarad, és a
+    // hír mentése addig áll (lásd ELUTASÍTOTT FÁJLVÁLASZTÁS)
+    const allNames = Array.from(input.files).map(file => file.name);
     // Amíg a meglévő galéria nincs biztosan betöltve, új képet nem veszünk fel:
     // a mentés ilyenkor a galériához nem nyúl, tehát a kép némán elveszne, egy
     // később sikeres betöltés pedig amúgy is felülírná a listát.
     if (galleryLoadState === 'loading' || galleryLoadState === 'error') {
-        showToast(galleryLoadState === 'error'
+        const message = galleryLoadState === 'error'
             ? 'Előbb töltsd be a galériát (Újrapróbálom gomb), utána adhatsz hozzá képet.'
-            : 'A galéria még töltődik – várd meg, utána adhatsz hozzá képet.', 'error');
+            : 'A galéria még töltődik – várd meg, utána adhatsz hozzá képet.';
+        showToast(message, 'error');
         input.value = '';
+        if (allNames.length) markSelectionRejected('gallery', allNames, message);
         return;
     }
     const newFiles = Array.from(input.files);
     const total = galleryOrder.length + newFiles.length;
 
     if (total > GALLERY_MAX) {
-        showToast(`Maximum ${GALLERY_MAX} kép tölthető fel! (jelenleg ${galleryOrder.length})`, 'error');
+        const message = `Maximum ${GALLERY_MAX} kép tölthető fel! (jelenleg ${galleryOrder.length})`;
+        showToast(message, 'error');
         input.value = '';
+        markSelectionRejected('gallery', allNames, message);
         return;
     }
     input.value = '';
@@ -4931,30 +5126,43 @@ async function handleGallerySelect() {
     // A túl nagy és a böngésző által meg nem nyitható (pl. HEIC) képek
     // kimaradnak, a többi bekerül. Az ellenőrzés aszinkron: ha közben a modál
     // bezárult, újranyílt vagy betöltés indult (galleryLoadSeq), eldobjuk.
+    // Amíg fut, a hír mentése megvárja – különben a képek kimaradnának belőle.
     const seq = galleryLoadSeq;
-    const problems = await Promise.all(newFiles.map(file => checkUploadFile(file, 'image')));
-    if (seq !== galleryLoadSeq) return;
-    const accepted = newFiles.filter((file, i) => !problems[i]);
-    const rejectedNames = newFiles.filter((file, i) => problems[i]).map(file => `„${file.name}"`);
-    if (rejectedNames.length) {
-        showToast(`Nem került be: ${rejectedNames.join(', ')}. ${problems.find(Boolean)}`, 'error');
-    }
-    // Ha az ellenőrzés alatt egy másik kiválasztás is bekerült
-    if (galleryOrder.length + accepted.length > GALLERY_MAX) {
-        showToast(`Maximum ${GALLERY_MAX} kép tölthető fel! (jelenleg ${galleryOrder.length})`, 'error');
-        return;
-    }
-    if (!accepted.length) return;
+    const finishCheck = beginSelectionCheck('gallery');
+    try {
+        const problems = await Promise.all(newFiles.map(file => checkUploadFile(file, 'image')));
+        if (seq !== galleryLoadSeq) return;
+        const accepted = newFiles.filter((file, i) => !problems[i]);
+        const rejectedFiles = newFiles.filter((file, i) => problems[i]);
+        const rejectedNames = rejectedFiles.map(file => `„${file.name}"`);
+        if (rejectedNames.length) {
+            showToast(`Nem került be: ${rejectedNames.join(', ')}. ${problems.find(Boolean)}`, 'error');
+            markSelectionRejected('gallery', rejectedFiles.map(file => file.name), problems.find(Boolean));
+        } else if (accepted.length) {
+            // Minden kép bekerült: egy korábbi elutasítás már nem számít
+            clearSelectionRejected('gallery');
+        }
+        // Ha az ellenőrzés alatt egy másik kiválasztás is bekerült
+        if (galleryOrder.length + accepted.length > GALLERY_MAX) {
+            const message = `Maximum ${GALLERY_MAX} kép tölthető fel! (jelenleg ${galleryOrder.length})`;
+            showToast(message, 'error');
+            markSelectionRejected('gallery', allNames, message);
+            return;
+        }
+        if (!accepted.length) return;
 
-    // Az új fájlok a lista végére kerülnek, onnan húzhatók bárhová.
-    // Az objektum-URL egyszer készül el és megmarad: így az újrarajzolás
-    // (minden húzás után) nem szór szét használatlan URL-eket.
-    accepted.forEach(file => {
-        galleryOrder.push({ type: 'new', file, objUrl: URL.createObjectURL(file) });
-    });
+        // Az új fájlok a lista végére kerülnek, onnan húzhatók bárhová.
+        // Az objektum-URL egyszer készül el és megmarad: így az újrarajzolás
+        // (minden húzás után) nem szór szét használatlan URL-eket.
+        accepted.forEach(file => {
+            galleryOrder.push({ type: 'new', file, objUrl: URL.createObjectURL(file) });
+        });
 
-    syncGalleryArrays();
-    renderGalleryPreviews();
+        syncGalleryArrays();
+        renderGalleryPreviews();
+    } finally {
+        finishCheck();
+    }
 }
 
 function renderGalleryPreviews() {
@@ -5003,6 +5211,7 @@ function resetGallery() {
     });
     galleryOrder = [];
     syncGalleryArrays();
+    clearSelectionRejected('gallery');
     // Betöltési állapot alaphelyzetbe. A sorszám léptetése miatt egy még futó
     // betöltés válasza (pl. egy korábban megnyitott hírtől) már nem ír ide.
     galleryLoadSeq++;
@@ -5232,6 +5441,13 @@ async function saveHir() {
     const btn = document.getElementById('save-hir');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Mentés...';
+
+    // Elutasított borítókép vagy galériakép, vagy még futó ellenőrzés
+    if (await selectionBlocksSave(['hir', 'gallery'])) {
+        btn.disabled = false;
+        btn.innerHTML = 'Mentés';
+        return;
+    }
 
     try {
         // 1. Borítókép feltöltése ha van új
@@ -5550,6 +5766,12 @@ async function saveRolunk() {
     const btn = document.querySelector('#tab-rolunk .btn-save');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Mentés...';
+
+    if (await selectionBlocksSave(['rolunk'])) {
+        btn.disabled = false;
+        btn.innerHTML = 'Mentés';
+        return;
+    }
 
     try {
         const fileInput = document.getElementById('file-rolunk');
@@ -6023,7 +6245,98 @@ function safeUrl(value) {
     }
 }
 
-async function loadPartnerek() {
+// ── A MENTETLEN VÁLTOZÁSOK MEGŐRZÉSE ÚJRARAJZOLÁSKOR ──
+// A loadPartnerek MINDKÉT kártyát újrarajzolja: egy partner mentése után, a
+// „Sorrend cseréje" után, és a loadAll() miatt bármelyik modál mentése vagy
+// törlése után is. Korábban ilyenkor elveszett a másik kártyán kiválasztott,
+// még nem mentett logó (és a beírt név / link) – ha utána arra is a Mentésre
+// kattintottak, „Partner sikeresen mentve!" jött, logó nélkül.
+//
+// Miért megőrzés, és nem figyelmeztetés vagy csak a mentett kártya frissítése:
+//   - nem vész el semmi, és nem kell külön kérdésre válaszolni;
+//   - mindhárom újrarajzolást lefedi – a csak a mentett kártyát frissítő
+//     megoldás a sorrendcserénél és a loadAll()-nál ugyanúgy eldobná;
+//   - a fájlt nem kell újra beolvasni: a fájlválasztó ELEMÉT tesszük át az
+//     új kártyába, az őrzi a kiválasztott fájlt.
+// Megmarad: a kiválasztott fájl (és az előnézete), az átírt név / link, egy
+// futó mentés letiltott gombja, az elutasított fájl piros doboza és a fókusz.
+
+// Mi állt utoljára az adatbázisból a mezőkben (partner id → { name, url }).
+// Ehhez képest számít átírtnak egy mező.
+const partnerShownValues = {};
+
+// `saved`: az épp elmentett kártya ({ id, file, name, url } – a feltöltött
+// fájl és a BEKÜLDÖTT nyers mezőértékek). Annál ezek már nem mentetlenek, a
+// kártya az adatbázis értékeit kapja – kivéve, amit a mentés közben írtak át.
+function collectPartnerDrafts(wrap, saved) {
+    const active = document.activeElement;
+    const drafts = {
+        cards: [],
+        focus: active && active.id && wrap.contains(active)
+            ? { id: active.id, start: active.type === 'text' ? active.selectionStart : null, end: active.type === 'text' ? active.selectionEnd : null }
+            : null
+    };
+
+    wrap.querySelectorAll('.partner-card input[type="file"]').forEach(fileInput => {
+        const key = fileInput.id.replace(/^file-/, '');
+        const id = key.replace(/^partner-/, '');
+        const isSaved = saved && String(saved.id) === id;
+        const shown = isSaved ? { name: saved.name, url: saved.url } : partnerShownValues[id];
+        const nameEl = document.getElementById(`name-${key}`);
+        const urlEl = document.getElementById(`url-${key}`);
+        const btn = document.getElementById(`save-${key}`);
+        const file = fileInput.files[0];
+        const keepFile = !!file && !(isSaved && file === saved.file);
+
+        drafts.cards.push({
+            key,
+            fileInput: keepFile ? fileInput : null,
+            preview: keepFile ? document.getElementById(`preview-${key}`)?.getAttribute('src') : null,
+            name: shown && nameEl && nameEl.value !== shown.name ? nameEl.value : null,
+            url: shown && urlEl && urlEl.value !== shown.url ? urlEl.value : null,
+            saving: btn && btn.disabled ? btn.innerHTML : null,
+            rejectedBox: document.getElementById(`rejected-${key}`)
+        });
+    });
+    return drafts;
+}
+
+function restorePartnerDrafts(drafts) {
+    drafts.cards.forEach(draft => {
+        const { key } = draft;
+        if (draft.fileInput) {
+            document.getElementById(`file-${key}`)?.replaceWith(draft.fileInput);
+            // A FileReader előnézete (data: cím). Ha még nem készült el, a
+            // handleFileSelect id alapján az új kártyába írja.
+            if (draft.preview?.startsWith('data:')) showPreview(key, draft.preview, false);
+        }
+        const nameEl = document.getElementById(`name-${key}`);
+        const urlEl = document.getElementById(`url-${key}`);
+        if (nameEl && draft.name !== null) nameEl.value = draft.name;
+        if (urlEl && draft.url !== null) urlEl.value = draft.url;
+        // Futó mentés: a gombot a savePartner a végén id alapján állítja vissza
+        const btn = document.getElementById(`save-${key}`);
+        if (btn && draft.saving !== null) {
+            btn.disabled = true;
+            btn.innerHTML = draft.saving;
+        }
+        // Az elutasított logó piros doboza: a régi elem jön át (a képernyőolvasó
+        // így nem olvassa fel újra); ha nincs, a loadPartnerek újraépíti
+        if (draft.rejectedBox) selectionAnchor(key)?.after(draft.rejectedBox);
+    });
+
+    if (drafts.focus) {
+        const el = document.getElementById(drafts.focus.id);
+        if (el && !el.disabled) {
+            el.focus();
+            if (el.type === 'text' && drafts.focus.start !== null) {
+                el.setSelectionRange(drafts.focus.start, drafts.focus.end);
+            }
+        }
+    }
+}
+
+async function loadPartnerek(options = {}) {
     const wrap = document.getElementById('list-partnerek');
     if (!wrap) return;
 
@@ -6057,6 +6370,10 @@ async function loadPartnerek() {
                 <i class="fas fa-right-left"></i> Sorrend cseréje
             </button>
         </div>` : '';
+
+    // A régi kártyák mentetlen változásai – közvetlenül az újrarajzolás előtt,
+    // hogy a lekérés alatt választott fájl is megmaradjon
+    const drafts = collectPartnerDrafts(wrap, options.saved);
 
     wrap.innerHTML = orderBar + '<div class="partner-grid">' + data.map((p, i) => {
         const key = `partner-${p.id}`;
@@ -6097,6 +6414,19 @@ async function loadPartnerek() {
         if (p.logo_url) showPreview(`partner-${p.id}`, p.logo_url, true);
     });
 
+    // Az adatbázis értékei, ahogy a mezőkben állnak – ehhez képest számít
+    // átírtnak egy mező a következő újrarajzoláskor
+    data.forEach(p => {
+        partnerShownValues[p.id] = {
+            name: document.getElementById(`name-partner-${p.id}`)?.value ?? '',
+            url: document.getElementById(`url-partner-${p.id}`)?.value ?? ''
+        };
+    });
+    restorePartnerDrafts(drafts);
+    // Amíg egy elutasított logó piros doboza áll, a kártya mentése vár (lásd
+    // ELUTASÍTOTT FÁJLVÁLASZTÁS) – a doboznak ezért minden kártyán látszania kell
+    data.forEach(p => renderSelectionRejected(`partner-${p.id}`));
+
     // A dobozok most jöttek létre, tehát a húzd-ide vizuális visszajelzést
     // most kell rájuk kötni. A függvény idempotens (dataset.dragInit őrzi),
     // így a többi, már bekötött területet nem bántja.
@@ -6131,8 +6461,31 @@ async function savePartner(id) {
     // a saját oldalunkon belül keresne egy nem létező fájlt. Ezért pótoljuk.
     if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
 
+    // A beküldött nyers mezőértékek (és lent a feltöltött fájl): újrarajzoláskor
+    // ezekhez képest számít mentetlennek, amit a mentés közben még átírtak
+    // vagy kiválasztottak (collectPartnerDrafts)
+    const submitted = { id, file: null, name: nameInput.value, url: urlInput.value };
+
+    // A gombot mindig id alapján állítjuk vissza: a mentés alatt a kártyák
+    // újrarajzolódhatnak (pl. a másik partner mentése miatt), és akkor a
+    // `btn` már egy eldobott elem
+    const resetBtn = () => {
+        const current = document.getElementById(`save-${key}`);
+        if (current) {
+            current.disabled = false;
+            current.innerHTML = 'Mentés';
+        }
+    };
+
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Mentés...';
+
+    // Elutasított (vagy még ellenőrzés alatt álló) logó: nem mentünk. Ez volt
+    // az élesben látott hiba: a „Partner sikeresen mentve!" eltakarta a pirosat.
+    if (await selectionBlocksSave([key])) {
+        resetBtn();
+        return;
+    }
 
     try {
         const fileInput = document.getElementById(`file-${key}`);
@@ -6140,6 +6493,7 @@ async function savePartner(id) {
 
         if (fileInput?.files[0]) {
             const file = fileInput.files[0];
+            submitted.file = file;
             const ext = file.name.split('.').pop();
             logoUrl = await uploadImage('partner-logos', file, `${key}_${Date.now()}.${ext}`);
             // Ha a feltöltés elhasalt (pl. a bucket még nincs létrehozva),
@@ -6147,8 +6501,7 @@ async function savePartner(id) {
             // és a felhasználó azt hinné, minden rendben van.
             if (!logoUrl) {
                 showSaveError(errorWithReason('A logó feltöltése nem sikerült!') + ' A többi mező sem lett mentve.');
-                btn.disabled = false;
-                btn.innerHTML = 'Mentés';
+                resetBtn();
                 return;
             }
         }
@@ -6165,7 +6518,8 @@ async function savePartner(id) {
 
         if (ok) {
             showToast('Partner sikeresen mentve!', 'success');
-            await loadPartnerek();
+            // A másik kártya mentetlen változásai megmaradnak (lásd fent)
+            await loadPartnerek({ saved: submitted });
         } else {
             showSaveError(errorWithReason('Mentési hiba!'));
         }
@@ -6176,11 +6530,7 @@ async function savePartner(id) {
 
     // A gomb az újratöltés után már nem ugyanaz az elem, ezért frissen
     // kérdezzük le – különben egy eldobott DOM-elemet állítanánk vissza.
-    const btnUtan = document.getElementById(`save-${key}`);
-    if (btnUtan) {
-        btnUtan.disabled = false;
-        btnUtan.innerHTML = 'Mentés';
-    }
+    resetBtn();
 }
 
 // A szponzor-modál nyitása/zárása az `openModal` / `closeModal` saját
