@@ -49,6 +49,7 @@ api/
   health.js           /api/health → állapotjelzés a monitorozáshoz (200 / 503)
   csp-report.js       /api/csp-report → a CSP-jelentések egy-egy sora a Vercel naplóba
 migrations/           kézzel futtatandó SQL scriptek (Supabase SQL Editor)
+docs/partner-logok/   a lábléc két partnerlogójának fehér változata + a forrásuk (feltöltés az adminból)
 .github/workflows/    supabase-keepalive.yml – éjszakai ébren tartó lekérdezés
 vercel.json           útvonalak, átirányítások, biztonsági fejlécek (köztük a CSP, egyelőre Report-Only)
 .vercelignore         ami NEM kerül ki a weboldalra

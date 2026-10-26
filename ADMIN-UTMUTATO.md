@@ -158,6 +158,20 @@ A minden oldal alján látható **két** logó (a kar és az egyetem).
 
 Amíg nincs logó, a weboldalon a partner neve jelenik meg.
 
+**Logócsere – amire figyelj:**
+
+- **Fehér (világos) logó kell.** A logók a sötétkék láblécen, háttér nélkül
+  jelennek meg: egy fekete vagy sötétkék logó ott nem látszik. A két
+  intézmény fehér logója a GitHubon, a `docs/partner-logok/` mappában van
+  (a leírásban az is, melyik fájl melyik partnerhez tartozik).
+- **Egyszerre csak egy partnert cserélj:** logó kiválasztása → **Mentés** →
+  csak utána a másik. A mentés újratölti mindkét dobozt, így a másikban
+  kiválasztott, még el nem mentett kép elveszne – és a második mentés ezt
+  nem jelzi, „Partner sikeresen mentve!"-t ír.
+- **Az előnézet a lábléc sötétkék színén mutatja a logót** – úgy, ahogy a
+  weboldalon látszik. Ha egy logó az előnézetben nem látszik jól (pl. fekete
+  vagy fehér dobozos), a weboldalon sem fog: ilyenkor ne mentsd el.
+
 ## 9. Rólunk
 
 1. **Rólunk** fül → **Szöveg** átírása.
