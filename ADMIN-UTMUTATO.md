@@ -59,6 +59,12 @@ Ez az útmutató azoknak szól, akik a weboldalra tartalmat töltenek fel
   rákérdez. Ilyenkor előbb ments.
 - Képet a feltöltő mezőre kattintva vagy ráhúzva tudsz kiválasztani. A
   rendszer a képeket magától lekicsinyíti, előtte nem kell átméretezni.
+- Ha egy kiválasztott fájlt a rendszer **nem fogad el** (pl. iPhone-os HEIC,
+  túl nagy vagy sérült kép), a mező alatt egy **piros doboz** jelenik meg, és
+  megmondja, miért. Amíg a doboz látszik, a **Mentés nem indul el** – így nem
+  hiheted, hogy a kép felment, holott nem. Válassz másik fájlt, vagy ha a fájl
+  nélkül mentenél (pl. csak a szöveget javítottad), nyomd meg a dobozban a
+  **Rendben** gombot, és utána ments.
 
 ## 3. Hír felvitele
 
@@ -164,10 +170,13 @@ Amíg nincs logó, a weboldalon a partner neve jelenik meg.
   jelennek meg: egy fekete vagy sötétkék logó ott nem látszik. A két
   intézmény fehér logója a GitHubon, a `docs/partner-logok/` mappában van
   (a leírásban az is, melyik fájl melyik partnerhez tartozik).
-- **Egyszerre csak egy partnert cserélj:** logó kiválasztása → **Mentés** →
-  csak utána a másik. A mentés újratölti mindkét dobozt, így a másikban
-  kiválasztott, még el nem mentett kép elveszne – és a második mentés ezt
-  nem jelzi, „Partner sikeresen mentve!"-t ír.
+- **A két partner külön ment.** Mindkét dobozban kiválaszthatsz logót (és
+  átírhatod a nevet / a linket), utána egymás után nyomd meg a két
+  **Mentés**-t. Az egyik mentése a másik dobozban kiválasztott, még el nem
+  mentett logót és a beírt szöveget nem veszi el – a **Sorrend cseréje** sem.
+- **Kiválasztás után nézd meg az előnézetet:** Mentés előtt ott kell
+  látszania az új logónak. Ha a logó helyett piros doboz jelenik meg, a fájlt
+  a rendszer nem fogadta el (lásd a [2. pontot](#2-általános-tudnivalók)).
 - **Az előnézet a lábléc sötétkék színén mutatja a logót** – úgy, ahogy a
   weboldalon látszik. Ha egy logó az előnézetben nem látszik jól (pl. fekete
   vagy fehér dobozos), a weboldalon sem fog: ilyenkor ne mentsd el.
@@ -268,6 +277,8 @@ tedd ki nyilvánosan.
 | „Ezt a fájlt a böngésző nem tudja képként megnyitni…" | sérült fájl, vagy nem kép | mentsd el JPG / PNG formában, és válaszd ki újra |
 | „Ezt a fájltípust a tárhely nem fogadja el…" | nem megengedett formátum | fotóhoz JPG / PNG, logóhoz PNG / SVG, Gólyához PDF |
 | „Ez nem PDF fájl…" | a Gólyához nem PDF-et választottál | PDF-et válassz |
+| **Piros doboz** a feltöltő mező alatt: „Nem került be: …" / „Nem került a galériába: …" | a kiválasztott fájlt a rendszer nem fogadta el; a doboz megmondja, miért | válassz másik fájlt, vagy a **Rendben** gombbal zárd be, ha nélküle mentenél |
+| „Nem mentettünk semmit: … nem került be…" | Mentést nyomtál, miközben a piros doboz még látszott | lásd az előző sort, utána ments újra |
 | „Add meg a hír címét / dátumát / a slugot…" | kötelező mező üres | töltsd ki |
 | „A slugban csak ékezet nélküli kisbetű, szám és kötőjel lehet…" | hibás slug | lásd a [3. pontot](#3-hír-felvitele) |
 | „Ez a slug már foglalt…" | van már ilyen slugú hír | tegyél a végére egy számot (pl. `-2`) |
