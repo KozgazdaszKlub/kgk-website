@@ -597,10 +597,13 @@ a.footer-partner:hover {
     opacity: 0.85;
 }
 
-/* ~1,8x a korábbi 42px-hez képest. A max-width azért ilyen bőséges, mert a
-   két logó képaránya nagyon eltér (az egyik négyzetes, a másik kb. 2:1
-   fekvő) – szűkebb korlát mellett a fekvő logó magassága leesne, és a kettő
-   nem tűnne egyforma súlyúnak. */
+/* ~1,8x a korábbi 42px-hez képest. A két logó fehér, és mindkettő széles,
+   fekvő (docs/partner-logok/): a kar logója kb. 4,4:1, az egyetemé kb. 2,6:1.
+   76 px magasan az egyetemé 196 px széles; a karé kb. 333 px lenne, és
+   elnyomná a másikat – a max-width ezt fogja meg: 260×59 px lesz belőle (az
+   <img> doboza 260×76, a kép az object-fit: contain miatt középen áll), és
+   asztalon a kettő egy sorban marad. Szűkebb korlát mellett a kar logója túl
+   alacsonyra esne. Új logófájlnál ezt az arányt újra meg kell nézni. */
 .footer-partner img {
     height: 76px;
     width: auto;
